@@ -89,7 +89,7 @@ namespace :gem do
   PLATFORMS.each do |platform, _host|
     desc "Build pre-compiled gem for the #{platform} platform"
     task "native:#{platform}" do
-      sh "rake compile platform:#{platform} gem"
+      sh "rake compile gem:platform:#{platform} gem"
     end
 
     desc "Define the gem task to build on the #{platform} platform (binary gem)"
