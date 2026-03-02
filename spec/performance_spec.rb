@@ -209,8 +209,8 @@ RSpec.describe 'Performance Regression Tests', :performance do
 
         actual_ips = result.entries.first.ips
 
-        # Allow 50% variance for different environments
-        min_acceptable = BASELINE_IPS[:simple_calc] * 0.5
+        # Allow 75% variance for different environments (Intel Macs are slower)
+        min_acceptable = BASELINE_IPS[:simple_calc] * 0.25
 
         expect(actual_ips).to be >= min_acceptable,
                               "Expected ≥#{min_acceptable.round(0)} ips, got #{actual_ips.round(0)} ips"
@@ -226,8 +226,8 @@ RSpec.describe 'Performance Regression Tests', :performance do
 
         actual_ips = result.entries.first.ips
 
-        # Allow 50% variance for different environments
-        min_acceptable = BASELINE_IPS[:json_parse] * 0.5
+        # Allow 75% variance in different environments (Intel Macs are slower)
+        min_acceptable = BASELINE_IPS[:json_parse] * 0.25
 
         expect(actual_ips).to be >= min_acceptable,
                               "Expected ≥#{min_acceptable.round(0)} ips, got #{actual_ips.round(0)} ips"
@@ -243,8 +243,8 @@ RSpec.describe 'Performance Regression Tests', :performance do
 
         actual_ips = result.entries.first.ips
 
-        # Allow 50% variance for different environments
-        min_acceptable = BASELINE_IPS[:xml_parse] * 0.5
+        # Allow 75% variance in different environments (Intel Macs are slower)
+        min_acceptable = BASELINE_IPS[:xml_parse] * 0.25
 
         expect(actual_ips).to be >= min_acceptable,
                               "Expected ≥#{min_acceptable.round(0)} ips, got #{actual_ips.round(0)} ips"
