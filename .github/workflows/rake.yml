@@ -33,58 +33,80 @@ jobs:
           # Linux x86_64
           - os: ubuntu-22.04
             ruby: "3.2"
+            cargo-cache: true
           - os: ubuntu-22.04
             ruby: "3.3"
+            cargo-cache: true
           - os: ubuntu-22.04
             ruby: "3.4"
+            cargo-cache: true
           - os: ubuntu-22.04
             ruby: "4.0"
+            cargo-cache: true
 
           # Linux ARM64
           - os: ubuntu-22.04-arm
             ruby: "3.2"
+            cargo-cache: false
           - os: ubuntu-22.04-arm
             ruby: "3.3"
+            cargo-cache: false
           - os: ubuntu-22.04-arm
             ruby: "3.4"
+            cargo-cache: false
           - os: ubuntu-22.04-arm
             ruby: "4.0"
+            cargo-cache: false
 
           # macOS Intel
           - os: macos-15-intel
             ruby: "3.2"
+            cargo-cache: true
           - os: macos-15-intel
             ruby: "3.3"
+            cargo-cache: true
           - os: macos-15-intel
             ruby: "3.4"
+            cargo-cache: true
           - os: macos-15-intel
             ruby: "4.0"
+            cargo-cache: true
 
           # macOS Apple Silicon
           - os: macos-15
             ruby: "3.2"
+            cargo-cache: true
           - os: macos-15
             ruby: "3.3"
+            cargo-cache: true
           - os: macos-15
             ruby: "3.4"
+            cargo-cache: true
           - os: macos-15
             ruby: "4.0"
+            cargo-cache: true
 
           # Windows x64
           - os: windows-2025
             ruby: "3.2"
+            cargo-cache: true
           - os: windows-2025
             ruby: "3.3"
+            cargo-cache: true
           - os: windows-2025
             ruby: "3.4"
+            cargo-cache: true
           - os: windows-2025
             ruby: "4.0"
+            cargo-cache: true
 
           # Windows ARM64 (Ruby 3.4+ only)
           - os: windows-11-arm
             ruby: "3.4"
+            cargo-cache: true
           - os: windows-11-arm
             ruby: "4.0"
+            cargo-cache: true
     steps:
       - uses: actions/checkout@v4
 
@@ -92,7 +114,7 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
-          cargo-cache: true
+          cargo-cache: ${{ matrix.cargo-cache || 'default' }}
           cache-version: v1
 
       - name: Compile rust ext
