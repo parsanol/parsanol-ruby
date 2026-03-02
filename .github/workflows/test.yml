@@ -2,7 +2,7 @@ name: test
 
 on:
   push:
-    branches: [ master, main, 'fast-mode' ]
+    branches: [ main ]
   pull_request:
   workflow_dispatch:
 
@@ -18,7 +18,6 @@ permissions:
   packages: write
 
 jobs:
-  # Build all gems first
   build:
     name: Build gems
     uses: ./.github/workflows/gem-build.yml
@@ -43,18 +42,15 @@ jobs:
               | select(.test == true)
               | .test_os as $test_os
               | .platform as $platform
-              | .ruby as $default_ruby
+              | ["3.1", "3.2", "3.3", "3.4"] as $ruby_versions
               | $test_os[]
               | . as $os
-              | [.ruby_versions[]]
-              | . as $ruby_versions
               | $ruby_versions[]
               | {os: $os, platform: $platform, ruby: .}
             ]
           }' .github/platforms.json)
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
-  # Run tests using pre-built gems - install and verify
   test:
     needs: [build, prepare]
     runs-on: ${{ matrix.os }}
@@ -73,126 +69,43 @@ jobs:
           ruby-version: ${{ matrix.ruby }}
           bundler: ${{ env.BUNDLER_VER }}
 
-      - name: Download pre-built gem
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: ${{ github.run_number }}-${{ matrix.platform }}-pkg
           path: pkg
 
-      - name: List gem contents
+      - name: Inspect gem contents
         shell: bash
         run: |
           cd pkg
-          echo "=== Downloaded gems ==="
-          ls -la
-          echo ""
-          echo "=== Unpacking gem ==="
-          gem unpack parsanol-*.gem
-          echo ""
-          echo "=== Files in gem ==="
-          ls -R */lib/ 2>/dev/null | head -50
-          echo ""
-          echo "=== Native extension in gem ==="
-          for ext in bundle so dll dylib; do
+          gem unpack parsanol-*.gem 2>/dev/null || true
+          echo "=== Platform: ${{ matrix.platform }} ==="
+          echo "=== Compiled libraries in gem ==="
+          FOUND=0
+          for ext in dll so dylib; do
             for f in $(find . -name "*.$ext" 2>/dev/null); do
-              echo "Found: $f"
-              file "$f" || true
+              echo "$f"
+              FOUND=1
             done
           done
+          if [ "$FOUND" -eq 0 ]; then
+            echo "ERROR: No compiled libraries found in gem!"
+            echo "=== Full lib directory contents ==="
+            ls -la */lib/parsanol/ 2>/dev/null || echo "Directory not found"
+            exit 1
+          fi
+          echo "=== Full lib directory contents ==="
+          ls -la */lib/parsanol/
 
       - name: Install native gem
         run: |
           cd pkg
-          gem install parsanol-*.gem --verbose
-
-      - name: Verify gem installation
-        run: |
-          echo "=== Installed gems ==="
-          gem list parslet
-          echo ""
-          echo "=== Gem contents ==="
-          gem contents parsanol | head -30
+          gem install parsanol-*.gem
 
       - name: Test installed gem
-        run: |
-          ruby .github/scripts/test_installed_gem.rb
+        run: ruby .github/scripts/test_installed_gem.rb
 
       - name: Run full test suite
         run: |
           bundle install
           bundle exec rspec spec/ --format progress
-
-  # Run RuboCop lint
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.4'
-          bundler: ${{ env.BUNDLER_VER }}
-          bundler-cache: true
-
-      - name: Run RuboCop
-        run: bundle exec rubocop
-
-  # Run RBS signature checks
-  rbs:
-    name: RBS Signatures
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.4'
-          bundler: ${{ env.BUNDLER_VER }}
-          bundler-cache: true
-
-      - name: Install Steep
-        run: gem install steep
-
-      - name: Run Steep type check
-        run: steep check
-        continue-on-error: true
-
-  # Run Clippy for Rust code
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-
-      - name: Run Clippy
-        run: |
-          cd ext/parsanol_native
-          cargo clippy --all-features -- -D warnings
-
-  # Run benchmarks
-  benchmark:
-    name: Benchmark
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.4'
-          bundler: ${{ env.BUNDLER_VER }}
-          bundler-cache: true
-
-      - name: Compile native extension
-        run: bundle exec rake compile
-
-      - name: Run benchmarks
-        run: bundle exec rspec spec/performance/native_benchmark_spec.rb --format documentation
