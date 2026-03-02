@@ -41,15 +41,12 @@ jobs:
               | to_entries[]
               | .value[]
               | select(.test == true)
-              | .test_os as $test_os
+              | .ruby_versions as $ruby_versions
               | .platform as $platform
-              | .ruby as $default_ruby
-              | $test_os[]
-              | . as $os
-              | [.ruby_versions[]]
-              | . as $ruby_versions
-              | $ruby_versions[]
-              | {os: $os, platform: $platform, ruby: .}
+              | .test_os as $test_os
+              | $test_os[] as $os
+              | $ruby_versions[] as $ruby
+              | {os: $os, platform: $platform, ruby: $ruby}
             ]
           }' .github/platforms.json)
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
