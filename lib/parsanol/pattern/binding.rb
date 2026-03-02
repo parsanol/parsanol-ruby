@@ -9,7 +9,7 @@
 # Base class for all pattern bindings. Matches any subtree regardless of type.
 # Used internally by Parsanol::Transform for pattern-based tree transformation.
 module Parsanol
-  module Pattern
+  class Pattern
     SubtreeBind = Struct.new(:symbol) do
       # Returns the symbol that will be bound during matching.
       #
@@ -56,7 +56,7 @@ end
 # @example
 #   simple(:x)  # matches strings, numbers, slices - but not hashes or arrays
 module Parsanol
-  module Pattern
+  class Pattern
     class SimpleBind < Parsanol::Pattern::SubtreeBind
       # Tests if the subtree is a simple leaf value.
       #
@@ -75,7 +75,7 @@ end
 # @example
 #   sequence(:items)  # matches ['a', 'b', 'c'] but not ['a', {x: 1}]
 module Parsanol
-  module Pattern
+  class Pattern
     class SequenceBind < Parsanol::Pattern::SubtreeBind
       # Tests if the subtree is a flat sequence of simple values.
       #
