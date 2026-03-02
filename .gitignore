@@ -1,7 +1,6 @@
 # Rust build output
 pkg/
-ext/parsanol_native/target/
-ext/parsanol_native/Cargo.lock
+target/
 
 lib/parsanol/parsanol_native.bundle
 
