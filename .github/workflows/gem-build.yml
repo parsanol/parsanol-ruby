@@ -25,14 +25,35 @@ permissions:
   packages: write
 
 jobs:
+  ci-data:
+    name: Fetch CI data
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.fetch.outputs.result }}
+    steps:
+      - uses: oxidize-rb/actions/fetch-ci-data@v1
+        id: fetch
+        with:
+          stable-ruby-versions: |
+            exclude: [head]
+
   prepare:
     name: Prepare platform matrix
+    needs: ci-data
     runs-on: ubuntu-latest
     outputs:
       build-matrix: ${{ steps.set-matrix.outputs.build-matrix }}
       test-matrix: ${{ steps.set-matrix.outputs.test-matrix }}
+      ruby-versions: ${{ steps.set-ruby.outputs.ruby-versions }}
     steps:
       - uses: actions/checkout@v4
+
+      - id: set-ruby
+        env:
+          RUBY_VERSIONS: ${{ needs.ci-data.outputs.result }}
+        run: |
+          RUBY_VERSIONS=$(echo "$RUBY_VERSIONS" | jq -r '.stable-ruby-versions | join(",")')
+          echo "ruby-versions=$RUBY_VERSIONS" >> $GITHUB_OUTPUT
 
       - id: set-matrix
         run: |
@@ -69,6 +90,7 @@ jobs:
         uses: oxidize-rb/actions/cross-gem@v1
         with:
           platform: ${{ matrix.platform }}
+          ruby-versions: ${{ needs.prepare.outputs.ruby-versions }}
 
       - name: Inspect gem
         run: |
