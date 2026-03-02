@@ -100,9 +100,9 @@ jobs:
             ruby: "4.0"
             cargo-cache: "false"
 
-          # NOTE: Windows ARM64 is disabled until rb-sys adds native library support
-          # for aarch64-pc-windows-msvc target.
-          # See: https://github.com/oxidize-rb/rb-sys/issues/XXX
+          # NOTE: Windows ARM64 is disabled for CI (building from source) because
+          # rb-sys lacks pre-built static libraries for aarch64-pc-windows-msvc.
+          # Cross-compiled Windows ARM64 gems still work via gem-build.yml workflow.
     steps:
       - uses: actions/checkout@v4
 
