@@ -1,0 +1,109 @@
+# Main CI workflow for Parslet
+# Runs tests with both Ruby and native parsers
+
+name: rake
+
+on:
+  push:
+    branches: [ master, main ]
+    tags: [ v* ]
+  pull_request:
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref_name }}'
+  cancel-in-progress: true
+
+jobs:
+  # Standard Ruby tests (no native extension)
+  test-ruby:
+    name: Ruby ${{ matrix.ruby }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        ruby: [ '3.1', '3.2', '3.3' ]
+        exclude:
+          # Windows 3.3 has known issues, skip for now
+          - os: windows-latest
+            ruby: '3.3'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Run tests
+        run: bundle exec rspec spec/ --format progress
+
+  # Native extension tests
+  test-native:
+    name: Native ${{ matrix.ruby }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+        ruby: [ '3.1', '3.2', '3.3' ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Compile native extension
+        run: bundle exec rake compile
+
+      - name: Run tests with native extension
+        run: bundle exec rspec spec/ --format progress
+
+      - name: Run performance benchmarks
+        if: matrix.os == 'ubuntu-latest' && matrix.ruby == '3.3'
+        run: |
+          bundle exec rspec spec/performance/native_benchmark_spec.rb --format documentation
+
+  # Lint check
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Run RuboCop
+        run: bundle exec rubocop
+
+  # Clippy check for Rust code
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Run Clippy
+        run: |
+          cd ext/parsanol_native
+          cargo clippy --all-features -- -D warnings
