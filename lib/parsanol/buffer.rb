@@ -24,6 +24,8 @@ module Parsanol
   # Reusing buffers maintains capacity while resetting size.
   #
   class Buffer
+    include Resettable
+
     # @return [Integer] Logical size (number of elements)
     attr_reader :size
     

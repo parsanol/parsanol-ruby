@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'set'
+
 # Parsanol - A high-performance PEG parser construction library for Ruby.
 #
 # Typical usage:

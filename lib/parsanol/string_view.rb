@@ -29,6 +29,8 @@ module Parsanol
   # 5. Extensibility: Foundation for Rope (Phase 3.2)
   #
   class StringView
+    include Resettable
+
     # @return [String] Original input string
     attr_reader :string
     

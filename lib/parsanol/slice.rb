@@ -6,6 +6,8 @@
 #
 # Inspired by string slicing concepts in text editors and IDEs.
 class Parsanol::Slice
+  include Parsanol::Resettable
+
   attr_reader :content, :position_cache
 
   # Creates a slice with position tracking.

@@ -2,6 +2,8 @@
 # Encapsules the concept of a position inside a string.
 #
 class Parsanol::Position
+  include Parsanol::Resettable
+
   # Changed to accessor to support pooling
   attr_accessor :bytepos
   attr_accessor :string, :charpos
