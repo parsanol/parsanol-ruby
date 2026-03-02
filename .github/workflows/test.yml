@@ -42,11 +42,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: set-matrix
-        env:
-          CI_DATA: ${{ needs.ci-data.outputs.result }}
         run: |
           # Get stable ruby versions from CI data
-          RUBY_VERSIONS=$(echo "$CI_DATA" | jq -r '.stable-ruby-versions')
+          CI_DATA='${{ needs.ci-data.outputs.result }}'
+          RUBY_VERSIONS=$(echo "$CI_DATA" | jq -c '.["stable-ruby-versions"]')
 
           # Read platforms.json and generate test matrix
           # For each platform where test=true, create entries for each test_os and ruby version
