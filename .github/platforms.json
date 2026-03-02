@@ -9,10 +9,10 @@
         "ruby": "3.4",
         "ruby_versions": ["3.2", "3.3", "3.4", "4.0"],
         "description": "Windows x64 UCRT",
-        "build": false,
-        "test": false,
+        "build": true,
+        "test": true,
         "test_os": ["windows-2022", "windows-2025"],
-        "notes": "Disabled until rb-sys binding generation works on Windows"
+        "notes": "Windows x64 with UCRT runtime"
       },
       {
         "platform": "arm64-mingw-ucrt",
@@ -20,10 +20,10 @@
         "ruby": "3.4",
         "ruby_versions": ["3.4", "4.0"],
         "description": "Windows ARM64 UCRT",
-        "build": false,
-        "test": false,
+        "build": true,
+        "test": true,
         "test_os": ["windows-11-arm"],
-        "notes": "Windows 11 ARM only has Ruby 3.4+. Disabled until rb-sys binding generation works on Windows"
+        "notes": "Windows 11 ARM only has Ruby 3.4+"
       }
     ],
     "macos": [
