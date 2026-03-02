@@ -20,7 +20,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # rb-sys for Ruby C API - with link-ruby to link at compile time
-rb-sys = { version = "0.9.124", features = ["link-ruby"] }
+rb-sys = { version = "0.9.124", features = ["link-ruby", "global-allocator"] }
 
 # magnus for Ruby bindings (0.8 for Ruby 3.1 support)
 magnus = "0.8"
@@ -37,3 +37,4 @@ log = "0.4"
 opt-level = 3
 lto = "thin"
 codegen-units = 1
+debug = true  # Enable debug info for better stack traces
