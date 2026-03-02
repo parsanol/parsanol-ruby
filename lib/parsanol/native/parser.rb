@@ -13,8 +13,8 @@ module Parsanol
     #
     module Parser
       # Two-level grammar cache (module-level for proper initialization)
-      GRAMMAR_HASH_CACHE = {}.freeze  # object_id => hash_key
-      GRAMMAR_CACHE = {}.freeze       # hash_key => grammar_json
+      GRAMMAR_HASH_CACHE = Hash.new  # object_id => hash_key
+      GRAMMAR_CACHE = Hash.new       # hash_key => grammar_json
 
       class << self
         # Cached availability check

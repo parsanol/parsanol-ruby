@@ -68,7 +68,7 @@ module Parsanol
       # Ensures subclasses inherit parent rules.
       def inherited(subclass)
         super
-        subclass.instance_variable_set(:@__transform_rules, class_rules.dup)
+        subclass.instance_variable_set(:@class_rules, class_rules.dup)
       end
     end
 

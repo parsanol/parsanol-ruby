@@ -29,7 +29,7 @@ module Parsanol
 
     # Clear cached FIRST set (useful after grammar modifications)
     def clear_first_set_cache
-      @first_set_cache = nil
+      @first_set = nil
     end
 
     protected

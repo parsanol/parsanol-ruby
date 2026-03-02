@@ -62,7 +62,7 @@ module Parsanol
     # @return [String] Materialized string
     #
     def to_s
-      @to_s ||= @string.byteslice(@offset, @length)
+      @materialized ||= @string.byteslice(@offset, @length)
     end
 
     # Get character at index (zero-copy).

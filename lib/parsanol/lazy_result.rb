@@ -50,7 +50,7 @@ module Parsanol
     # @return [Array] Materialized array
     #
     def to_a
-      @to_a ||= @buffer.to_a
+      @materialized ||= @buffer.to_a
     end
 
     # Get element at index (materializes if needed).

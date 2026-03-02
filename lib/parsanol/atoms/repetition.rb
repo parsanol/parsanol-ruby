@@ -36,17 +36,17 @@ module Parsanol
         super()
 
         # Handle nil max_count (unbounded repetition)
-        if max_count.nil?
-          @max = Float::INFINITY
-        else
-          raise ArgumentError, "Cannot repeat zero times: #{parser.inspect}" if max_count.zero?
-
-          @max = max_count
+        if max_count && max_count.zero?
+          raise ArgumentError, "Cannot repeat zero times: #{parser.inspect}"
         end
 
         @parslet = parser
         @min = min_count
+        @max = max_count
         @result_tag = tag
+
+        # Internal value for comparisons (nil becomes infinity)
+        @max_internal = max_count || Float::INFINITY
 
         # Pre-built error messages
         @min_error = "Expected at least #{min_count} of #{parser.inspect}"
