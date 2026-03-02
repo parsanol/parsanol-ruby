@@ -29,8 +29,62 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-15]
-        ruby: ${{ fromJSON(needs.ci-data.outputs.result).stable-ruby-versions }}
+        include:
+          # Linux x86_64
+          - os: ubuntu-22.04
+            ruby: "3.2"
+          - os: ubuntu-22.04
+            ruby: "3.3"
+          - os: ubuntu-22.04
+            ruby: "3.4"
+          - os: ubuntu-22.04
+            ruby: "4.0"
+
+          # Linux ARM64
+          - os: ubuntu-22.04-arm
+            ruby: "3.2"
+          - os: ubuntu-22.04-arm
+            ruby: "3.3"
+          - os: ubuntu-22.04-arm
+            ruby: "3.4"
+          - os: ubuntu-22.04-arm
+            ruby: "4.0"
+
+          # macOS Intel
+          - os: macos-15-intel
+            ruby: "3.2"
+          - os: macos-15-intel
+            ruby: "3.3"
+          - os: macos-15-intel
+            ruby: "3.4"
+          - os: macos-15-intel
+            ruby: "4.0"
+
+          # macOS Apple Silicon
+          - os: macos-15
+            ruby: "3.2"
+          - os: macos-15
+            ruby: "3.3"
+          - os: macos-15
+            ruby: "3.4"
+          - os: macos-15
+            ruby: "4.0"
+
+          # Windows x64
+          - os: windows-2025
+            ruby: "3.2"
+          - os: windows-2025
+            ruby: "3.3"
+          - os: windows-2025
+            ruby: "3.4"
+          - os: windows-2025
+            ruby: "4.0"
+
+          # Windows ARM64 (Ruby 3.4+ only)
+          - os: windows-11-arm
+            ruby: "3.4"
+          - os: windows-11-arm
+            ruby: "4.0"
     steps:
       - uses: actions/checkout@v4
 
