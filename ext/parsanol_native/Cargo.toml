@@ -20,9 +20,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # rb-sys for Ruby C API - with link-ruby to link at compile time
-rb-sys = { version = "0.9", features = ["link-ruby"] }
+rb-sys = { version = "0.9.124", features = ["link-ruby"] }
 
-# magnus for Ruby bindings
+# magnus for Ruby bindings (keep 0.7 for parsanol-rs compatibility)
 magnus = "0.7"
 
 # parsanol parser library
