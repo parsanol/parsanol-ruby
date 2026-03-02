@@ -8,6 +8,7 @@ AllCops:
     - tmp/**/*
     - benchmark/**/*
     - spec/fixtures/**/*
+    - example/**/*
 
 # Metrics - allow longer methods in test files
 Metrics/BlockLength:
