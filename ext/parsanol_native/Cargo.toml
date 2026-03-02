@@ -26,9 +26,8 @@ rb-sys = { version = "0.9.124", features = ["link-ruby", "global-allocator"] }
 magnus = "0.8"
 
 # parsanol parser library
-# Release: parsanol = { version = "0.1.5", features = ["ruby"] }
-# Local dev: use path to sibling directory (with magnus 0.8 fix)
-parsanol = { path = "../../../parsanol-rs/parsanol", features = ["ruby"] }
+# Using git dependency until parsanol-rs 0.1.6 is released with magnus 0.8
+parsanol = { git = "https://github.com/parsanol/parsanol-rs", branch = "chore/update-magnus-0.8.2", features = ["ruby"] }
 
 # Logging
 log = "0.4"
