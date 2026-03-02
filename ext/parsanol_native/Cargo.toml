@@ -22,14 +22,13 @@ crate-type = ["cdylib"]
 # rb-sys for Ruby C API - with link-ruby to link at compile time
 rb-sys = { version = "0.9.124", features = ["link-ruby"] }
 
-# magnus for Ruby bindings (keep 0.7 for parsanol-rs compatibility)
-magnus = "0.7"
+# magnus for Ruby bindings (0.8 for Ruby 3.1 support)
+magnus = "0.8"
 
 # parsanol parser library
 # Release: parsanol = { version = "0.1.5", features = ["ruby"] }
-# Local dev: use path to sibling directory
-# parsanol = { path = "../../../parsanol-rs/parsanol", features = ["ruby"] }
-parsanol = { version = "0.1.5", features = ["ruby"] }
+# Local dev: use path to sibling directory (with magnus 0.8 fix)
+parsanol = { path = "../../../parsanol-rs/parsanol", features = ["ruby"] }
 
 # Logging
 log = "0.4"
