@@ -101,16 +101,35 @@ jobs:
             cargo-cache: true
 
           # Windows ARM64 (Ruby 3.4+ only)
+          # Note: oxidize-rb action has issues with Windows ARM64 toolchain detection,
+          # so we use manual Rust setup for this platform
           - os: windows-11-arm
             ruby: "3.4"
-            cargo-cache: true
+            cargo-cache: "false"
+            rust-target: aarch64-pc-windows-msvc
           - os: windows-11-arm
             ruby: "4.0"
-            cargo-cache: true
+            cargo-cache: "false"
+            rust-target: aarch64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oxidize-rb/actions/setup-ruby-and-rust@v1
+      - name: Setup Ruby (Windows ARM64)
+        if: matrix.os == 'windows-11-arm'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Setup Rust (Windows ARM64)
+        if: matrix.os == 'windows-11-arm'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+
+      - name: Setup Ruby and Rust (other platforms)
+        if: matrix.os != 'windows-11-arm'
+        uses: oxidize-rb/actions/setup-ruby-and-rust@v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true

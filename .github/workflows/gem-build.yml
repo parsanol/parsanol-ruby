@@ -2,6 +2,7 @@
 name: Build gems
 
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     branches: [main, master, "cross-gem/*", "pkg/*"]
