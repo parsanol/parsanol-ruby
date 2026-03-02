@@ -1,0 +1,19 @@
+module Parsanol
+  class Buffer
+    include Resettable
+
+    attr_reader size: Integer
+    attr_reader capacity: Integer
+    attr_reader storage: Array[untyped]
+
+    def initialize: (?capacity: Integer) -> void
+    def push: (untyped element) -> self
+    alias << push
+    def []: (Integer index) -> untyped?
+    def []=: (Integer index, untyped value) -> void
+    def to_a: () -> Array[untyped]
+    def clear!: () -> self
+    def empty?: () -> bool
+    def reset!: () -> self
+  end
+end

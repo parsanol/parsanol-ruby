@@ -1,0 +1,1 @@
+{"id":1,"name":"item_1","value":42,"tags":["a","b"],"nested":{"x":2,"y":3}}

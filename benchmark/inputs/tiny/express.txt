@@ -1,0 +1,11 @@
+SCHEMA test_schema;
+
+ENTITY entity_1;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+WHERE
+  valid_id : id >= 0;
+END_ENTITY;
+
+END_SCHEMA;

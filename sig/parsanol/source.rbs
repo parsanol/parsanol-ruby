@@ -1,0 +1,21 @@
+module Parsanol
+  class Source
+    attr_reader slice_pool: untyped
+    attr_reader position_pool: untyped
+
+    def initialize: (String input) -> void
+    def matches?: (Regexp pattern) -> bool
+    alias match matches?
+    def consume: (Integer count) -> Slice
+    def slice: (Integer offset, String content) -> Slice
+    def release_slice: (Slice sl) -> void
+    def chars_left: () -> Integer
+    def chars_until: (String target) -> Integer
+    def index_of_char: (String ch) -> Integer?
+    def pos: () -> Integer
+    alias bytepos pos
+    def bytepos=: (Integer new_pos) -> Integer
+    def line_and_column: (?Integer? offset) -> [Integer, Integer]
+    def position: (?Integer? offset) -> Position
+  end
+end

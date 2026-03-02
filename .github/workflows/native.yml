@@ -1,0 +1,130 @@
+# Native Extension CI
+# Builds and tests the Rust native extension across multiple platforms
+
+name: native
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build:
+    name: Build ${{ matrix.ruby }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        ruby: [ '3.1', '3.2', '3.3' ]
+        include:
+          # Only test Ruby 3.0 on Linux (minimum supported version)
+          - os: ubuntu-latest
+            ruby: '3.0'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: bundle install --jobs 4 --retry 3
+
+      - name: Compile native extension
+        run: bundle exec rake compile
+
+      - name: Run tests
+        run: bundle exec rspec spec/ --format progress
+
+      - name: Run benchmarks (quick)
+        if: matrix.os == 'ubuntu-latest' && matrix.ruby == '3.3'
+        run: |
+          bundle exec rspec spec/performance/native_benchmark_spec.rb --format documentation
+
+  # Build native gems for release
+  native-gem:
+    name: Build native gem for ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      matrix:
+        include:
+          - platform: x86_64-linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - platform: x86_64-darwin
+            os: macos-latest
+            target: x86_64-apple-darwin
+          - platform: aarch64-darwin
+            os: macos-latest
+            target: aarch64-apple-darwin
+          - platform: x64-mingw-ucrt
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Install rake-compiler
+        run: gem install rake-compiler
+
+      - name: Build native gem
+        run: |
+          bundle install
+          bundle exec rake compile
+          bundle exec rake build
+
+      - name: Upload gem artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gem-${{ matrix.platform }}
+          path: pkg/*.gem
+          retention-days: 7
+
+  # Pure Ruby gem fallback
+  pure-ruby-gem:
+    name: Build pure Ruby gem
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Build gem (without native extension)
+        run: |
+          bundle install
+          bundle exec rake build
+
+      - name: Upload gem artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gem-pure-ruby
+          path: pkg/*.gem
+          retention-days: 7

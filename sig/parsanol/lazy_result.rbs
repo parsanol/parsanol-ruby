@@ -1,0 +1,32 @@
+module Parsanol
+  class LazyResult
+    include Enumerable[untyped]
+
+    attr_reader buffer: Buffer
+    attr_reader context: untyped
+    attr_reader materialized: Array[untyped]?
+
+    def initialize: (Buffer buffer, untyped context) -> void
+    def to_a: () -> Array[untyped]
+    alias to_ary to_a
+    def []: (Integer index) -> untyped?
+    def size: () -> Integer
+    alias length size
+    def empty?: () -> bool
+    def each: () { (untyped) -> void } -> self
+          | () -> Enumerator[untyped, self]
+    def map: () { (untyped) -> untyped } -> Array[untyped]
+    def select: () { (untyped) -> bool } -> Array[untyped]
+    def join: (?String? separator) -> String
+    def first: () -> untyped?
+    def last: () -> untyped?
+    def flatten: (?Integer? level) -> Array[untyped]
+    def ==: (untyped other) -> bool
+    alias eql? ==
+    def hash: () -> Integer
+    def inspect: () -> String
+    def is_a?: (Module klass) -> bool
+    alias kind_of? is_a?
+    def respond_to?: (Symbol symbol, ?bool include_all) -> bool
+  end
+end

@@ -1,0 +1,38 @@
+{
+  "id": "scopes",
+  "title": "Scope DSL",
+  "description": "Demonstrate Parslet's scope DSL for managing variable bindings across grammar rules.",
+  "category": "conceptual",
+  "tags": ["scope", "binding", "parslet", "context"],
+  "difficulty": "intermediate",
+  "concepts": ["scope", "variable binding", "context", "nested rules"],
+
+  "motivation": {
+    "why": "Scopes provide isolated variable binding contexts within grammar rules. This enables nested language constructs and parameterized rules.",
+    "useCases": [
+      "Nested language constructs",
+      "Parameterized rules",
+      "Context-sensitive parsing"
+    ]
+  },
+
+  "inputFormat": {
+    "description": "Expressions with scoped variable bindings.",
+    "examples": [
+      { "input": "let x = 1", "description": "Variable declaration in scope", "valid": true }
+    ]
+  },
+
+  "outputFormat": {
+    "description": "Scoped variable bindings.",
+    "structure": {
+      "scope": { "description": "The scope context with bound variables" }
+    }
+  },
+
+  "rubyOnly": true,
+  "parsletCompatible": true,
+  "implementations": {
+    "ruby": { "basic": "basic.rb" }
+  }
+}

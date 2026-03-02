@@ -1,0 +1,51 @@
+{
+  "name": "@parsanol/wasm",
+  "version": "0.1.0",
+  "description": "High-performance PEG parser using WebAssembly for Opal and JavaScript",
+  "main": "parsanol.js",
+  "module": "parsanol.js",
+  "types": "parsanol.d.ts",
+  "browser": "parsanol.js",
+  "files": [
+    "parsanol.js",
+    "parsanol.d.ts",
+    "parsanol_native.js",
+    "parsanol_native_bg.js",
+    "parsanol_native_bg.wasm",
+    "parsanol_native.d.ts"
+  ],
+  "scripts": {
+    "build": "cd ../../ext/parsanol_native && wasm-pack build --features wasm --target web --out-dir ../../lib/parsanol/wasm",
+    "build:node": "cd ../../ext/parsanol_native && wasm-pack build --features wasm --target nodejs --out-dir ../../lib/parsanol/wasm-node",
+    "test": "node test/parsanol.test.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "parser",
+    "peg",
+    "parsing-expression-grammar",
+    "wasm",
+    "webassembly",
+    "opal",
+    "ruby",
+    "performance"
+  ],
+  "author": "Ribose Inc. <open.source@ribose.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/parsanol/parsanol-rs.git",
+    "directory": "lib/parsanol/wasm"
+  },
+  "bugs": {
+    "url": "https://github.com/parsanol/parsanol-ruby/issues"
+  },
+  "homepage": "https://github.com/parsanol/parsanol-ruby#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "sideEffects": [
+    "parsanol_native.js",
+    "parsanol_native_bg.js"
+  ]
+}

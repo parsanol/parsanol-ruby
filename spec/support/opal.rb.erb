@@ -1,0 +1,14 @@
+# A set of patches required to run Opal-RSpec
+require 'nodejs/yaml'
+
+module AE
+  # Compile in AE metadata
+  @metadata = (
+      <%=
+        require 'yaml'
+        YAML.load(
+          File.read(
+            File.expand_path('lib/ae.yml', Gem::Specification.find_by_name('ae').gem_dir)))
+      %>
+    )
+end

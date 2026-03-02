@@ -1,0 +1,22 @@
+module Parsanol
+  module Atoms
+    class Context
+      attr_reader captures: untyped
+      attr_reader array_pool: untyped
+      attr_reader buffer_pool: untyped
+
+      def initialize: (?untyped error_reporter, ?interval_cache: bool, ?adaptive_cache_threshold: Integer?, ?parser_class: Class?) -> void
+      def try_with_cache: (Base atom, Source src, bool must_consume_all) -> [bool, untyped]
+      def err: (*untyped args) -> [false, untyped]
+      def err_at: (*untyped args) -> [false, untyped]
+      def succ: (*untyped args) -> [true, nil]
+      def acquire_array: () -> Array[untyped]
+      def release_array: (Array[untyped] arr) -> bool
+      def acquire_buffer: (size: Integer) -> Buffer
+      def release_buffer: (Buffer buf) -> bool
+      def scope: () { () -> void } -> void
+      def use_tree_memoization?: () -> bool
+      def cut!: (Integer position) -> void
+    end
+  end
+end

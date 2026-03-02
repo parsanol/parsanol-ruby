@@ -1,0 +1,39 @@
+{
+  "id": "capture",
+  "title": "Capture DSL",
+  "description": "Demonstrate Parslet's capture DSL for binding parse results to variables within the grammar.",
+  "category": "conceptual",
+  "tags": ["capture", "binding", "parslet", "variable"],
+  "difficulty": "intermediate",
+  "concepts": ["capture", "variable binding", "dynamic values", "cross-referencing"],
+
+  "motivation": {
+    "why": "Capture allows binding intermediate parse results to variables for later use in the grammar. This enables cross-referencing and building complex structures from parts.",
+    "useCases": [
+      "Cross-referencing within a grammar",
+      "Building complex structures from parts",
+      "Referencing earlier parse results in later rules"
+    ]
+  },
+
+  "inputFormat": {
+    "description": "Simple expressions that can be captured and referenced.",
+    "examples": [
+      { "input": "a", "description": "Simple character to capture", "valid": true },
+      { "input": "abc", "description": "Multiple characters", "valid": true }
+    ]
+  },
+
+  "outputFormat": {
+    "description": "Captured values bound to variables.",
+    "structure": {
+      "captured_value": { "description": "The value captured by the capture DSL" }
+    }
+  },
+
+  "rubyOnly": true,
+  "parsletCompatible": true,
+  "implementations": {
+    "ruby": { "basic": "basic.rb" }
+  }
+}

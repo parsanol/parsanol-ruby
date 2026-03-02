@@ -1,0 +1,32 @@
+module Parsanol
+  class Slice
+    include Resettable
+
+    attr_reader content: String
+    attr_reader position_cache: untyped
+
+    def initialize: (?Integer byte_offset, ?String string_content, ?untyped? cache) -> void
+    def reset!: (?Integer new_offset, ?String new_content, ?untyped? new_cache) -> self
+    def self.from_rope: (untyped rope, Integer offset, ?untyped? cache) -> Slice
+    def offset: () -> Integer
+    def bytepos: () -> Integer
+    def charpos: () -> Integer
+    alias str content
+    alias line_cache position_cache
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+    def match: (Regexp pattern) -> MatchData?
+    def size: () -> Integer
+    alias length size
+    def +: (untyped other) -> Slice
+    def line_and_column: () -> [Integer, Integer]
+    def to_str: () -> String
+    alias to_s to_str
+    def to_slice: () -> self
+    def to_sym: () -> Symbol
+    def to_i: () -> Integer
+    def to_f: () -> Float
+    def inspect: () -> String
+  end
+end

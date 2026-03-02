@@ -1,0 +1,23 @@
+module Parsanol
+  class StringView
+    include Resettable
+
+    attr_reader string: String
+    attr_reader offset: Integer
+    attr_reader length: Integer
+    attr_reader materialized: String?
+
+    def initialize: (String string, ?offset: Integer, ?length: Integer?) -> void
+    def to_s: () -> String
+    def []: (Integer index) -> String?
+    def bytesize: () -> Integer
+    alias size bytesize
+    def empty?: () -> bool
+    def ==: (untyped other) -> bool
+    alias eql? ==
+    def hash: () -> Integer
+    def slice: (Integer start, Integer len) -> StringView
+    def inspect: () -> String
+    def reset!: (String string, Integer offset, Integer length) -> self
+  end
+end

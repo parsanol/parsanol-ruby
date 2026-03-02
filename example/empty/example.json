@@ -1,0 +1,38 @@
+{
+  "id": "empty",
+  "title": "Empty Rule Stub",
+  "description": "Demonstrate the empty rule pattern for grammar prototyping and incremental development.",
+  "category": "conceptual",
+  "tags": ["empty", "stub", "prototyping", "parslet"],
+  "difficulty": "beginner",
+  "concepts": ["empty rule", "prototyping", "incremental development", "stubs"],
+
+  "motivation": {
+    "why": "Empty rules allow prototyping grammars incrementally by stubbing out incomplete parts. This enables testing partial grammars before all rules are implemented.",
+    "useCases": [
+      "Incremental grammar development",
+      "Testing partial grammars",
+      "Prototyping complex languages"
+    ]
+  },
+
+  "inputFormat": {
+    "description": "Any input that matches the partial grammar.",
+    "examples": [
+      { "input": "test", "description": "Input to match against stubbed grammar", "valid": true }
+    ]
+  },
+
+  "outputFormat": {
+    "description": "Partial parse results from incomplete grammar.",
+    "structure": {
+      "partial": { "description": "Partial match from stubbed rules" }
+    }
+  },
+
+  "rubyOnly": true,
+  "parsletCompatible": true,
+  "implementations": {
+    "ruby": { "basic": "basic.rb" }
+  }
+}

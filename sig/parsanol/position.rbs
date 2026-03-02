@@ -1,0 +1,14 @@
+module Parsanol
+  class Position
+    include Resettable
+    include Comparable
+
+    attr_accessor string: String
+    attr_accessor bytepos: Integer
+    attr_accessor charpos: Integer
+
+    def initialize: (String string, Integer bytepos, ?Integer? charpos) -> void
+    def reset!: (String string, Integer bytepos, ?Integer? charpos) -> self
+    def <=>: (untyped other) -> Integer
+  end
+end

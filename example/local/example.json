@@ -1,0 +1,38 @@
+{
+  "id": "local",
+  "title": "Local Variable Parsing",
+  "description": "Demonstrate non-greedy parsing patterns using local variable bindings.",
+  "category": "conceptual",
+  "tags": ["local", "non-greedy", "parslet", "context"],
+  "difficulty": "intermediate",
+  "concepts": ["local binding", "non-greedy matching", "context", "delimiters"],
+
+  "motivation": {
+    "why": "Local provides non-greedy parsing within a specific context. This enables matching up to delimiters without consuming them.",
+    "useCases": [
+      "Matching up to delimiters",
+      "Context-sensitive parsing",
+      "Non-greedy content extraction"
+    ]
+  },
+
+  "inputFormat": {
+    "description": "Content with delimiters to parse non-greedily.",
+    "examples": [
+      { "input": "content", "description": "Content to parse", "valid": true }
+    ]
+  },
+
+  "outputFormat": {
+    "description": "Non-greedily matched content.",
+    "structure": {
+      "content": { "description": "The locally matched content" }
+    }
+  },
+
+  "rubyOnly": true,
+  "parsletCompatible": true,
+  "implementations": {
+    "ruby": { "basic": "basic.rb" }
+  }
+}

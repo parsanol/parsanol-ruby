@@ -1,0 +1,53 @@
+SCHEMA test_schema;
+
+ENTITY entity_0;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_1;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_2;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_3;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_4;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+END_SCHEMA;

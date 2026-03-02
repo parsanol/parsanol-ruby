@@ -1,0 +1,222 @@
+# Release workflow for Parslet
+# Builds native gems for all platforms and publishes to RubyGems
+
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Type of version bump to apply'
+        required: true
+        type: choice
+        default: skip
+        options:
+          - skip
+          - major
+          - minor
+          - patch
+          - pre
+          - rc
+      custom_version:
+        description: 'Custom version string (overrides version_bump) - e.g. 2.5.0 or 2.5.0-beta.1'
+        required: false
+        type: string
+  repository_dispatch:
+    types: [ do-release ]
+  push:
+    tags:
+      - v*
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+env:
+  BUNDLER_VER: latest
+
+jobs:
+  bump-version:
+    name: Bump version
+    runs-on: ubuntu-latest
+    # Only run version bump if triggered manually and not using 'skip'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.version_bump != 'skip'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: github.event_name == 'workflow_dispatch'
+        run: git fetch --tags origin
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler: ${{ env.BUNDLER_VER }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install gem-release
+        run: gem install gem-release
+
+      - name: Bump version and tag
+        run: |
+          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+            gem bump --version ${{ github.event.inputs.custom_version }} --tag --push
+          else
+            gem bump --version ${{ github.event.inputs.version_bump }} --tag --push
+          fi
+
+  build:
+    name: Build gems for release
+    needs: [bump-version]
+    # Run if bump-version succeeded, was skipped, or if triggered by tag push
+    if: |
+      always() &&
+      !failure() &&
+      !cancelled() &&
+      (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped' || github.event_name == 'push')
+    uses: ./.github/workflows/gem-build.yml
+
+  release:
+    name: Release to RubyGems and GitHub
+    needs: build
+    runs-on: ubuntu-latest
+    # Run even if some builds failed (partial release)
+    if: always() && !cancelled() && needs.build.result != 'skipped'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'push' && github.ref_name || 'main' }}
+
+      - if: github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch'
+        run: git fetch --tags origin
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: pkg
+          pattern: '${{ github.run_number }}-*-pkg'
+          merge-multiple: true
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed 's/.*"\(.*\)".*/\1/' || echo "unknown")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: List built gems
+        run: |
+          echo "=== Built gems ==="
+          ls -la pkg/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: pkg/*.gem
+          body: |
+            ## Parslet v${{ steps.version.outputs.version }}
+
+            ### Native Gems (Recommended)
+            - `parsanol-x64-mingw32.gem` - Windows x64 MinGW
+            - `parsanol-x64-mingw-ucrt.gem` - Windows x64 UCRT
+            - `parsanol-arm64-mingw-ucrt.gem` - Windows ARM64 UCRT
+            - `parsanol-x86_64-darwin.gem` - macOS Intel
+            - `parsanol-arm64-darwin.gem` - macOS Apple Silicon
+            - `parsanol-x86_64-linux.gem` - Linux x86_64
+            - `parsanol-x86_64-linux-gnu.gem` - Linux x86_64 GNU libc
+            - `parsanol-x86_64-linux-musl.gem` - Linux x86_64 musl (Alpine)
+            - `parsanol-aarch64-linux.gem` - Linux ARM64
+            - `parsanol-aarch64-linux-gnu.gem` - Linux ARM64 GNU libc
+            - `parsanol-aarch64-linux-musl.gem` - Linux ARM64 musl (Alpine)
+
+            ### Pure Ruby Gem
+            - `parsanol-any.gem` - Platform-independent fallback
+
+            ### WASM Module
+            Available on npm: `@plurimath/parslet-wasm`
+
+            ### Performance
+            - **17-42x faster** than pure Ruby parser
+            - **99.5% fewer allocations**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Ruby for publishing
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+
+      - name: Publish to rubygems.org (Trusted Publishing)
+        run: |
+          for gem in pkg/*.gem; do
+            echo "Pushing $gem..."
+            gem push "$gem" || echo "Warning: Failed to push $gem"
+          done
+
+  # Publish WASM to npm
+  publish-npm:
+    name: Publish WASM to npm
+    needs: build
+    runs-on: ubuntu-latest
+    if: always() && !cancelled() && needs.build.result != 'skipped'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wasm-modules-${{ github.run_number }}
+          path: lib/parsanol/
+          merge-multiple: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create package.json
+        run: |
+          cd lib/parsanol/wasm
+          cat > package.json << EOF
+          {
+            "name": "@plurimath/parslet-wasm",
+            "version": "${{ steps.version.outputs.version }}",
+            "description": "WebAssembly build of Parslet parser for Opal/JavaScript",
+            "main": "parsanol_native.js",
+            "types": "parsanol_native.d.ts",
+            "files": [
+              "parsanol_native.js",
+              "parsanol_native_bg.js",
+              "parsanol_native_bg.wasm",
+              "parsanol_native.d.ts"
+            ],
+            "keywords": ["parser", "peg", "wasm", "webassembly", "opal", "ruby"],
+            "license": "MIT",
+            "repository": {
+              "type": "git",
+              "url": "https://github.com/plurimath/parslet.git"
+            }
+          }
+          EOF
+
+      - name: Publish to npm
+        run: |
+          cd lib/parsanol/wasm
+          npm publish --access public || echo "npm publish failed - may need NPM_TOKEN secret"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,0 +1,15 @@
+module Parsanol
+  module Atoms
+    class Base
+      attr_accessor label: String?
+
+      def parse: (String | Source source, ?Hash[Symbol, untyped] options) -> untyped
+      def apply: (Source input, untyped context, ?bool consume_all) -> [bool, untyped]
+      def try: (Source input, untyped context, bool consume_all) -> [bool, untyped]
+      def cached?: () -> bool
+      def flat?: () -> bool
+      def to_s: (?Integer outer) -> String
+      def inspect: () -> String
+    end
+  end
+end

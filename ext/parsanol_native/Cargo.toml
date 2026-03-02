@@ -1,0 +1,40 @@
+# Parsanol Native Extension
+#
+# Rust extension for parsanol-ruby that provides:
+# - Fast parsing with packrat memoization
+# - Three transform modes: RubyTransform, Serialized, ZeroCopy
+# - Source location tracking
+# - Streaming parsing
+# - Incremental parsing for editor integration
+# - Custom atom extension points
+# - Plugin architecture
+
+[package]
+name = "parsanol_native"
+version = "3.0.0"
+edition = "2021"
+rust-version = "1.75"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# rb-sys for Ruby C API - with link-ruby to link at compile time
+rb-sys = { version = "0.9", features = ["link-ruby"] }
+
+# magnus for Ruby bindings
+magnus = "0.7"
+
+# parsanol parser library
+# Release: parsanol = { version = "0.1.5", features = ["ruby"] }
+# Local dev: use path to sibling directory
+# parsanol = { path = "../../../parsanol-rs/parsanol", features = ["ruby"] }
+parsanol = { version = "0.1.5", features = ["ruby"] }
+
+# Logging
+log = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

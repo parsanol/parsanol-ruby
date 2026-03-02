@@ -1,0 +1,36 @@
+module Parsanol
+  # Error raised when parsing fails
+  class ParseFailed < StandardError
+    attr_reader parse_failure_cause: untyped
+    def initialize: (String message, ?untyped? cause) -> void
+  end
+
+  # Module for resettable pooled objects
+  module Resettable
+    def reset!: () -> self
+  end
+
+  # Helper class for bracket notation character class matching
+  class CharacterClassBuilder
+    def []: (String chars) -> untyped
+  end
+
+  # Main parsing DSL methods
+  def self.match: (?String? pattern) -> untyped
+  def self.str: (String literal) -> untyped
+  def self.any: () -> untyped
+  def self.scope: () { () -> untyped } -> untyped
+  def self.dynamic: () { () -> untyped } -> untyped
+  def self.infix_expression: (untyped operand, *Array[untyped] operators) ?{ (*untyped) -> untyped } -> untyped
+  def self.sequence: (Symbol name) -> untyped
+  def self.simple: (Symbol name) -> untyped
+  def self.subtree: (Symbol name) -> untyped
+
+  # Class methods added to including classes
+  module ClassMethods
+    def optimize_rules!: (?bool enable) -> void
+    def disable_optimization!: () -> void
+    def optimize_rules?: () -> bool
+    def rule: (Symbol name, ?Hash[Symbol, untyped] opts) { () -> untyped } -> void
+  end
+end

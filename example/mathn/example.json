@@ -1,0 +1,39 @@
+{
+  "id": "mathn",
+  "title": "Mathn Compatibility",
+  "description": "Demonstrate compatibility with Ruby's deprecated mathn library which changed integer division behavior.",
+  "category": "conceptual",
+  "tags": ["mathn", "compatibility", "ruby", "integer-division"],
+  "difficulty": "beginner",
+  "concepts": ["compatibility", "integer division", "Ruby libraries", "legacy support"],
+
+  "motivation": {
+    "why": "Documents handling of Ruby library compatibility issues that affect parsing behavior. The deprecated mathn library changed integer division to return Rationals, which broke Parslet's internal calculations.",
+    "useCases": [
+      "Legacy system support",
+      "Ruby version compatibility",
+      "Handling library conflicts"
+    ]
+  },
+
+  "inputFormat": {
+    "description": "Simple parser input that works regardless of mathn.",
+    "examples": [
+      { "input": "(squid)", "description": "Parenthesized cephalopod", "valid": true },
+      { "input": "(sqeed)", "description": "Invalid - should error gracefully", "valid": false }
+    ]
+  },
+
+  "outputFormat": {
+    "description": "Parse results that work with or without mathn.",
+    "structure": {
+      "result": { "description": "The parse result" }
+    }
+  },
+
+  "rubyOnly": true,
+  "parsletCompatible": true,
+  "implementations": {
+    "ruby": { "basic": "basic.rb" }
+  }
+}

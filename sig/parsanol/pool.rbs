@@ -1,0 +1,39 @@
+module Parsanol
+  class ObjectPool[T]
+    attr_reader size: Integer
+    attr_reader stats: Hash[Symbol, Integer]
+
+    def initialize: (untyped klass, ?size: Integer, ?preallocate: bool) -> void
+    def acquire: () -> T
+    def release: (T obj) -> bool
+    def statistics: () -> Hash[Symbol, untyped]
+    def clear!: () -> void
+  end
+end
+
+module Parsanol
+  module Pools
+    class ArrayPool < ObjectPool[Array[untyped]]
+      def initialize: (?size: Integer, ?preallocate: bool) -> void
+      def release: (Array[untyped] array) -> bool
+    end
+
+    class SlicePool < ObjectPool[Parsanol::Slice]
+      def initialize: (?size: Integer, ?preallocate: bool) -> void
+      def acquire_with: (Integer bytepos, String str, untyped? line_cache) -> Slice
+    end
+
+    class PositionPool < ObjectPool[Parsanol::Position]
+      def initialize: (?size: Integer, ?preallocate: bool) -> void
+      def acquire_with: (string: String, bytepos: Integer, charpos: Integer?) -> Position
+    end
+
+    class BufferPool
+      attr_reader pool_size: Integer
+
+      def initialize: (?pool_size: Integer) -> void
+      def acquire: (size: Integer) -> Buffer
+      def release: (Buffer buffer) -> bool
+    end
+  end
+end

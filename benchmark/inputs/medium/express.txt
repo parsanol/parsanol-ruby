@@ -1,0 +1,203 @@
+SCHEMA test_schema;
+
+ENTITY entity_0;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_1;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_2;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_3;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_4;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_5;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_6;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_7;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_8;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_9;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_10;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_11;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_12;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_13;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_14;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_15;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_16;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_17;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_18;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+ENTITY entity_19;
+  id : INTEGER;
+  name : STRING;
+  value : REAL;
+  active : BOOLEAN;
+WHERE
+  valid_id : id >= 0;
+  valid_name : LENGTH(name) > 0;
+END_ENTITY;
+
+END_SCHEMA;

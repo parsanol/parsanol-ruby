@@ -1,0 +1,487 @@
+= Parsanol
+
+image:https://img.shields.io/gem/v/parsanol.svg[RubyGems Version]
+image:https://img.shields.io/github/license/parsanol/parsanol-ruby.svg[License]
+image:https://github.com/parsanol/parsanol-ruby/actions/workflows/test.yml/badge.svg["Build", link="https://github.com/parsanol/parsanol-ruby/actions/workflows/test.yml"]
+
+A high-performance PEG (Parsing Expression Grammar) parser construction library for Ruby with optional Rust native extensions.
+
+== Purpose
+
+Parsanol provides a declarative DSL for constructing parsers using PEG semantics. It offers excellent error reporting, memory efficiency through object pooling, and optional Rust native extensions for maximum performance. The library is designed as a drop-in replacement for Parslet while offering significant performance improvements.
+
+// Inspiration attribution
+[NOTE]
+====
+Parsanol is inspired by the https://github.com/kschiess/parslet[Parslet] library by Kaspar Schiess.
+While maintaining full API compatibility with Parslet, Parsanol features a complete independent implementation with additional performance optimizations and features.
+====
+
+== Features
+
+* <<basic-parsing,PEG-based Parser Construction>> - Declarative grammar definition
+* <<error-reporting,Detailed Error Reporting>> - Precise failure location and context
+* <<native-extension,Rust Native Extension>> - Up to 29x faster parsing
+* <<slice-support,Slice Support>> - Source position preservation for linters and IDEs
+* <<transformation,Tree Transformation>> - Pattern-based AST construction
+* <<streaming-builder,Streaming Builder API>> - Single-pass parsing with callbacks
+* <<parallel-parsing,Parallel Parsing>> - Multi-core batch processing
+* <<infix-expressions,Infix Expression Parsing>> - Built-in operator precedence support
+* <<security-features,Security Features>> - Input size and recursion limits
+* <<debug-tools,Debug Tools>> - Tracing and grammar visualization
+
+== Installation
+
+Add this line to your application's Gemfile:
+
+[source,ruby]
+----
+gem 'parsanol'
+----
+
+And then execute:
+
+[source,shell]
+----
+bundle install
+----
+
+Or install it yourself as:
+
+[source,shell]
+----
+gem install parsanol
+----
+
+== Usage
+
+=== Basic Parser
+<<<basic-parsing>>
+
+Define parsers by creating a class that inherits from `Parsanol::Parser` and declaring rules:
+
+[source,ruby]
+----
+require 'parsanol'
+
+class MyParser < Parsanol::Parser
+  rule(:keyword) { str('if') | str('while') }
+  rule(:expression) { keyword >> str('(') >> expression >> str(')') }
+  root(:expression)
+end
+
+parser = MyParser.new
+result = parser.parse('if(x)')
+----
+
+=== Error Reporting
+<<<error-reporting>>
+
+Parsanol provides detailed error messages when parsing fails:
+
+[source,ruby]
+----
+begin
+  parser.parse('invalid input')
+rescue Parsanol::ParseFailed => e
+  puts e.message
+  # => "Expected 'if' at line 1 char 1."
+end
+----
+
+=== Transformation
+<<<transformation>>
+
+Convert parse trees to AST using pattern-based transformations:
+
+[source,ruby]
+----
+class MyTransform < Parsanol::Transform
+  rule(keyword: simple(:k)) { KeywordNode.new(k) }
+  rule(expression: subtree(:e)) { ExpressionNode.new(e) }
+end
+
+ast = MyTransform.new.apply(parse_tree)
+----
+
+=== Native Extension
+<<<native-extension>>
+
+For maximum performance, compile the Rust native extension:
+
+[source,shell]
+----
+# Install Rust toolchain first
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Compile the extension
+bundle exec rake compile
+----
+
+=== Slice Support
+<<<slice-support>>
+
+Parsanol preserves source positions for each parsed element:
+
+[source,ruby]
+----
+# Result includes position information
+[{"word" => "hello"@0}, " "@5, {"name" => "world"@6}]
+
+# The @N notation shows the byte offset in the original input
+# Parsanol::Slice is fully compatible with Parslet::Slice
+----
+
+This is essential for linters, IDEs, and tools that need to map parsed elements back to source locations.
+
+== Migrating from Parslet
+
+Parsanol provides full Parslet API compatibility with two migration modes.
+
+=== Drop-in Replacement (Zero Code Changes)
+
+Simply replace the parslet gem with parsanol in your Gemfile:
+
+[source,ruby]
+----
+# Gemfile
+- gem 'parslet'
++ gem 'parsanol'
+----
+
+Your existing code works without modification:
+
+[source,ruby]
+----
+# No changes needed!
+require 'parslet'  # Parsanol aliases itself
+
+class MyParser < Parslet::Parser
+  rule(:number) { match('[0-9]').repeat(1) }
+  root(:number)
+end
+
+parser = MyParser.new
+parser.parse('123')  # Works exactly the same
+----
+
+=== API Compatibility Matrix
+
+[cols="2,1,3"]
+|===
+| Parslet API | Status | Notes
+
+| `str('foo')` | ✅ | Literal string match
+| `match('[0-9]')` | ✅ | Character class
+| `any` | ✅ | Any single character
+| `>>` (sequence) | ✅ | Sequential composition
+| `\|` (choice) | ✅ | Ordered choice
+| `.repeat(n, m)` | ✅ | Repetition with bounds
+| `.maybe` | ✅ | Optional (zero or one)
+| `.as(:name)` | ✅ | Label capture
+| `.absent?` | ✅ | Negative lookahead
+| `.present?` | ✅ | Positive lookahead
+| `infix_expression` | ✅ | Precedence climbing
+| `exp('...')` | ✅ | Treetop-style expression parsing
+| `Parslet::Transform` | ✅ | Tree transformation
+| `simple(:x)` | ✅ | Match simple value
+| `sequence(:x)` | ✅ | Match array of values
+| `subtree(:x)` | ✅ | Match any subtree
+| `Parslet::Slice` | ✅ | Parsanol::Slice compatible
+|===
+
+== Architecture
+
+.Parsanol architecture overview
+[source]
+----
+                        ┌─────────────────────────────────────┐
+                        │           User Parser               │
+                        │   (inherits from Parsanol::Parser)  │
+                        └─────────────────┬───────────────────┘
+                                          │
+                        ┌─────────────────▼───────────────────┐
+                        │         Parsing Backend             │
+                        ├─────────────────┬───────────────────┤
+                        │   Pure Ruby     │   Rust Native     │
+                        │   (default)     │   (optional)      │
+                        └─────────────────┴───────────────────┘
+                                          │
+                        ┌─────────────────▼───────────────────┐
+                        │         Parse Tree                  │
+                        │   (with Slice position info)        │
+                        └─────────────────┬───────────────────┘
+                                          │
+                        ┌─────────────────▼───────────────────┐
+                        │      Parsanol::Transform            │
+                        │   (pattern-based transformation)    │
+                        └─────────────────┬───────────────────┘
+                                          │
+                        ┌─────────────────▼───────────────────┐
+                        │            User AST                 │
+                        └─────────────────────────────────────┘
+----
+
+=== Performance Modes
+
+Parsanol offers multiple parsing modes with different performance characteristics:
+
+[cols="4,2,2,3"]
+|===
+| Mode | Speed | Use Case | How It Works
+
+| Pure Ruby | 1x (baseline) | Compatibility, debugging | Ruby parsing engine
+| Native Batch | ~20x | Need Ruby objects | Rust parsing, AST via u64
+| Native ZeroCopy | ~25x | Maximum performance | Direct FFI construction
+| Native ZeroCopy + Slice | ~29x | Linters, IDEs | Zero-copy with positions
+|===
+
+== Streaming Builder API
+<<<streaming-builder>>
+
+For maximum performance, use the streaming builder API which eliminates intermediate AST construction:
+
+[source,ruby]
+----
+require 'parsanol'
+
+class StringCollector
+  include Parsanol::BuilderCallbacks
+
+  def initialize
+    @strings = []
+  end
+
+  def on_string(value, offset, length)
+    @strings << value
+  end
+
+  def finish
+    @strings
+  end
+end
+
+grammar = Parsanol::Native.serialize_grammar(MyParser.new.root)
+builder = StringCollector.new
+result = Parsanol::Native.parse_with_builder(grammar, input, builder)
+# result: ["hello", "world"]
+----
+
+==== Available Callback Methods
+
+[cols="1,3,2"]
+|===
+| Method | Description | Default
+
+| `on_start(input)` | Parsing started | No-op
+| `on_success` | Parsing succeeded | No-op
+| `on_error(message)` | Parsing failed | No-op
+| `on_string(value, offset, length)` | String/slice matched | No-op
+| `on_int(value)` | Integer matched | No-op
+| `on_float(value)` | Float matched | No-op
+| `on_bool(value)` | Boolean matched | No-op
+| `on_nil` | Nil matched | No-op
+| `on_hash_start(size)` | Entering a hash/object | No-op
+| `on_hash_key(key)` | Hash key encountered | No-op
+| `on_hash_end(size)` | Exiting a hash/object | No-op
+| `on_array_start(size)` | Entering an array | No-op
+| `on_array_end(size)` | Exiting an array | No-op
+| `finish` | Parsing complete | Returns nil
+|===
+
+== Parallel Parsing
+<<<parallel-parsing>>
+
+Parse multiple inputs using all CPU cores:
+
+[source,ruby]
+----
+require 'parsanol/parallel'
+
+grammar = MyParser.new.serialize_grammar
+inputs = Dir.glob("*.json").map { |f| File.read(f) }
+
+# Parse all files in parallel
+results = Parsanol::Parallel.parse_batch(grammar, inputs)
+
+# With configuration
+config = Parsanol::Parallel::Config.new
+  .with_num_threads(4)
+  .with_min_chunk_size(50)
+
+results = Parsanol::Parallel.parse_batch(grammar, inputs, config: config)
+----
+
+== Infix Expression Parsing
+<<<infix-expressions>>
+
+Built-in support for parsing infix expressions with operator precedence:
+
+[source,ruby]
+----
+class CalculatorParser < Parsanol::Parser
+  rule(:number) { match('[0-9]').repeat(1).as(:int) }
+  rule(:primary) { number | str('(') >> expr >> str(')') }
+
+  rule(:expr) {
+    infix_expression(primary,
+      [str('*'), 2, :left],
+      [str('/'), 2, :left],
+      [str('+'), 1, :left],
+      [str('-'), 1, :left],
+      [str('^'), 3, :right]  # Right-associative
+    )
+  }
+  root(:expr)
+end
+----
+
+== Treetop Expression Syntax
+<<<treetop-expressions>>
+
+Parsanol supports treetop-style expression strings for quick grammar definition:
+
+[source,ruby]
+----
+# Using exp() for treetop-style expressions
+class QuickParser < Parsanol::Parser
+  rule(:word) { exp("'a' 'b' ?") }  # 'a' followed by optional 'b'
+  root(:word)
+end
+
+# Equivalent to:
+rule(:word) { str('a') >> str('b').maybe }
+----
+
+=== Treetop Syntax Reference
+
+[cols="2,3"]
+|===
+| Syntax | Description
+
+| `'hello'` | Literal string match
+| `[a-z]` | Character class
+| `.` | Any single character
+| `'a' 'b'` | Sequence (concatenation)
+| `'a' / 'b'` | Alternative (choice)
+| `'a' ?` | Optional (zero or one)
+| `'a' *` | Zero or more repetitions
+| `'a' +` | One or more repetitions
+| `'a'{2,5}` | Between 2 and 5 repetitions
+| `('a' / 'b')` | Grouping
+|===
+
+[NOTE]
+====
+Whitespace is required before operators: `'a' ?` not `'a'?`
+====
+
+=== Expression Parsing Performance
+
+The expression parser is pure Ruby (not Rust-accelerated) since it runs only at grammar definition time. The resulting atoms can still be used with Rust-accelerated parsing:
+
+[source,ruby]
+----
+atom = Parsanol.exp("'a' +")
+
+# Ruby parsing
+atom.parse('aaa')
+
+# Rust-accelerated parsing (if native extension available)
+grammar = Parsanol::Native.serialize_grammar(atom)
+Parsanol::Native.parse_to_ruby_objects(grammar, 'aaa')
+----
+
+== Security Features
+<<<security-features>>
+
+For parsing untrusted input, use built-in limits:
+
+[source,ruby]
+----
+result = Parsanol::Native.parse_with_limits(
+  grammar_json,
+  untrusted_input,
+  max_input_size: 10 * 1024 * 1024,  # 10 MB max
+  max_recursion_depth: 100            # Limit recursion
+)
+----
+
+== Debug Tools
+<<<debug-tools>>
+
+Enable tracing for debugging grammars:
+
+[source,ruby]
+----
+# Parse with trace
+result, trace = Parsanol::Native.parse_with_trace(grammar_json, input)
+puts trace
+
+# Generate grammar visualization
+mermaid = Parsanol::Native.grammar_to_mermaid(grammar_json)
+dot = Parsanol::Native.grammar_to_dot(grammar_json)
+----
+
+== Development
+
+=== Setup
+
+[source,shell]
+----
+bundle install
+----
+
+=== Testing
+
+[source,shell]
+----
+# Run all tests
+bundle exec rake spec
+
+# Run unit tests only
+bundle exec rake spec:unit
+
+# Run specific test file
+bundle exec rspec spec/parsanol/atoms/str_spec.rb
+----
+
+=== Compiling Native Extension
+
+[source,shell]
+----
+# Install Rust (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Compile the native extension
+bundle exec rake compile
+
+# Verify native extension is working
+ruby -I lib -e "require 'parsanol'; puts Parsanol::Native.available?"
+# => true
+----
+
+=== Running Benchmarks
+
+[source,shell]
+----
+# Quick benchmarks
+bundle exec rake benchmark
+
+# Comprehensive benchmark suite
+bundle exec rake benchmark:all
+----
+
+== License
+
+MIT License - see LICENSE file for details.
+
+== Acknowledgments
+
+Parsanol is inspired by the https://github.com/kschiess/parslet[Parslet] library. We thank Kaspar Schiess and all Parslet contributors for creating an excellent parser library that served as inspiration for this project.
+
+== Resources
+
+* https://github.com/parsanol/parsanol-ruby[GitHub Repository]
+* https://github.com/parsanol/parsanol-rs[Rust Crate]
+* https://github.com/kschiess/parslet[Original Parslet Library]

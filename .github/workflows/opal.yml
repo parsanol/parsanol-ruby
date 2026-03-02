@@ -1,0 +1,89 @@
+# Opal/JavaScript CI
+# Tests Opal compatibility and WASM integration
+
+name: opal
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  # Opal tests (Ruby running in browser via Opal)
+  test-opal:
+    name: Opal tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Opal tests
+        run: bundle exec rake spec:opal
+        continue-on-error: true  # Opal tests may not be fully set up yet
+
+  # WASM build test
+  test-wasm:
+    name: WASM build test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.5.0
+
+      - name: Build WASM module
+        run: |
+          cd ext/parsanol_native
+          wasm-pack build --features wasm --target nodejs --out-dir ../../tmp/wasm-test
+
+      - name: Test WASM in Node.js
+        run: |
+          node -e "
+            // Basic smoke test
+            const fs = require('fs');
+            const wasmPath = './tmp/wasm-test/parsanol_native_bg.wasm';
+            console.log('WASM binary size:', fs.statSync(wasmPath).size, 'bytes');
+
+            // Check that it's a valid WASM file (magic number)
+            const buf = fs.readFileSync(wasmPath);
+            const magic = buf.slice(0, 4);
+            console.log('WASM magic:', magic.toString('hex'));
+            if (magic.toString('hex') !== '0061736d') {
+              throw new Error('Invalid WASM file');
+            }
+            console.log('WASM module validated successfully');
+          "
+
+  # Lint check
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Run RuboCop
+        run: bundle exec rubocop

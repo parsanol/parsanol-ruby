@@ -1,0 +1,40 @@
+{
+  "id": "seasons",
+  "title": "Transform Patterns",
+  "description": "Demonstrate Parslet transform DSL patterns through seasonal tree transformations.",
+  "category": "conceptual",
+  "tags": ["transform", "pattern-matching", "parslet", "ast"],
+  "difficulty": "intermediate",
+  "concepts": ["transform", "pattern matching", "sequence", "subtree", "AST transformation"],
+
+  "motivation": {
+    "why": "Transforms convert parse trees to domain objects using pattern matching. This example shows how multiple transforms can be composed to create complex behavior from simple pieces.",
+    "useCases": [
+      "AST transformation",
+      "Code generation",
+      "Data normalization",
+      "Multi-stage processing"
+    ]
+  },
+
+  "inputFormat": {
+    "description": "Tree structure representing a plant through seasons.",
+    "examples": [
+      { "input": "{bud: {stem: []}}", "description": "Initial tree state", "valid": true }
+    ]
+  },
+
+  "outputFormat": {
+    "description": "Transformed tree after seasonal transformations.",
+    "structure": {
+      "season": { "description": "The season transform being applied" },
+      "tree": { "description": "The resulting tree structure" }
+    }
+  },
+
+  "rubyOnly": true,
+  "parsletCompatible": true,
+  "implementations": {
+    "ruby": { "basic": "basic.rb" }
+  }
+}
