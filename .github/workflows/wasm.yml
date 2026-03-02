@@ -41,12 +41,12 @@ jobs:
       - name: Build WASM module (web target)
         run: |
           cd ext/parsanol_native
-          wasm-pack build --features wasm --target web --out-dir ../../lib/parsanol/wasm --scope plurimath
+          wasm-pack build --target web --out-dir ../../lib/parsanol/wasm --scope plurimath -- --features wasm
 
       - name: Build WASM module (nodejs target)
         run: |
           cd ext/parsanol_native
-          wasm-pack build --features wasm --target nodejs --out-dir ../../lib/parsanol/wasm-node --scope plurimath
+          wasm-pack build --target nodejs --out-dir ../../lib/parsanol/wasm-node --scope plurimath -- --features wasm
 
       - name: Check WASM output
         run: |

@@ -56,7 +56,7 @@ jobs:
       - name: Build WASM module
         run: |
           cd ext/parsanol_native
-          wasm-pack build --features wasm --target nodejs --out-dir ../../tmp/wasm-test
+          wasm-pack build --target nodejs --out-dir ../../tmp/wasm-test -- --features wasm
 
       - name: Test WASM in Node.js
         run: |
