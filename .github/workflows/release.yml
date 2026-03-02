@@ -55,15 +55,141 @@ jobs:
           path: pkg/*-${{ matrix.ruby-platform }}.gem
           if-no-files-found: error
 
-      - name: Smoke gem install
-        if: matrix.ruby-platform == 'x86_64-linux'
+  # Smoke test Linux x86_64 gem
+  smoke-linux:
+    name: Smoke test Linux x86_64
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-gem-x86_64-linux
+          path: pkg/
+
+      - name: Install and test gem
+        run: |
+          gem install pkg/parsanol-*.gem --verbose
+          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+
+  # Smoke test Linux ARM64 gem
+  smoke-linux-arm:
+    name: Smoke test Linux ARM64
+    needs: build
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-gem-aarch64-linux
+          path: pkg/
+
+      - name: Install and test gem
+        run: |
+          gem install pkg/parsanol-*.gem --verbose
+          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+
+  # Smoke test macOS Apple Silicon gem
+  smoke-macos-arm:
+    name: Smoke test macOS ARM64
+    needs: build
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-gem-arm64-darwin
+          path: pkg/
+
+      - name: Install and test gem
+        run: |
+          gem install pkg/parsanol-*.gem --verbose
+          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+
+  # Smoke test macOS Intel gem
+  smoke-macos-intel:
+    name: Smoke test macOS x86_64
+    needs: build
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-gem-x86_64-darwin
+          path: pkg/
+
+      - name: Install and test gem
+        run: |
+          gem install pkg/parsanol-*.gem --verbose
+          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+
+  # Smoke test Windows x64 gem
+  smoke-windows:
+    name: Smoke test Windows x64
+    needs: build
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-gem-x64-mingw-ucrt
+          path: pkg/
+
+      - name: Install and test gem
+        run: |
+          gem install pkg/parsanol-*.gem --verbose
+          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+
+  # Smoke test Windows ARM64 gem
+  smoke-windows-arm:
+    name: Smoke test Windows ARM64
+    needs: build
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-gem-arm64-mingw-ucrt
+          path: pkg/
+
+      - name: Install and test gem
         run: |
           gem install pkg/parsanol-*.gem --verbose
           ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
 
   release:
     name: Release
-    needs: build
+    needs: [build, smoke-linux, smoke-linux-arm, smoke-macos-arm, smoke-macos-intel, smoke-windows, smoke-windows-arm]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
