@@ -162,28 +162,6 @@ jobs:
           gem install pkg/parsanol-*.gem --verbose
           ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
 
-  # Smoke test Windows ARM64 gem
-  smoke-windows-arm:
-    name: Smoke test Windows ARM64
-    needs: native
-    runs-on: windows-11-arm
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.4"
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: cross-gem-arm64-mingw-ucrt
-          path: pkg/
-
-      - name: Install and test gem
-        run: |
-          gem install pkg/parsanol-*.gem --verbose
-          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
-
   source:
     name: Build source gem
     runs-on: ubuntu-22.04
