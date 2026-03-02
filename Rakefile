@@ -75,7 +75,7 @@ PLATFORMS = [
 namespace :gem do
   desc 'Build install-compilation gem (platform: any)'
   task 'native:any' do
-    sh 'rake platform:any gem'
+    sh 'rake gem:platform:any gem'
   end
 
   desc 'Define the gem task to build on any platform (compile on install)'

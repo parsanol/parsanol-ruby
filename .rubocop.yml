@@ -1,0 +1,38 @@
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 2.7
+
+# Exclude vendor directory (bundled gems)
+  Exclude:
+    - vendor/**/*
+    - tmp/**/*
+    - benchmark/**/*
+    - spec/fixtures/**/*
+
+# Metrics - allow longer methods in test files
+Metrics/BlockLength:
+  Exclude:
+    - spec/**/*_spec.rb
+    - spec/spec_helper.rb
+    - spec/support/**/*.rb
+
+Metrics/MethodLength:
+  Max: 15
+
+Metrics/ClassLength:
+  Max: 200
+
+# Style - prefer single quotes but allow double quotes for readability
+Style/StringLiterals:
+  EnforcedStyle: single_quotes
+  ConsistentQuotesInMultiline: true
+
+# Allow using braces for hash literals
+Style/HashSyntax:
+  EnforcedStyle: ruby19
+
+# Layout
+Layout/LineLength:
+  Max: 120
+  Exclude:
+    - spec/**/*_spec.rb
