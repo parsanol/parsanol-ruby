@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require "benchmark"
-require "parslet"
-require "parslet/native"
+require 'benchmark'
+require 'parslet'
+require 'parslet/native'
 
-puts "=" * 60
-puts "Parsanol Batch Parsing Benchmark"
-puts "=" * 60
+puts '=' * 60
+puts 'Parsanol Batch Parsing Benchmark'
+puts '=' * 60
 
 # First ensure native extension is loaded
 unless Parsanol::Native.available?
@@ -15,7 +15,7 @@ unless Parsanol::Native.available?
 end
 
 class SimpleParser < Parsanol::Parser
-  rule(:comma) { str(",") >> str(" ").maybe }
+  rule(:comma) { str(',') >> str(' ').maybe }
   rule(:word) { match(/[a-z]/).repeat(1) }
   rule(:alnum) { match(/[a-z0-9]/).repeat(1) }
 
@@ -28,7 +28,7 @@ end
 parser = SimpleParser.new
 
 # Create test inputs
-inputs = (1..50).map { |i| "item#{i}, item#{i+1}, item#{i+2}" }
+inputs = (1..50).map { |i| "item#{i}, item#{i + 1}, item#{i + 2}" }
 
 puts "\nTest: 50 inputs, 10 items each"
 puts "Input count: #{inputs.length}"
@@ -37,16 +37,16 @@ puts "Total chars: #{inputs.sum(&:length)}"
 # ============================================================================
 # Test 1: Individual parsing (current approach)
 # ============================================================================
-puts "\n" + "-" * 60
-puts "Test 1: Individual parsing (parse_parslet_compatible)"
-puts "-" * 60
+puts "\n#{'-' * 60}"
+puts 'Test 1: Individual parsing (parse_parslet_compatible)'
+puts '-' * 60
 
 Parsanol::Native.clear_cache
 
 individual_times = []
 inputs.each do |input|
   start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-  result = Parsanol::Native.parse_parslet_compatible(parser, input)
+  Parsanol::Native.parse_parslet_compatible(parser, input)
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
   individual_times << elapsed
 end
@@ -58,9 +58,9 @@ puts "Cache: #{Parsanol::Native.cache_stats}"
 # ============================================================================
 # Test 2: Batch parsing with transform
 # ============================================================================
-puts "\n" + "-" * 60
-puts "Test 2: Batch parsing with transform (parse_batch_with_transform)"
-puts "-" * 60
+puts "\n#{'-' * 60}"
+puts 'Test 2: Batch parsing with transform (parse_batch_with_transform)'
+puts '-' * 60
 
 Parsanol::Native.clear_cache
 
@@ -76,9 +76,9 @@ puts "Cache: #{Parsanol::Native.cache_stats}"
 # ============================================================================
 # Test 3: Raw parsing (no transform)
 # ============================================================================
-puts "\n" + "-" * 60
-puts "Test 3: Raw parsing (parse_raw - no transformation)"
-puts "-" * 60
+puts "\n#{'-' * 60}"
+puts 'Test 3: Raw parsing (parse_raw - no transformation)'
+puts '-' * 60
 
 Parsanol::Native.clear_cache
 
@@ -93,9 +93,9 @@ puts "Results count: #{results.length}"
 # ============================================================================
 # Comparison
 # ============================================================================
-puts "\n" + "=" * 60
-puts "Comparison"
-puts "=" * 60
+puts "\n#{'=' * 60}"
+puts 'Comparison'
+puts '=' * 60
 
 total_individual = individual_times.sum
 speedup_with_transform = (total_individual / elapsed).round(2)
@@ -109,9 +109,9 @@ puts "\nSpeedup (batch vs individual):"
 puts "  With transform: #{speedup_with_transform}x faster"
 puts "  Raw (no transform): #{speedup_raw}x faster"
 
-puts "\n" + "=" * 60
-puts "Analysis"
-puts "=" * 60
+puts "\n#{'=' * 60}"
+puts 'Analysis'
+puts '=' * 60
 
 if speedup_with_transform > 1.5
   puts "✓ Batch parsing is #{speedup_with_transform}x faster"
@@ -124,6 +124,6 @@ if speedup_raw > speedup_with_transform
   puts "  Transformation adds #{transform_overhead}% overhead"
 end
 
-puts "\n" + "=" * 60
-puts "Benchmark complete"
-puts "=" * 60
+puts "\n#{'=' * 60}"
+puts 'Benchmark complete'
+puts '=' * 60

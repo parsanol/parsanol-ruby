@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Parsanol
   # Rope data structure for efficient string accumulation.
   #
@@ -35,6 +37,7 @@ module Parsanol
     # @raise [FrozenError] if rope has been frozen by calling {#to_s}
     def append(segment)
       raise FrozenError, "can't modify frozen Rope" if @frozen
+
       @segments << segment
       self
     end

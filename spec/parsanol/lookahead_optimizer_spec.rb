@@ -19,9 +19,9 @@ describe Parsanol::Optimizer, '.simplify_lookaheads' do
     end
 
     it 'simplifies triple negation !(!(!x)) to !x' do
-      inner1 = Parsanol::Atoms::Lookahead.new(str_a, false)  # !a
-      inner2 = Parsanol::Atoms::Lookahead.new(inner1, false)  # !(!a)
-      outer = Parsanol::Atoms::Lookahead.new(inner2, false)  # !(!(!a))
+      inner1 = Parsanol::Atoms::Lookahead.new(str_a, false) # !a
+      inner2 = Parsanol::Atoms::Lookahead.new(inner1, false) # !(!a)
+      outer = Parsanol::Atoms::Lookahead.new(inner2, false) # !(!(!a))
 
       result = Parsanol::Optimizer.simplify_lookaheads(outer)
 
@@ -44,8 +44,8 @@ describe Parsanol::Optimizer, '.simplify_lookaheads' do
     end
 
     it 'simplifies &(&(&x)) to &x' do
-      inner1 = Parsanol::Atoms::Lookahead.new(str_a, true)  # &a
-      inner2 = Parsanol::Atoms::Lookahead.new(inner1, true)  # &(&a)
+      inner1 = Parsanol::Atoms::Lookahead.new(str_a, true) # &a
+      inner2 = Parsanol::Atoms::Lookahead.new(inner1, true) # &(&a)
       outer = Parsanol::Atoms::Lookahead.new(inner2, true)  # &(&(&a))
 
       result = Parsanol::Optimizer.simplify_lookaheads(outer)

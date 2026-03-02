@@ -35,7 +35,7 @@ module Parsanol
       # @param preallocate [Boolean] Whether to pre-allocate positions
       #
       def initialize(size: 1000, preallocate: false)
-        # Note: Position requires arguments, so we cannot pre-allocate
+        # NOTE: Position requires arguments, so we cannot pre-allocate
         super(Parsanol::Position, size: size, preallocate: false)
       end
 
@@ -48,7 +48,7 @@ module Parsanol
         if @available.empty?
           @stats[:created] += 1
           # Create Position with default values since it requires arguments
-          Parsanol::Position.new("", 0, 0)
+          Parsanol::Position.new('', 0, 0)
         else
           @stats[:reused] += 1
           @available.pop
@@ -81,7 +81,7 @@ module Parsanol
         end
 
         # Reset position state with default values before returning to pool
-        pos.reset!("", 0, 0)
+        pos.reset!('', 0, 0)
 
         @stats[:released] += 1
         @available.push(pos)

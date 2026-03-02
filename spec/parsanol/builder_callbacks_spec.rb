@@ -146,11 +146,11 @@ RSpec.describe Parsanol::BuilderCallbacks do
       builder.on_hash_end(1)
 
       expect(builder.events).to eq([
-        [:hash_start, nil],
-        [:hash_key, 'name'],
-        [:string, 'John', 0, 4],
-        [:hash_end, 1]
-      ])
+                                     [:hash_start, nil],
+                                     [:hash_key, 'name'],
+                                     [:string, 'John', 0, 4],
+                                     [:hash_end, 1]
+                                   ])
     end
 
     it 'records array callbacks' do
@@ -164,15 +164,15 @@ RSpec.describe Parsanol::BuilderCallbacks do
       builder.on_array_end(3)
 
       expect(builder.events).to eq([
-        [:array_start, nil],
-        [:array_element, 0],
-        [:int, 1],
-        [:array_element, 1],
-        [:int, 2],
-        [:array_element, 2],
-        [:int, 3],
-        [:array_end, 3]
-      ])
+                                     [:array_start, nil],
+                                     [:array_element, 0],
+                                     [:int, 1],
+                                     [:array_element, 1],
+                                     [:int, 2],
+                                     [:array_element, 2],
+                                     [:int, 3],
+                                     [:array_end, 3]
+                                   ])
     end
 
     it 'returns events from finish' do
@@ -223,7 +223,7 @@ RSpec.describe Parsanol::Builders::StringCollector do
       builder.on_int(42)
       builder.on_string('world', 6, 5)
 
-      expect(builder.strings).to eq(['hello', 'world'])
+      expect(builder.strings).to eq(%w[hello world])
     end
 
     it 'returns strings from finish' do
@@ -315,15 +315,15 @@ RSpec.describe Parsanol::Parallel do
       end
 
       it 'raises LoadError' do
-        expect {
+        expect do
           Parsanol::Parallel.parse_batch('{}', ['input'])
-        }.to raise_error(LoadError, /requires native extension/)
+        end.to raise_error(LoadError, /requires native extension/)
       end
     end
   end
 end
 
-RSpec.describe "Native parse_with_builder integration", :native do
+RSpec.describe 'Native parse_with_builder integration', :native do
   # Define a simple parser for testing - captures only words, not spaces
   let(:simple_parser) do
     Class.new(Parsanol::Parser) do
@@ -333,37 +333,37 @@ RSpec.describe "Native parse_with_builder integration", :native do
     end
   end
 
-  describe "Parsanol::Native.parse_with_builder" do
-    context "when native extension is available" do
+  describe 'Parsanol::Native.parse_with_builder' do
+    context 'when native extension is available' do
       before do
-        skip "Native extension not available" unless Parsanol::Native.available?
+        skip 'Native extension not available' unless Parsanol::Native.available?
       end
 
-      it "parses input using a custom builder callback" do
+      it 'parses input using a custom builder callback' do
         grammar = Parsanol::Native.serialize_grammar(simple_parser.new.root)
-        input = "hello world"
+        input = 'hello world'
 
         builder = Parsanol::Builders::StringCollector.new
         result = Parsanol::Native.parse_with_builder(grammar, input, builder)
 
         # The parser captures all matches including spaces
-        expect(result).to include("hello", "world")
+        expect(result).to include('hello', 'world')
       end
 
-      it "works with DebugBuilder" do
+      it 'works with DebugBuilder' do
         grammar = Parsanol::Native.serialize_grammar(simple_parser.new.root)
-        input = "a b"
+        input = 'a b'
 
         builder = Parsanol::Builders::DebugBuilder.new
         result = Parsanol::Native.parse_with_builder(grammar, input, builder)
 
         expect(result).to be_a(String)
-        expect(result).to include("string:")
+        expect(result).to include('string:')
       end
 
-      it "works with NodeCounter" do
+      it 'works with NodeCounter' do
         grammar = Parsanol::Native.serialize_grammar(simple_parser.new.root)
-        input = "one two three"
+        input = 'one two three'
 
         builder = Parsanol::Builders::NodeCounter.new
         result = Parsanol::Native.parse_with_builder(grammar, input, builder)

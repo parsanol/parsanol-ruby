@@ -191,13 +191,12 @@ module Parsanol
     def can_preallocate?
       # Check if the class can be instantiated without arguments
       # This is a heuristic - we try to create one instance to test
-      begin
-        @klass.new
-        true
-      rescue ArgumentError
-        # Class requires arguments, cannot pre-allocate
-        false
-      end
+
+      @klass.new
+      true
+    rescue ArgumentError
+      # Class requires arguments, cannot pre-allocate
+      false
     end
 
     # Pre-allocate objects to fill the pool.

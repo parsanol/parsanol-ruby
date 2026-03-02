@@ -33,9 +33,7 @@ module Parsanol
     # @raise [ArgumentError] if input doesn't respond to to_str
     #
     def initialize(input)
-      unless input.respond_to?(:to_str)
-        raise ArgumentError, "Source requires a string-like object (responds to to_str)"
-      end
+      raise ArgumentError, 'Source requires a string-like object (responds to to_str)' unless input.respond_to?(:to_str)
 
       # Core scanner for input traversal
       @scanner = StringScanner.new(input)
@@ -113,6 +111,7 @@ module Parsanol
     def chars_until(target)
       found = @scanner.check_until(Regexp.new(Regexp.escape(target)))
       return chars_left unless found
+
       found.size - target.size
     end
 
@@ -125,6 +124,7 @@ module Parsanol
     def index_of_char(ch)
       rel_idx = @scanner.rest.index(ch)
       return nil unless rel_idx
+
       @scanner.pos + rel_idx
     end
 
@@ -165,7 +165,7 @@ module Parsanol
     #
     def position(offset = nil)
       effective = offset || @scanner.pos
-      ln, col = line_and_column(effective)
+      line_and_column(effective)
 
       # Character position approximation
       char_pos = @raw_string.byteslice(0, effective).size

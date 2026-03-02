@@ -26,7 +26,7 @@ module Parsanol
 
       # Build JSON output directly to avoid intermediate Hash
       # This is faster than creating a Hash and calling to_json
-      %{{"atoms":#{@atoms.to_json},"root":#{root_id}}}
+      %({"atoms":#{@atoms.to_json},"root":#{root_id}})
     end
 
     private
@@ -39,9 +39,7 @@ module Parsanol
 
       # Entity atoms are special - they're just lazy references to other atoms
       # Don't create a new atom, just resolve and return the referenced atom_id
-      if atom.is_a?(Parsanol::Atoms::Entity)
-        return serialize_entity(atom)
-      end
+      return serialize_entity(atom) if atom.is_a?(Parsanol::Atoms::Entity)
 
       # Serialize based on atom type first (recursively)
       serialized = case atom
@@ -90,9 +88,7 @@ module Parsanol
       # Ruby's Regexp#to_s produces "(?-mix:pattern)" format
       # We need to extract just the pattern for the Rust parser
       pattern = atom.match
-      if pattern =~ /^\(\?[-mix]*:(.+)\)$/
-        pattern = $1
-      end
+      pattern = ::Regexp.last_match(1) if pattern =~ /^\(\?[-mix]*:(.+)\)$/
       {
         'Re' => {
           'pattern' => pattern
@@ -150,7 +146,11 @@ module Parsanol
       # Add a placeholder that will be replaced
       @atoms << nil
 
-      parslet = atom.parslet rescue nil
+      parslet = begin
+        atom.parslet
+      rescue StandardError
+        nil
+      end
 
       if parslet
         # Serialize the resolved parslet inline (don't call serialize_atom to avoid double-caching)
@@ -178,7 +178,6 @@ module Parsanol
 
         # Replace the placeholder with the serialized atom
         @atoms[atom_id] = serialized
-        atom_id
       else
         # If the entity's block returns nil, create a placeholder that will fail
         @atoms[atom_id] = {
@@ -186,8 +185,8 @@ module Parsanol
             'pattern' => "\x00__UNIMPLEMENTED_ENTITY_#{atom.name}__"
           }
         }
-        atom_id
       end
+      atom_id
     end
 
     def serialize_lookahead(atom)
@@ -211,7 +210,11 @@ module Parsanol
       # Scope creates a new capture scope.
       # Native parser doesn't have scoped captures,
       # so we just serialize the inner atom from the block.
-      inner = atom.block.call rescue nil
+      inner = begin
+        atom.block.call
+      rescue StandardError
+        nil
+      end
       if inner
         serialize_atom(inner)
       else
@@ -219,7 +222,7 @@ module Parsanol
       end
     end
 
-    def serialize_dynamic(atom)
+    def serialize_dynamic(_atom)
       # Dynamic evaluates a Ruby block at parse time.
       # This cannot be serialized to JSON - the grammar
       # requires Ruby fallback for this portion.
@@ -232,7 +235,7 @@ module Parsanol
       }
     end
 
-    def serialize_unknown(atom)
+    def serialize_unknown(_atom)
       # For unsupported atom types, create a placeholder
       # This will cause a parse error at runtime
       {

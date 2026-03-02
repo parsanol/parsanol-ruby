@@ -59,18 +59,18 @@ end
 # ===== Native Gem Building =====
 # Platform definitions for precompiled gems
 PLATFORMS = [
-  ['x64-mingw32', 'x86_64-w64-mingw32'],
-  ['x64-mingw-ucrt', 'x86_64-w64-mingw32'],
-  ['arm64-mingw-ucrt', 'aarch64-w64-mingw32'],
-  ['x86_64-linux', 'x86_64-linux-gnu'],
-  ['x86_64-linux-gnu', 'x86_64-linux-gnu'],
-  ['x86_64-linux-musl', 'x86_64-linux-musl'],
-  ['aarch64-linux', 'aarch64-linux-gnu'],
-  ['aarch64-linux-gnu', 'aarch64-linux-gnu'],
-  ['aarch64-linux-musl', 'aarch64-linux-musl'],
-  ['x86_64-darwin', 'x86_64-apple-darwin'],
-  ['arm64-darwin', 'arm64-apple-darwin'],
-]
+  %w[x64-mingw32 x86_64-w64-mingw32],
+  %w[x64-mingw-ucrt x86_64-w64-mingw32],
+  %w[arm64-mingw-ucrt aarch64-w64-mingw32],
+  %w[x86_64-linux x86_64-linux-gnu],
+  %w[x86_64-linux-gnu x86_64-linux-gnu],
+  %w[x86_64-linux-musl x86_64-linux-musl],
+  %w[aarch64-linux aarch64-linux-gnu],
+  %w[aarch64-linux-gnu aarch64-linux-gnu],
+  %w[aarch64-linux-musl aarch64-linux-musl],
+  %w[x86_64-darwin x86_64-apple-darwin],
+  %w[arm64-darwin arm64-apple-darwin]
+].freeze
 
 namespace :gem do
   desc 'Build install-compilation gem (platform: any)'
@@ -86,7 +86,7 @@ namespace :gem do
   end
 
   # Generate tasks for each platform
-  PLATFORMS.each do |platform, _host|
+  PLATFORMS.each_key do |platform|
     desc "Build pre-compiled gem for the #{platform} platform"
     task "native:#{platform}" do
       sh "rake compile gem:platform:#{platform} gem"
@@ -176,7 +176,7 @@ namespace :compat do
     sh "bundle exec rspec spec/parslet_imported/ --format documentation > #{results_dir}/parsanol.txt 2>&1"
 
     puts "\n=== Comparing results ==="
-    puts "Results saved to:"
+    puts 'Results saved to:'
     puts "  - #{results_dir}/parslet.txt"
     puts "  - #{results_dir}/parsanol.txt"
     puts "\nTo compare: diff #{results_dir}/parslet.txt #{results_dir}/parsanol.txt"

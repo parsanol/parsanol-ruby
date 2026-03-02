@@ -33,10 +33,10 @@ module Parsanol
 
     # @return [String] Original input string
     attr_reader :string
-    
+
     # @return [Integer] Byte offset into string
     attr_reader :offset
-    
+
     # @return [Integer] Length in bytes
     attr_reader :length
 
@@ -62,7 +62,7 @@ module Parsanol
     # @return [String] Materialized string
     #
     def to_s
-      @materialized ||= @string.byteslice(@offset, @length)
+      @to_s ||= @string.byteslice(@offset, @length)
     end
 
     # Get character at index (zero-copy).
@@ -74,7 +74,8 @@ module Parsanol
     # @return [String, nil] Character at index or nil
     #
     def [](index)
-      return nil if index < 0 || index >= @length
+      return nil if index.negative? || index >= @length
+
       @string.byteslice(@offset + index, 1)
     end
 
@@ -85,7 +86,7 @@ module Parsanol
     def bytesize
       @length
     end
-    
+
     alias size bytesize
     alias length bytesize
 
@@ -94,7 +95,7 @@ module Parsanol
     # @return [Boolean] true if length is 0
     #
     def empty?
-      @length == 0
+      @length.zero?
     end
 
     # Compare with another object.
@@ -121,7 +122,7 @@ module Parsanol
         super
       end
     end
-    
+
     alias eql? ==
 
     # Hash code for hashing.
@@ -146,17 +147,17 @@ module Parsanol
     def slice(start, len)
       # Handle edge cases
       return self.class.new(@string, offset: @offset, length: 0) if len <= 0 || start >= @length
-      
+
       # Clamp start to valid range [0, @length)
       clamped_start = [[start, 0].max, @length].min
-      
+
       # Calculate actual offset in original string
       actual_offset = @offset + clamped_start
-      
+
       # Calculate actual length (min of requested and available)
       available = @length - clamped_start
       actual_length = [len, available].min
-      
+
       self.class.new(@string, offset: actual_offset, length: actual_length)
     end
 

@@ -38,7 +38,9 @@ describe Parsanol::Serialized do
 
       it 'raises LoadError' do
         deserializer = Class.new do
-          def self.from_json(json); JSON.parse(json); end
+          def self.from_json(json)
+            JSON.parse(json)
+          end
         end
         expect { parser.parse_to_struct('42', deserializer) }.to raise_error(LoadError)
       end
@@ -61,7 +63,7 @@ describe Parsanol::Serialized do
     it 'allows defining output schema' do
       parser_class.output_schema(
         number: { type: :integer },
-        binop: { type: :object, properties: [:left, :op, :right] }
+        binop: { type: :object, properties: %i[left op right] }
       )
       expect(parser_class.output_schema).to be_a(Hash)
     end

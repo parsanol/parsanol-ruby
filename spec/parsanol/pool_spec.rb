@@ -189,7 +189,7 @@ describe Parsanol::ObjectPool do
       it 'discards object when pool is at capacity' do
         pool = described_class.new(Array, size: 2, preallocate: true)
         # Try to release one more than capacity
-        obj = Array.new
+        obj = []
         result = pool.release(obj)
         expect(result).to be false
         stats = pool.statistics
@@ -199,8 +199,8 @@ describe Parsanol::ObjectPool do
 
       it 'increments discarded counter when capacity exceeded' do
         pool = described_class.new(Array, size: 1, preallocate: true)
-        obj1 = Array.new
-        obj2 = Array.new
+        obj1 = []
+        obj2 = []
         pool.release(obj1)
         pool.release(obj2)
         stats = pool.statistics
@@ -357,8 +357,8 @@ describe Parsanol::ObjectPool do
     end
 
     it 'handles large pool sizes' do
-      pool = described_class.new(Array, size: 10000, preallocate: true)
-      expect(pool.statistics[:available]).to eq(10000)
+      pool = described_class.new(Array, size: 10_000, preallocate: true)
+      expect(pool.statistics[:available]).to eq(10_000)
     end
   end
 

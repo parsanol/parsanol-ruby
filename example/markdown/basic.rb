@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 # Markdown Parser - Ruby Implementation
 #
 # Parse a subset of Markdown: headers, paragraphs, lists, code blocks.
 #
 # Run with: ruby example/markdown/basic.rb
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol/parslet'
 
@@ -16,130 +18,130 @@ class MarkdownParser < Parsanol::Parser
   rule(:document) { block.repeat(1).as(:document) }
 
   # Block-level elements
-  rule(:block) {
+  rule(:block) do
     code_block |
-    heading |
-    blockquote |
-    unordered_list |
-    ordered_list |
-    paragraph
-  }
+      heading |
+      blockquote |
+      unordered_list |
+      ordered_list |
+      paragraph
+  end
 
   # Heading: # to ######
-  rule(:heading) {
+  rule(:heading) do
     (str('#').repeat(1, 6).as(:level) >>
      space >>
      heading_content.as(:text) >>
      newline).as(:heading)
-  }
+  end
 
-  rule(:heading_content) {
+  rule(:heading_content) do
     (newline.absent? >> any).repeat(1)
-  }
+  end
 
   # Paragraph: text until blank line
-  rule(:paragraph) {
+  rule(:paragraph) do
     (paragraph_line >> newline).repeat(1).as(:paragraph)
-  }
+  end
 
-  rule(:paragraph_line) {
+  rule(:paragraph_line) do
     (blank_line.absent? >> (str('#').absent? | space.absent?) >> any).repeat(1)
-  }
+  end
 
   # Code block: ``` ... ```
-  rule(:code_block) {
+  rule(:code_block) do
     (str('```') >>
      (str('`').absent? >> any).repeat.as(:language) >>
      newline >>
      code_content.as(:code) >>
      str('```') >>
      newline?).as(:code_block)
-  }
+  end
 
-  rule(:code_content) {
+  rule(:code_content) do
     (str('```').absent? >> any).repeat
-  }
+  end
 
   # Blockquote: > text
-  rule(:blockquote) {
+  rule(:blockquote) do
     (str('>') >>
      space? >>
      quote_content.as(:text) >>
      newline).as(:blockquote)
-  }
+  end
 
-  rule(:quote_content) {
+  rule(:quote_content) do
     (newline.absent? >> any).repeat(1)
-  }
+  end
 
   # Unordered list: - or * items
-  rule(:unordered_list) {
+  rule(:unordered_list) do
     unordered_item.repeat(1).as(:unordered_list)
-  }
+  end
 
-  rule(:unordered_item) {
+  rule(:unordered_item) do
     (match('[*-]') >>
      space >>
      list_content.as(:text) >>
      newline).as(:item)
-  }
+  end
 
   # Ordered list: 1. items
-  rule(:ordered_list) {
+  rule(:ordered_list) do
     ordered_item.repeat(1).as(:ordered_list)
-  }
+  end
 
-  rule(:ordered_item) {
+  rule(:ordered_item) do
     (match('[0-9]').repeat(1).as(:number) >>
      str('.') >>
      space >>
      list_content.as(:text) >>
      newline).as(:item)
-  }
+  end
 
-  rule(:list_content) {
+  rule(:list_content) do
     (newline.absent? >> any).repeat(1)
-  }
+  end
 
   # Inline elements
-  rule(:inline) {
+  rule(:inline) do
     bold |
-    italic |
-    code_inline |
-    link |
-    text
-  }
+      italic |
+      code_inline |
+      link |
+      text
+  end
 
-  rule(:bold) {
+  rule(:bold) do
     (str('**') >>
      (str('**').absent? >> any).repeat(1).as(:text) >>
      str('**')).as(:bold)
-  }
+  end
 
-  rule(:italic) {
+  rule(:italic) do
     (str('*') >>
      (str('*').absent? >> any).repeat(1).as(:text) >>
      str('*')).as(:italic)
-  }
+  end
 
-  rule(:code_inline) {
+  rule(:code_inline) do
     (str('`') >>
      (str('`').absent? >> any).repeat(1).as(:code) >>
      str('`')).as(:code)
-  }
+  end
 
-  rule(:link) {
+  rule(:link) do
     (str('[') >>
      (str(']').absent? >> any).repeat(1).as(:text) >>
      str(']') >>
      str('(') >>
      (str(')').absent? >> any).repeat(1).as(:url) >>
      str(')')).as(:link)
-  }
+  end
 
-  rule(:text) {
+  rule(:text) do
     any.repeat(1).as(:text)
-  }
+  end
 
   # Helpers
   rule(:space) { str(' ') }
@@ -199,29 +201,29 @@ end
 class MarkdownTransform < Parsanol::Transform
   rule(document: sequence(:blocks)) { Document.new(blocks) }
 
-  rule(heading: { level: simple(:l), text: simple(:t) }) {
+  rule(heading: { level: simple(:l), text: simple(:t) }) do
     Heading.new(l.to_s, t.to_s.strip)
-  }
+  end
 
-  rule(paragraph: sequence(:lines)) {
+  rule(paragraph: sequence(:lines)) do
     Paragraph.new(lines.map(&:to_s))
-  }
+  end
 
-  rule(code_block: { language: simple(:lang), code: simple(:c) }) {
+  rule(code_block: { language: simple(:lang), code: simple(:c) }) do
     CodeBlock.new(lang.to_s.strip, c.to_s)
-  }
+  end
 
-  rule(blockquote: { text: simple(:t) }) {
+  rule(blockquote: { text: simple(:t) }) do
     Blockquote.new(t.to_s.strip)
-  }
+  end
 
-  rule(unordered_list: sequence(:items)) {
+  rule(unordered_list: sequence(:items)) do
     UnorderedList.new(items)
-  }
+  end
 
-  rule(ordered_list: sequence(:items)) {
+  rule(ordered_list: sequence(:items)) do
     OrderedList.new(items)
-  }
+  end
 
   rule(item: { text: simple(:t) }) { { text: t.to_s.strip } }
   rule(item: { number: simple(:n), text: simple(:t) }) { { number: n.to_s, text: t.to_s.strip } }
@@ -240,9 +242,9 @@ rescue Parsanol::ParseError => e
 end
 
 # Main demo
-if __FILE__ == $0
-  puts "Markdown Parser"
-  puts "=" * 50
+if __FILE__ == $PROGRAM_NAME
+  puts 'Markdown Parser'
+  puts '=' * 50
   puts
 
   markdown = <<~MD
@@ -269,19 +271,19 @@ if __FILE__ == $0
     ```
   MD
 
-  puts "Input:"
-  puts "-" * 50
+  puts 'Input:'
+  puts '-' * 50
   puts markdown
-  puts "-" * 50
+  puts '-' * 50
   puts
 
-  result = parse_markdown(markdown + "\n")
+  result = parse_markdown("#{markdown}\n")
 
   if result
-    puts "Parsed AST:"
+    puts 'Parsed AST:'
     puts result.inspect
     puts
-    puts "HTML Output:"
+    puts 'HTML Output:'
     puts result.to_html
   end
 end

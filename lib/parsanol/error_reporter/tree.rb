@@ -27,7 +27,7 @@ module Parsanol
       # @param nested_errors [Array<Cause>, nil] failures from inner parse attempts
       # @return [Parsanol::Cause] error cause node for this failure
       #
-      def err(parser_atom, src, msg, nested_errors = nil)
+      def err(_parser_atom, src, msg, nested_errors = nil)
         error_pos = src.pos
         Cause.format(src, error_pos, msg, nested_errors)
       end
@@ -43,7 +43,7 @@ module Parsanol
       # @param nested_errors [Array<Cause>, nil] failures from inner parse attempts
       # @return [Parsanol::Cause] error cause node for this failure
       #
-      def err_at(parser_atom, src, msg, error_pos, nested_errors = nil)
+      def err_at(_parser_atom, src, msg, error_pos, nested_errors = nil)
         Cause.format(src, error_pos, msg, nested_errors)
       end
 
@@ -54,7 +54,7 @@ module Parsanol
       # @param src [Parsanol::Source] input source being parsed
       # @return [nil]
       #
-      def succ(src)
+      def succ(_src)
         # Tree reporter doesn't track successes
         nil
       end

@@ -54,7 +54,7 @@ module Parsanol
       #
       def try_match(source, context, consume_all)
         raise NotImplementedError,
-          "Custom atoms must implement #try_match(source, context, consume_all)"
+              'Custom atoms must implement #try_match(source, context, consume_all)'
       end
 
       # Override of Base#try that delegates to try_match
@@ -81,7 +81,7 @@ module Parsanol
       #
       # @return [Set<String>, nil] First set, or nil if not determinable
       def first_set
-        nil  # Unknown by default
+        nil # Unknown by default
       end
 
       # Optional: Override to enable caching for this atom
@@ -97,12 +97,12 @@ module Parsanol
       #
       # @return [Hash, nil] JSON-serializable representation
       def to_native_format
-        nil  # Not serializable by default
+        nil # Not serializable by default
       end
 
       # Override to_s_inner for debug printing
       # @api private
-      def to_s_inner(prec = nil)
+      def to_s_inner(_prec = nil)
         "custom(#{self.class.name})"
       end
     end

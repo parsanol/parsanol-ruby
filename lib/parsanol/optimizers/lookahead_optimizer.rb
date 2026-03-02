@@ -26,24 +26,16 @@ module Parsanol
           inner_positive = inner.positive
 
           # !(!x) => &x (double negation)
-          if !outer_positive && !inner_positive
-            return Parsanol::Atoms::Lookahead.new(inner.bound_parslet, true)
-          end
+          return Parsanol::Atoms::Lookahead.new(inner.bound_parslet, true) if !outer_positive && !inner_positive
 
           # &(&x) => &x (idempotent)
-          if outer_positive && inner_positive
-            return inner
-          end
+          return inner if outer_positive && inner_positive
 
           # !(&x) => !x (negative of positive)
-          if !outer_positive && inner_positive
-            return Parsanol::Atoms::Lookahead.new(inner.bound_parslet, false)
-          end
+          return Parsanol::Atoms::Lookahead.new(inner.bound_parslet, false) if !outer_positive && inner_positive
 
           # &(!x) => !x (positive of negative)
-          if outer_positive && !inner_positive
-            return inner
-          end
+          return inner if outer_positive && !inner_positive
         end
 
         # Return lookahead with optimized child

@@ -65,7 +65,7 @@ module Parsanol
       else
         # Pure Ruby fallback - not supported
         raise NotImplementedError,
-          "Streaming parser requires native extension for full functionality."
+              'Streaming parser requires native extension for full functionality.'
       end
     end
 
@@ -109,10 +109,10 @@ module Parsanol
       @buffer = String.new
       @position = 0
 
-      if @native_parser
-        grammar_json = Parsanol::Native.serialize_grammar(@grammar.root)
-        @native_parser = Parsanol::Native.streaming_parser_new(grammar_json)
-      end
+      return unless @native_parser
+
+      grammar_json = Parsanol::Native.serialize_grammar(@grammar.root)
+      @native_parser = Parsanol::Native.streaming_parser_new(grammar_json)
     end
 
     # Get the current buffer

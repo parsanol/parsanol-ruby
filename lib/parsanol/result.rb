@@ -10,35 +10,37 @@
 # - Cleaner API with success? method
 # - Can be optimized further (object pooling, etc.)
 #
-class Parsanol::Result
-  attr_reader :value
+module Parsanol
+  class Result
+    attr_reader :value
 
-  def initialize(success, value)
-    @success = success
-    @value = value
-  end
+    def initialize(success, value)
+      @success = success
+      @value = value
+    end
 
-  def success?
-    @success
-  end
+    def success?
+      @success
+    end
 
-  def error?
-    !@success
-  end
+    def error?
+      !@success
+    end
 
-  # Compatibility: Allow destructuring like arrays
-  # This enables gradual migration: result.success?, result.value
-  # or: success, value = result (array-like)
-  def to_ary
-    [@success, @value]
-  end
+    # Compatibility: Allow destructuring like arrays
+    # This enables gradual migration: result.success?, result.value
+    # or: success, value = result (array-like)
+    def to_ary
+      [@success, @value]
+    end
 
-  # Factory methods for common cases
-  def self.success(value)
-    new(true, value)
-  end
+    # Factory methods for common cases
+    def self.success(value)
+      new(true, value)
+    end
 
-  def self.error(cause)
-    new(false, cause)
+    def self.error(cause)
+      new(false, cause)
+    end
   end
 end

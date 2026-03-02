@@ -440,7 +440,7 @@ describe Parsanol::Optimizer do
       end
 
       it 'handles empty sequences' do
-        sequence = Parsanol::Atoms::Sequence.new()
+        sequence = Parsanol::Atoms::Sequence.new
         result = Parsanol::Optimizer.simplify_sequences(sequence)
 
         # Empty sequence stays as sequence (or could unwrap to nil)

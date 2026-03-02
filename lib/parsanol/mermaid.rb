@@ -41,12 +41,12 @@ module Parsanol
     end
 
     # Pass through named captures
-    def visit_named(label, atom)
+    def visit_named(_label, atom)
       traverse(atom, current_parent)
     end
 
     # Pass through repetition
-    def visit_repetition(tag, min, max, atom)
+    def visit_repetition(_tag, _min, _max, atom)
       traverse(atom, current_parent)
     end
 
@@ -61,7 +61,7 @@ module Parsanol
     end
 
     # Pass through lookahead
-    def visit_lookahead(positive, atom)
+    def visit_lookahead(_positive, atom)
       traverse(atom, current_parent)
     end
 
@@ -78,7 +78,7 @@ module Parsanol
 
     attr_reader :current_parent
 
-    def add_node(label, shape_type = 'rect', style = nil)
+    def add_node(label, _shape_type = 'rect', _style = nil)
       @node_counter += 1
       node_id = "node_#{@node_counter}"
       @lines << "    #{node_id}[\"#{escape_mermaid(label)}\"]"
@@ -126,6 +126,7 @@ module Parsanol
       builder = MermaidBuilder.new
       rule_method = method(rule_name)
       raise NotImplementedError, "Rule '#{rule_name}' not found" unless rule_method
+
       rule_method.call.accept(builder)
       builder.output
     end

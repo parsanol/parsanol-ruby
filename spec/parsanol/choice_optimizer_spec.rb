@@ -185,7 +185,7 @@ describe Parsanol::Optimizer, '.simplify_choices' do
     it 'works with empty alternatives array (edge case)' do
       # This shouldn't happen in practice, but test robustness
       alt = Parsanol::Atoms::Alternative.new
-      result = Parsanol::Optimizer.simplify_choices(alt)
+      Parsanol::Optimizer.simplify_choices(alt)
 
       # Should return something reasonable (empty alternative or nil)
       # The exact behavior depends on how Alternative handles empty case

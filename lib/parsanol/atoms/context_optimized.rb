@@ -11,18 +11,14 @@ module Parsanol
       attr_reader :current_position
 
       def try_with_cache(obj, source, consume_all)
-        unless obj.cached?
-          return obj.try(source, self, consume_all)
-        end
+        return obj.try(source, self, consume_all) unless obj.cached?
 
         key = source.pos
         @current_position = key
         atom_cache = @cache[obj]
 
         # Try to fetch from cache
-        if atom_cache.key?(key)
-          return atom_cache.fetch(key)
-        end
+        return atom_cache.fetch(key) if atom_cache.key?(key)
 
         # Cache miss - compute result
         result = obj.try(source, self, consume_all)

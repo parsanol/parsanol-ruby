@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # This example is heavily inspired by citrus' ip.citrus. Have a look at both
 # of these to get some choice!
 
@@ -6,55 +8,55 @@
 #
 # See http://tools.ietf.org/html/rfc3986#appendix-A for more information.
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'pp'
 require 'parsanol/parslet'
 
 module IPv4
   include Parsanol::Parslet
-  
+
   # A host identified by an IPv4 literal address is represented in
   # dotted-decimal notation (a sequence of four decimal numbers in the range 0
   # to 255, separated by "."), as described in [RFC1123] by reference to
   # [RFC0952].  Note that other forms of dotted notation may be interpreted on
   # some platforms, as described in Section 7.4, but only the dotted-decimal
   # form of four octets is allowed by this grammar.
-  rule(:ipv4) {
+  rule(:ipv4) do
     (dec_octet >> str('.') >> dec_octet >> str('.') >>
       dec_octet >> str('.') >> dec_octet).as(:ipv4)
-  }
-  
-  rule(:dec_octet) {
-    str('25') >> match("[0-5]") |
-    str('2') >> match("[0-4]") >> digit |
-    str('1') >> digit >> digit |
-    match('[1-9]') >> digit |
-    digit
-  }
-  
-  rule(:digit) {
+  end
+
+  rule(:dec_octet) do
+    (str('25') >> match('[0-5]')) |
+      (str('2') >> match('[0-4]') >> digit) |
+      (str('1') >> digit >> digit) |
+      (match('[1-9]') >> digit) |
+      digit
+  end
+
+  rule(:digit) do
     match('[0-9]')
-  }
+  end
 end
 
 # Must be used in concert with IPv4
-module IPv6 
+module IPv6
   include Parsanol::Parslet
-  
+
   rule(:colon) { str(':') }
   rule(:dcolon) { colon >> colon }
-  
+
   # h16 :
   def h16r(times)
     (h16 >> colon).repeat(times, times)
   end
-  
+
   # : h16
   def h16l(times)
-    (colon >> h16).repeat(0,times)
+    (colon >> h16).repeat(0, times)
   end
-  
+
   # A 128-bit IPv6 address is divided into eight 16-bit pieces. Each piece is
   # represented numerically in case-insensitive hexadecimal, using one to four
   # hexadecimal digits (leading zeroes are permitted). The eight encoded
@@ -64,46 +66,46 @@ module IPv6
   # zero-valued 16-bit pieces within the address may be elided, omitting all
   # their digits and leaving exactly two consecutive colons in their place to
   # mark the elision.
-  rule(:ipv6) {
+  rule(:ipv6) do
     (
-      (
+      ((
         h16r(6) |
-        dcolon >> h16r(5) | 
-        h16.maybe >> dcolon >> h16r(4) |
-        (h16 >> h16l(1)).maybe >> dcolon >> h16r(3) |
-        (h16 >> h16l(2)).maybe >> dcolon >> h16r(2) |
-        (h16 >> h16l(3)).maybe >> dcolon >> h16r(1) |
-        (h16 >> h16l(4)).maybe >> dcolon
-      ) >> ls32 |
-      (h16 >> h16l(5)).maybe >> dcolon >> h16 |
-      (h16 >> h16l(6)).maybe >> dcolon
+        (dcolon >> h16r(5)) |
+        (h16.maybe >> dcolon >> h16r(4)) |
+        ((h16 >> h16l(1)).maybe >> dcolon >> h16r(3)) |
+        ((h16 >> h16l(2)).maybe >> dcolon >> h16r(2)) |
+        ((h16 >> h16l(3)).maybe >> dcolon >> h16r(1)) |
+        ((h16 >> h16l(4)).maybe >> dcolon)
+      ) >> ls32) |
+      ((h16 >> h16l(5)).maybe >> dcolon >> h16) |
+      ((h16 >> h16l(6)).maybe >> dcolon)
     ).as(:ipv6)
-  }
-  
-  rule(:h16) {
-    hexdigit.repeat(1,4)
-  }
-  
-  rule(:ls32) {
-    (h16 >> colon >> h16) |
-    ipv4
-  }
+  end
 
-  rule(:hexdigit) {
-    digit | match("[a-fA-F]")
-  }
+  rule(:h16) do
+    hexdigit.repeat(1, 4)
+  end
+
+  rule(:ls32) do
+    (h16 >> colon >> h16) |
+      ipv4
+  end
+
+  rule(:hexdigit) do
+    digit | match('[a-fA-F]')
+  end
 end
 
 class Parser
   include IPv4
   include IPv6
-  
+
   def parse(str)
     (ipv4 | ipv6).parse(str)
   end
 end
 
-%W(
+%w[
   0.0.0.0
   255.255.255.255
   255.255.255
@@ -113,13 +115,13 @@ end
   12AD::
   ::
   1:2
-).each do |address|
+].each do |address|
   parser = Parser.new
-  printf "%30s -> ", address
+  printf '%30s -> ', address
   begin
     result = parser.parse(address)
     puts result.inspect
-  rescue Parsanol::ParseFailed => m
-    puts "Failed: #{m}"
+  rescue Parsanol::ParseFailed => e
+    puts "Failed: #{e}"
   end
 end

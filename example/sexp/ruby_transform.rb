@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # S-Expression Parser Example - RubyTransform
 #
 # This example demonstrates parsing Lisp-style S-expressions.
@@ -5,7 +7,7 @@
 #
 # Run with: ruby -Ilib example/sexp_ruby_transform.rb
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 
@@ -14,38 +16,36 @@ class SexpParser < Parsanol::Parser
   root :sexp
 
   # An S-Expression can be a list or atom
-  rule(:sexp) {
+  rule(:sexp) do
     list | atom
-  }
+  end
 
   # List: ( ... ) - recursively contains sexps
-  rule(:list) {
+  rule(:list) do
     str('(') >> elements >> str(')')
-  }
+  end
 
   # Elements: zero or more sexps separated by whitespace
-  rule(:elements) {
+  rule(:elements) do
     (sexp >> space?).repeat
-  }
+  end
 
   # Atom: number or symbol (whitespace required to separate)
-  rule(:atom) {
+  rule(:atom) do
     number | symbol
-  }
+  end
 
   # Symbol: sequence of non-whitespace, non-special chars
-  rule(:symbol) {
+  rule(:symbol) do
     match('[^\s\(\)]+')
-  }
+  end
 
   # Number: integer or float
-  rule(:number) {
-    (
-      str('-').maybe >>
+  rule(:number) do
+    str('-').maybe >>
       match('[0-9]').repeat(1) >>
       (str('.') >> match('[0-9]').repeat).maybe
-    )
-  }
+  end
 
   rule(:space?) { match('\s').repeat }
 end
@@ -61,7 +61,7 @@ class SexpList < Sexp
   end
 
   def to_s
-    "(#{@elements.map(&:to_s).join(' ')})"
+    "(#{@elements.join(' ')})"
   end
 end
 
@@ -98,7 +98,7 @@ def parse_sexp(input)
 
   # Build AST
   ast = build_ast(tree)
-  puts "AST: #{ast.to_s}"
+  puts "AST: #{ast}"
 
   ast
 rescue Parsanol::ParseFailed => e
@@ -110,18 +110,19 @@ def build_ast(tree)
   return nil if tree.nil?
 
   # Handle slice
-  if tree.is_a?(Parsanol::Slice)
+  case tree
+  when Parsanol::Slice
     s = tree.to_s
     if s.match?(/^-?\d+(\.\d+)?$/)
       SexpNumber.new(s)
     else
       SexpSymbol.new(s)
     end
-  elsif tree.is_a?(Array)
+  when Array
     # It's a list of sexps
     elements = tree.map { |t| build_ast(t) }.compact
     SexpList.new(elements)
-  elsif tree.is_a?(Hash)
+  when Hash
     # Try to find the actual sexp value
     if tree[:sexp]
       build_ast(tree[:sexp])
@@ -152,27 +153,27 @@ def build_ast(tree)
 end
 
 # Example usage
-if __FILE__ == $0
-  puts "=" * 60
-  puts "S-Expression Parser - RubyTransform"
-  puts "=" * 60
+if __FILE__ == $PROGRAM_NAME
+  puts '=' * 60
+  puts 'S-Expression Parser - RubyTransform'
+  puts '=' * 60
   puts
 
   test_cases = [
-    "42",
-    "hello",
-    "(+ 1 2)",
-    "(+ 1 (* 2 3))",
-    "(list 1 2 3)",
-    "()",
+    '42',
+    'hello',
+    '(+ 1 2)',
+    '(+ 1 (* 2 3))',
+    '(list 1 2 3)',
+    '()'
   ]
 
   test_cases.each do |input|
-    puts "-" * 40
+    puts '-' * 40
     puts "Input: #{input}"
     begin
-      ast = parse_sexp(input)
-    rescue => e
+      parse_sexp(input)
+    rescue StandardError => e
       puts "Error: #{e.message}"
     end
     puts

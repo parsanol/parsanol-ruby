@@ -1,26 +1,29 @@
-# A simple integer calculator to answer the question about how to do 
-# left and right associativity in parslet (PEG) once and for all. 
+# frozen_string_literal: true
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+# A simple integer calculator to answer the question about how to do
+# left and right associativity in parslet (PEG) once and for all.
+
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'rspec'
 require 'parsanol/parslet'
 require 'parsanol/rig/rspec'
 
 # This is the parsing stage. It expresses left associativity by compiling
-# list of things that have the same associativity. 
+# list of things that have the same associativity.
 class CalcParser < Parsanol::Parser
   root :addition
-  
-  rule(:addition) {
-    multiplication.as(:l) >> (add_op >> multiplication.as(:r)).repeat(1) |
-    multiplication
-  }
-  
-  rule(:multiplication) { 
-    integer.as(:l) >> (mult_op >> integer.as(:r)).repeat(1) |
-    integer }
-  
+
+  rule(:addition) do
+    (multiplication.as(:l) >> (add_op >> multiplication.as(:r)).repeat(1)) |
+      multiplication
+  end
+
+  rule(:multiplication) do
+    (integer.as(:l) >> (mult_op >> integer.as(:r)).repeat(1)) |
+      integer
+  end
+
   rule(:integer) { digit.repeat(1).as(:i) >> space? }
 
   rule(:mult_op) { match['*/'].as(:o) >> space? }
@@ -31,42 +34,48 @@ class CalcParser < Parsanol::Parser
 end
 
 # Classes for the abstract syntax tree.
-Int    = Struct.new(:int) {
-  def eval; self end
+Int = Struct.new(:int) do
+  def eval
+    self
+  end
+
   def op(operation, other)
     left = int
-    right = other.int 
+    right = other.int
 
     Int.new(
       case operation
-        when '+'
-          left + right
-        when '-'
-          left - right
-        when '*'
-          left * right
-        when '/'
-          left / right
-      end)
+      when '+'
+        left + right
+      when '-'
+        left - right
+      when '*'
+        left * right
+      when '/'
+        left / right
+      end
+    )
   end
+
   def to_i
     int
   end
-}
-Seq    = Struct.new(:sequence) {
+end
+Seq = Struct.new(:sequence) do
   def eval
-    sequence.reduce { |accum, operation| 
-      operation.call(accum) }
+    sequence.reduce do |accum, operation|
+      operation.call(accum)
+    end
   end
-}
-LeftOp = Struct.new(:operation, :right) {
+end
+LeftOp = Struct.new(:operation, :right) do
   def call(left)
     left = left.eval
     right = self.right.eval
 
     left.op(operation, right)
   end
-}
+end
 
 # Transforming intermediary syntax tree into a real AST.
 class CalcTransform < Parsanol::Transform
@@ -81,7 +90,7 @@ def calculate(str)
   intermediary_tree = CalcParser.new.parse(str)
   abstract_tree = CalcTransform.new.apply(intermediary_tree)
   result = abstract_tree.eval
-  
+
   result.to_i
 end
 
@@ -90,50 +99,50 @@ describe CalcParser do
   let(:p) { described_class.new }
   describe '#integer' do
     let(:i) { p.integer }
-    it "parses integers" do
+    it 'parses integers' do
       i.should parse('1')
       i.should parse('123')
-    end 
-    it "consumes trailing white space" do
+    end
+    it 'consumes trailing white space' do
       i.should parse('123   ')
-    end 
+    end
     it "doesn't parse floats" do
       i.should_not parse('1.3')
-    end 
+    end
   end
   describe '#multiplication' do
     let(:m) { p.multiplication }
-    it "parses simple multiplication" do
+    it 'parses simple multiplication' do
       m.should parse('1*2')
     end
-    it "parses division" do
+    it 'parses division' do
       m.should parse('1/2')
-    end 
+    end
   end
   describe '#addition' do
     let(:a) { p.addition }
-    
-    it "parses simple addition" do
+
+    it 'parses simple addition' do
       a.should parse('1+2')
       a.should parse('1+2+3-4')
-    end 
+    end
   end
 end
 describe CalcTransform do
   def t(obj)
     described_class.new.apply(obj)
   end
-  
-  it "transforms integers" do
+
+  it 'transforms integers' do
     t(i: '1').should == Int.new(1)
-  end 
-  it "unwraps left operand" do
+  end
+  it 'unwraps left operand' do
     t(l: :obj).should == :obj
-  end 
+  end
 end
 describe 'whole computation specs' do
   def self.result_of(str, int)
-    it(str) { calculate(str).should == int } 
+    it(str) { calculate(str).should == int }
   end
 
   result_of '1+1', 2
@@ -141,7 +150,6 @@ describe 'whole computation specs' do
   result_of '1+1+3*5/2', 9
   result_of '123*2', 246
 end
-
 
 # Enable these if you want to change the code.
 # RSpec::Core::Runner.run([], $stderr, $stdout)

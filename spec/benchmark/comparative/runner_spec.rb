@@ -17,20 +17,20 @@ RSpec.describe Parsanol::Comparative::BenchmarkRunner do
   before do
     # Reduce benchmark time for tests
     allow_any_instance_of(Parsanol::Comparative::MetricsCollector)
-      .to receive(:collect_timing).and_wrap_original do |method, *args|
+      .to receive(:collect_timing).and_wrap_original do |_method, *args|
         # Use only 2 samples in tests for speed
         parser, input = args
         samples = []
-        
+
         2.times do
           iterations = 0
           elapsed = Benchmark.realtime do
-            10.times do  # Reduced from 100
+            10.times do # Reduced from 100
               parser.parse(input)
               iterations += 1
             end
           end
-          samples << iterations / elapsed
+          samples << (iterations / elapsed)
         end
 
         mean_ips = samples.sum / samples.size

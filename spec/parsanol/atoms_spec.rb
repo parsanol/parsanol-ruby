@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 require 'timeout' unless RUBY_ENGINE == 'opal'
@@ -304,7 +306,7 @@ describe Parsanol do
     end
 
     context "when the pattern doesn't match the input" do
-      let(:parslet) { (str('a')).repeat(1) }
+      let(:parslet) { str('a').repeat(1) }
 
       attr_reader :exception
 
@@ -320,7 +322,7 @@ describe Parsanol do
       end
 
       it 'has the correct error message' do
-        exception.message.should == \
+        exception.message.should ==
           'Extra input after last repetition at line 1 char 2.'
       end
     end
@@ -352,8 +354,8 @@ describe Parsanol do
           .parse('ab')).should == {
             c: {
               a: 'a',
-              b: 'b',
-            },
+              b: 'b'
+            }
           }
       end
     end
@@ -364,7 +366,7 @@ describe Parsanol do
           .parse('aignoreb')).should ==
           {
             a: 'a',
-            b: 'b',
+            b: 'b'
           }
       end
     end
@@ -448,7 +450,7 @@ describe Parsanol do
       [[:repetition, { a: :b }, 'a', { c: :d }], [{ a: :b }, { c: :d }]],
       [[:sequence, { a: :b }, { a: :d }], { a: :d }],
       [[:sequence, { a: :b }, [:sequence, [:sequence, "\n", nil]]], { a: :b }],
-      [[:sequence, nil, ' '], ' '],
+      [[:sequence, nil, ' '], ' ']
     ].each do |input, output|
       it "transforms #{input.inspect} to #{output.inspect}" do
         call(input).should == output
@@ -458,7 +460,7 @@ describe Parsanol do
 
   describe 'combinations thereof (regression)' do
     [
-      [(str('a').repeat >> str('b').repeat), 'aaabbb'],
+      [(str('a').repeat >> str('b').repeat), 'aaabbb']
     ].each do |(parslet, input)|
       describe "#{parslet.inspect} applied to #{input.inspect}" do
         it 'parses successfully' do
@@ -476,7 +478,7 @@ describe Parsanol do
       [(str('a') >> (str('b') | str('c'))),   "'a' ('b' / 'c')"],
 
       [str('a') >> str('b').repeat,           "'a' 'b'{0, }"],
-      [(str('a') >> str('b')).repeat,           "('a' 'b'){0, }"],
+      [(str('a') >> str('b')).repeat, "('a' 'b'){0, }"]
     ].each do |(parslet, inspect_output)|
       context "regression for #{parslet.inspect}" do
         it "inspects correctly as #{inspect_output}" do

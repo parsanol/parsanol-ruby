@@ -28,10 +28,10 @@ module Parsanol
 
     # @return [Integer] Logical size (number of elements)
     attr_reader :size
-    
+
     # @return [Integer] Maximum capacity before growth
     attr_reader :capacity
-    
+
     # @return [Array] Underlying array storage
     attr_reader :storage
 
@@ -58,7 +58,7 @@ module Parsanol
       @size += 1
       self
     end
-    
+
     alias << push
 
     # Get element at index.
@@ -68,6 +68,7 @@ module Parsanol
     #
     def [](index)
       return nil if index >= @size
+
       @storage[index]
     end
 
@@ -106,7 +107,7 @@ module Parsanol
     def empty?
       @size.zero?
     end
-    
+
     # Reset protocol for ObjectPool compatibility.
     # Delegates to clear! for buffer cleanup.
     #

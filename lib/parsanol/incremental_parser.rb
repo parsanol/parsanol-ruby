@@ -42,7 +42,7 @@ module Parsanol
 
     # Apply this edit to a string
     def apply(input)
-      input[0...@start] + @inserted + input[@start + @deleted..]
+      input[0...@start] + @inserted + input[(@start + @deleted)..]
     end
 
     def to_s
@@ -51,6 +51,7 @@ module Parsanol
 
     def ==(other)
       return false unless other.is_a?(Edit)
+
       @start == other.start && @deleted == other.deleted && @inserted == other.inserted
     end
   end
@@ -90,9 +91,9 @@ module Parsanol
       # Invalidate cached result
       @cached_result = nil
 
-      if @native_parser
-        Parsanol::Native.incremental_parser_apply_edit(@native_parser, start, deleted, inserted)
-      end
+      return unless @native_parser
+
+      Parsanol::Native.incremental_parser_apply_edit(@native_parser, start, deleted, inserted)
     end
 
     # Convenience method to apply multiple edits
@@ -132,21 +133,18 @@ module Parsanol
     #
     # @param start [Integer] Start position
     # @param end_pos [Integer] End position
-    def invalidate_range(start, end_pos)
+    def invalidate_range(_start, _end_pos)
       # Clear cached result if the invalidated range might affect it
       @cached_result = nil
 
-      if @native_parser
-        # Native implementation handles invalidation
-      end
+      nil unless @native_parser
+      # Native implementation handles invalidation
     end
 
     # Get the current input
     #
     # @return [String] Current input
-    def input
-      @input
-    end
+    attr_reader :input
 
     # Get all applied edits
     #
@@ -170,10 +168,10 @@ module Parsanol
       @edits.clear
       @cached_result = nil
 
-      if @native_parser && new_input
-        grammar_json = Parsanol::Native.serialize_grammar(@grammar.root)
-        @native_parser = Parsanol::Native.incremental_parser_new(grammar_json, @input)
-      end
+      return unless @native_parser && new_input
+
+      grammar_json = Parsanol::Native.serialize_grammar(@grammar.root)
+      @native_parser = Parsanol::Native.incremental_parser_new(grammar_json, @input)
     end
   end
 end

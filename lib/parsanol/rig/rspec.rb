@@ -21,34 +21,30 @@ RSpec::Matchers.define(:parse) do |input_text, options|
   error_trace = nil
 
   match do |parser_instance|
-    begin
-      actual_result = parser_instance.parse(input_text)
-      if validator_block
-        validator_block.call(actual_result)
-      else
-        expected_output.nil? || expected_output == actual_result
-      end
-    rescue Parsanol::ParseFailed => e
-      if options && options[:trace]
-        error_trace = e.parse_failure_cause.ascii_tree
-      end
-      false
+    actual_result = parser_instance.parse(input_text)
+    if validator_block
+      validator_block.call(actual_result)
+    else
+      expected_output.nil? || expected_output == actual_result
     end
+  rescue Parsanol::ParseFailed => e
+    error_trace = e.parse_failure_cause.ascii_tree if options && options[:trace]
+    false
   end
 
   failure_message do |parser_instance|
     if validator_block
       "expected output of parsing #{input_text.inspect} with " \
-      "#{parser_instance.inspect} to meet block conditions, but it didn't"
+        "#{parser_instance.inspect} to meet block conditions, but it didn't"
     else
       msg = if expected_output
-        "expected output of parsing #{input_text.inspect} with " \
-        "#{parser_instance.inspect} to equal #{expected_output.inspect}, " \
-        "but was #{actual_result.inspect}"
-      else
-        "expected #{parser_instance.inspect} to be able to parse " \
-        "#{input_text.inspect}"
-      end
+              "expected output of parsing #{input_text.inspect} with " \
+                "#{parser_instance.inspect} to equal #{expected_output.inspect}, " \
+                "but was #{actual_result.inspect}"
+            else
+              "expected #{parser_instance.inspect} to be able to parse " \
+                "#{input_text.inspect}"
+            end
       msg += "\n#{error_trace}" if error_trace
       msg
     end
@@ -57,15 +53,13 @@ RSpec::Matchers.define(:parse) do |input_text, options|
   failure_message_when_negated do |parser_instance|
     if validator_block
       "expected output of parsing #{input_text.inspect} with " \
-      "#{parser_instance.inspect} not to meet block conditions, but it did"
-    else
-      if expected_output
-        "expected output of parsing #{input_text.inspect} with " \
+        "#{parser_instance.inspect} not to meet block conditions, but it did"
+    elsif expected_output
+      "expected output of parsing #{input_text.inspect} with " \
         "#{parser_instance.inspect} not to equal #{expected_output.inspect}"
-      else
-        "expected #{parser_instance.inspect} to not parse " \
+    else
+      "expected #{parser_instance.inspect} to not parse " \
         "#{input_text.inspect}, but it did"
-      end
     end
   end
 

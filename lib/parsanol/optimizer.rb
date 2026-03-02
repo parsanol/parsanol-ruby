@@ -79,8 +79,7 @@ module Parsanol
       result = simplify_sequences(result)
       result = simplify_choices(result)
       result = simplify_lookaheads(result)
-      result = insert_cuts(result)
-      result
+      insert_cuts(result)
     end
   end
 end

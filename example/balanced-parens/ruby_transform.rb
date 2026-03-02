@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Balanced Parentheses Parser Example - RubyTransform
 #
 # This example demonstrates parsing balanced parentheses expressions.
@@ -5,7 +7,7 @@
 #
 # Run with: ruby -Ilib example/balanced_parens_ruby_transform.rb
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 
@@ -15,14 +17,14 @@ class BalancedParensParser < Parsanol::Parser
   root :content
 
   # Content: zero or more balanced groups
-  rule(:content) {
+  rule(:content) do
     balanced.repeat
-  }
+  end
 
   # Balanced: a parenthesized group that may contain more groups
-  rule(:balanced) {
+  rule(:balanced) do
     str('(') >> content >> str(')')
-  }
+  end
 end
 
 # Step 2: Node classes
@@ -52,7 +54,7 @@ class EmptyExpr
   end
 
   def to_s
-    ""
+    ''
   end
 
   def depth
@@ -72,7 +74,7 @@ class SequenceExpr
   end
 
   def to_s
-    @exprs.map(&:to_s).join
+    @exprs.join
   end
 
   def depth
@@ -89,7 +91,7 @@ def parse_balanced(input)
 
   # Build AST from tree
   ast = build_ast(tree)
-  puts "AST: #{ast.to_s}"
+  puts "AST: #{ast}"
   puts "Balanced: #{ast.balanced?}"
   puts "Max depth: #{ast.depth}"
 
@@ -97,8 +99,8 @@ def parse_balanced(input)
 rescue Parsanol::ParseFailed => e
   puts "Parse failed: #{e.message}"
   nil
-rescue SystemStackError => e
-  puts "Stack overflow - grammar too complex for input"
+rescue SystemStackError
+  puts 'Stack overflow - grammar too complex for input'
   nil
 end
 
@@ -108,9 +110,10 @@ def build_ast(tree)
   return EmptyExpr.new if tree.to_s.empty?
 
   if tree.is_a?(Array)
-    exprs = tree.map { |t| build_ast(t) }.reject { |e| e.is_a?(EmptyExpr) }
+    exprs = tree.map { |t| build_ast(t) }.grep_v(EmptyExpr)
     return EmptyExpr.new if exprs.empty?
     return exprs.first if exprs.length == 1
+
     SequenceExpr.new(exprs)
   elsif tree.is_a?(Hash)
     if tree[:balanced]
@@ -127,35 +130,35 @@ def build_ast(tree)
 end
 
 # Example usage
-if __FILE__ == $0
-  puts "=" * 60
-  puts "Balanced Parentheses Parser - RubyTransform"
-  puts "=" * 60
+if __FILE__ == $PROGRAM_NAME
+  puts '=' * 60
+  puts 'Balanced Parentheses Parser - RubyTransform'
+  puts '=' * 60
   puts
 
   test_cases = [
-    "",              # Empty - balanced
-    "()",            # Simple - balanced
-    "(())",          # Nested - balanced
-    "(()())",       # Multiple - balanced
-    "((()))",       # Deeply nested - balanced
-    "(()())()",     # Multiple groups - balanced
-    "(())(())",     # Two groups - balanced
-    "(",             # Unbalanced - should fail
-    ")",             # Unbalanced - should fail
-    "(()",           # Unbalanced - should fail
-    "())",           # Unbalanced - should fail
-    "((())",         # Unbalanced - should fail
+    '',              # Empty - balanced
+    '()',            # Simple - balanced
+    '(())',          # Nested - balanced
+    '(()())',       # Multiple - balanced
+    '((()))',       # Deeply nested - balanced
+    '(()())()',     # Multiple groups - balanced
+    '(())(())',     # Two groups - balanced
+    '(',             # Unbalanced - should fail
+    ')',             # Unbalanced - should fail
+    '(()',           # Unbalanced - should fail
+    '())',           # Unbalanced - should fail
+    '((())' # Unbalanced - should fail
   ]
 
   test_cases.each do |input|
-    puts "-" * 40
+    puts '-' * 40
     puts "Input: '#{input}'"
     ast = parse_balanced(input)
     if ast
       puts "Result: #{ast.balanced? ? '✓ BALANCED' : '✗ UNBALANCED'}"
     else
-      puts "Result: ✗ PARSE FAILED"
+      puts 'Result: ✗ PARSE FAILED'
     end
     puts
   end

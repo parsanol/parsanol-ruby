@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Parsanol::Rope do
@@ -185,7 +187,7 @@ describe Parsanol::Rope do
       rope = described_class.new
       100.times { |i| rope.append(i.to_s) }
       result = rope.to_s
-      expected = (0...100).map(&:to_s).join
+      expected = (0...100).join
       expect(result).to eq(expected)
     end
 
@@ -201,7 +203,7 @@ describe Parsanol::Rope do
       rope = described_class.new
       rope.append('Hello ')
       rope.append('世界')
-      expect(rope.size).to eq(8)  # 6 ASCII + 2 multi-byte chars (counted as chars, not bytes)
+      expect(rope.size).to eq(8) # 6 ASCII + 2 multi-byte chars (counted as chars, not bytes)
     end
   end
 end

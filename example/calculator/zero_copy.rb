@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Calculator Example - ZeroCopy: Mirrored Objects (Direct FFI)
 #
 # This example demonstrates ZeroCopy where:
@@ -9,7 +11,7 @@
 # This option provides the best performance but requires type definitions
 # in both Rust and Ruby.
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 
@@ -82,24 +84,24 @@ class CalculatorParser < Parsanol::Parser
 
   root :expression
 
-  rule(:expression) {
+  rule(:expression) do
     (term.as(:left) >> add_op.as(:op) >> expression.as(:right)).as(:binop) |
-    term
-  }
+      term
+  end
 
-  rule(:term) {
+  rule(:term) do
     (factor.as(:left) >> mult_op.as(:op) >> term.as(:right)).as(:binop) |
-    factor
-  }
+      factor
+  end
 
-  rule(:factor) {
-    lparen >> expression >> rparen |
-    number
-  }
+  rule(:factor) do
+    (lparen >> expression >> rparen) |
+      number
+  end
 
-  rule(:number) {
-    (match('[0-9]').repeat(1)).as(:int) >> space?
-  }
+  rule(:number) do
+    match('[0-9]').repeat(1).as(:int) >> space?
+  end
 
   rule(:add_op) { match('[+-]').as(:op) >> space? }
   rule(:mult_op) { match('[*/]').as(:op) >> space? }
@@ -118,7 +120,7 @@ end
 
 # Step 3: Parse with direct object construction
 def calculate(input)
-  parser = CalculatorParser.new
+  CalculatorParser.new
 
   # ZeroCopy: Parse and get direct Ruby objects
   # NOTE: This requires native extension support
@@ -132,7 +134,7 @@ def calculate(input)
 
   # Simulate direct object construction
   expr = simulate_parse(input)
-  puts "AST: #{expr.class} -> #{expr.to_s}"
+  puts "AST: #{expr.class} -> #{expr}"
 
   result = expr.eval
   puts "Result: #{result}"
@@ -143,21 +145,21 @@ end
 # Simulated parsing for demonstration
 def simulate_parse(input)
   case input.strip
-  when "42"
+  when '42'
     Calculator::Number.new(42)
-  when "1 + 2"
+  when '1 + 2'
     Calculator::BinOp.new(
       left: Calculator::Number.new(1),
       op: '+',
       right: Calculator::Number.new(2)
     )
-  when "3 * 4"
+  when '3 * 4'
     Calculator::BinOp.new(
       left: Calculator::Number.new(3),
       op: '*',
       right: Calculator::Number.new(4)
     )
-  when "2 + 3 * 4"
+  when '2 + 3 * 4'
     Calculator::BinOp.new(
       left: Calculator::Number.new(2),
       op: '+',
@@ -167,7 +169,7 @@ def simulate_parse(input)
         right: Calculator::Number.new(4)
       )
     )
-  when "(2 + 3) * 4"
+  when '(2 + 3) * 4'
     Calculator::BinOp.new(
       left: Calculator::BinOp.new(
         left: Calculator::Number.new(2),
@@ -183,50 +185,50 @@ def simulate_parse(input)
 end
 
 # Example usage
-if __FILE__ == $0
-  puts "=" * 60
-  puts "Calculator Example - ZeroCopy: Mirrored Objects"
-  puts "=" * 60
+if __FILE__ == $PROGRAM_NAME
+  puts '=' * 60
+  puts 'Calculator Example - ZeroCopy: Mirrored Objects'
+  puts '=' * 60
   puts
-  puts "NOTE: This example shows the planned API for ZeroCopy."
-  puts "The native extension support for parse_to_objects is coming soon."
+  puts 'NOTE: This example shows the planned API for ZeroCopy.'
+  puts 'The native extension support for parse_to_objects is coming soon.'
   puts
 
   test_cases = [
-    ["42", 42],
-    ["1 + 2", 3],
-    ["3 * 4", 12],
-    ["2 + 3 * 4", 14],
-    ["(2 + 3) * 4", 20],
+    ['42', 42],
+    ['1 + 2', 3],
+    ['3 * 4', 12],
+    ['2 + 3 * 4', 14],
+    ['(2 + 3) * 4', 20]
   ]
 
   test_cases.each do |input, expected|
     puts
-    puts "-" * 40
+    puts '-' * 40
     puts "Input: #{input}"
     begin
       result = calculate(input)
-      status = result == expected ? "✓ PASS" : "✗ FAIL"
+      status = result == expected ? '✓ PASS' : '✗ FAIL'
       puts "Expected: #{expected}, Got: #{result} - #{status}"
-    rescue => e
+    rescue StandardError => e
       puts "Error: #{e.message}"
-      puts "✗ FAIL"
+      puts '✗ FAIL'
     end
   end
 
   puts
-  puts "=" * 60
-  puts "ZeroCopy Benefits:"
-  puts "- FASTEST: No serialization overhead"
-  puts "- Zero-copy: Direct Ruby object construction"
-  puts "- Type-safe: Types defined in both Rust and Ruby"
-  puts "- Methods defined in Ruby (eval, to_s, etc.)"
+  puts '=' * 60
+  puts 'ZeroCopy Benefits:'
+  puts '- FASTEST: No serialization overhead'
+  puts '- Zero-copy: Direct Ruby object construction'
+  puts '- Type-safe: Types defined in both Rust and Ruby'
+  puts '- Methods defined in Ruby (eval, to_s, etc.)'
   puts
-  puts "ZeroCopy Requirements:"
-  puts "- Define types in Rust with #[derive(RubyObject)]"
-  puts "- Define matching Ruby classes"
-  puts "- Native extension compiled with ruby feature"
-  puts "=" * 60
+  puts 'ZeroCopy Requirements:'
+  puts '- Define types in Rust with #[derive(RubyObject)]'
+  puts '- Define matching Ruby classes'
+  puts '- Native extension compiled with ruby feature'
+  puts '=' * 60
 end
 
 # Rust code that would be needed (for reference):

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Email Parser Example - RubyTransform
 #
 # This example demonstrates parsing email addresses with validation.
@@ -5,7 +7,7 @@
 #
 # Run with: ruby -Ilib example/email_ruby_transform.rb
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 
@@ -13,23 +15,23 @@ require 'parsanol'
 class EmailParser < Parsanol::Parser
   root :email
 
-  rule(:email) {
+  rule(:email) do
     local_part.as(:local) >>
-    str('@') >>
-    domain.as(:domain)
-  }
+      str('@') >>
+      domain.as(:domain)
+  end
 
-  rule(:local_part) {
+  rule(:local_part) do
     (alphanumeric | match('[._%+-]')).repeat(1)
-  }
+  end
 
-  rule(:domain) {
+  rule(:domain) do
     label >> (str('.') >> label).repeat
-  }
+  end
 
-  rule(:label) {
+  rule(:label) do
     alphanumeric.repeat(1)
-  }
+  end
 
   rule(:alphanumeric) { match('[a-zA-Z0-9]') }
 end
@@ -68,36 +70,34 @@ def parse_email(input)
   local = tree[:local].to_s
   domain = tree[:domain].to_s
 
-  email = EmailAddress.new(local, domain)
-
-  email
+  EmailAddress.new(local, domain)
 rescue Parsanol::ParseFailed => e
   puts "Parse failed: #{e.message}"
   nil
 end
 
 # Example usage
-if __FILE__ == $0
-  puts "=" * 60
-  puts "Email Parser - RubyTransform"
-  puts "=" * 60
+if __FILE__ == $PROGRAM_NAME
+  puts '=' * 60
+  puts 'Email Parser - RubyTransform'
+  puts '=' * 60
   puts
 
   test_emails = [
-    "user@example.com",
-    "john.doe@example.org",
-    "test123@subdomain.example.co.uk",
-    "invalid-email",
-    "@missing-local.com",
-    "no-at-sign.com",
+    'user@example.com',
+    'john.doe@example.org',
+    'test123@subdomain.example.co.uk',
+    'invalid-email',
+    '@missing-local.com',
+    'no-at-sign.com'
   ]
 
   test_emails.each do |email_str|
-    puts "-" * 40
+    puts '-' * 40
     puts "Input: #{email_str}"
     email = parse_email(email_str)
     if email
-      puts "  Email: #{email.to_s}"
+      puts "  Email: #{email}"
       puts "  Local: #{email.local}"
       puts "  Domain: #{email.domain}"
     end

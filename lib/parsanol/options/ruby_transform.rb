@@ -35,9 +35,7 @@ module Parsanol
       # @param backend [Symbol] :ruby (default) or :rust
       # @return [Symbol] Current backend setting
       def parse_backend(backend = nil)
-        if backend
-          @parse_backend = backend
-        end
+        @parse_backend = backend if backend
         @parse_backend ||= :ruby
       end
 
@@ -52,8 +50,8 @@ module Parsanol
       def use_rust_backend!
         unless Parsanol::Native.available?
           raise LoadError,
-            "Rust backend requested but native extension not available. " \
-            "Run `rake compile` to build the extension."
+                "Rust backend requested but native extension not available. " \
+                "Run `rake compile` to build the extension."
         end
         @parse_backend = :rust
       end
@@ -94,7 +92,7 @@ module Parsanol
 
     # Parse using Rust native extension
     def parse_with_rust(input, options = {})
-      consume_all = options.fetch(:consume_all, true)
+      options.fetch(:consume_all, true)
 
       # Use native parser with Parslet-compatible output
       Parsanol::Native.parse_parslet_compatible(root, input)

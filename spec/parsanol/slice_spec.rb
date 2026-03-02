@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Parsanol::Slice do
@@ -11,7 +13,7 @@ describe Parsanol::Slice do
 
   describe 'construction' do
     it 'constructs from a byte position and a string' do
-      cslice("foobar", 40)
+      cslice('foobar', 40)
     end
   end
 
@@ -21,19 +23,18 @@ describe Parsanol::Slice do
     describe 'comparison' do
       it 'is equal to other slices with the same attributes' do
         other = cslice('foobar', 40)
-        slice.should == other
+        slice.should
         other.should == slice
       end
 
-      it "is equal to other slices (offset is irrelevant for comparison)" do
-        other = cslice("foobar", 41)
-        slice.should == other
+      it 'is equal to other slices (offset is irrelevant for comparison)' do
+        other = cslice('foobar', 41)
+        slice.should
         other.should == slice
       end
 
       it 'is equal to a string with the same content' do
         slice.should == 'foobar'
-
       end
 
       it 'is equal to a string (inversed operands)' do
@@ -115,11 +116,11 @@ describe Parsanol::Slice do
       describe '<- #+' do
         subject { slice + other }
 
-        let(:other) { cslice("baz", 10) }
+        let(:other) { cslice('baz', 10) }
 
         it 'concats like string does' do
-          subject.size.should == 9
-          subject.should == 'foobarbaz'
+          subject.size.should
+          subject.should
           subject.offset.should == 40
         end
       end
@@ -147,7 +148,7 @@ describe Parsanol::Slice do
       describe 'cast to Integer' do
         it 'casts to integer as a string would' do
           s = cslice('1234', 40)
-          Integer(s).should == 1234
+          Integer(s).should
           s.to_i.should == 1234
         end
 
@@ -164,7 +165,6 @@ describe Parsanol::Slice do
     describe 'inspection and string conversion' do
       describe '#inspect' do
         subject { slice.inspect }
-
 
         it {
           # For Opal we have redefined inspect to return the string itself

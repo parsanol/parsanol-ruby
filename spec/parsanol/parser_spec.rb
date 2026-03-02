@@ -1,7 +1,10 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Parsanol::Parser do
   include Parsanol
+
   class FooParser < Parsanol::Parser
     rule(:foo) { str('foo') }
     root(:foo)

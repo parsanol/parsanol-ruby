@@ -1,15 +1,16 @@
+# frozen_string_literal: true
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 require 'parsanol/parslet'
 
 include Parsanol::Parslet
 
-parser = str('a').capture(:a) >> scope { str('b').capture(:a) } >> 
-  dynamic { |s,c| str(c.captures[:a]) }
-  
+parser = str('a').capture(:a) >> scope { str('b').capture(:a) } >>
+         dynamic { |_s, c| str(c.captures[:a]) }
+
 begin
   parser.parse('aba')
   puts "parses 'aba'"
-rescue
-  puts "exception!"
+rescue StandardError
+  puts 'exception!'
 end

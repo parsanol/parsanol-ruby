@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # INI Parser Example - RubyTransform
 #
 # This example demonstrates parsing INI configuration files.
@@ -5,7 +7,7 @@
 #
 # Run with: ruby -Ilib example/ini_ruby_transform.rb
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 
@@ -13,36 +15,36 @@ require 'parsanol'
 class IniParser < Parsanol::Parser
   root :ini
 
-  rule(:ini) {
+  rule(:ini) do
     (section | key_value | comment).repeat
-  }
+  end
 
   # Section header: [section_name]
-  rule(:section) {
+  rule(:section) do
     (space? >> str('[') >> section_name.as(:name) >> str(']') >> space? >> str("\n").maybe).as(:section)
-  }
+  end
 
-  rule(:section_name) {
-    (match('[^]\n]').repeat(1))
-  }
+  rule(:section_name) do
+    match('[^]\n]').repeat(1)
+  end
 
   # Key-Value pair: key = value
-  rule(:key_value) {
+  rule(:key_value) do
     (space? >> key.as(:key) >> space? >> str('=') >> space? >> value.as(:value) >> space? >> str("\n").maybe).as(:kv)
-  }
+  end
 
-  rule(:key) {
+  rule(:key) do
     match('[^\s=]').repeat(1)
-  }
+  end
 
-  rule(:value) {
-    (match('[^\n]').repeat)
-  }
+  rule(:value) do
+    match('[^\n]').repeat
+  end
 
   # Comment: # or ; at start of line
-  rule(:comment) {
+  rule(:comment) do
     (space? >> (str('#') | str(';')) >> match('[^\n]').repeat >> str("\n").maybe).as(:comment)
-  }
+  end
 
   rule(:space?) { match('\s').repeat }
 end
@@ -111,10 +113,10 @@ def parse_ini(input)
 end
 
 # Example usage
-if __FILE__ == $0
-  puts "=" * 60
-  puts "INI Parser - RubyTransform"
-  puts "=" * 60
+if __FILE__ == $PROGRAM_NAME
+  puts '=' * 60
+  puts 'INI Parser - RubyTransform'
+  puts '=' * 60
   puts
 
   ini_content = <<~INI
@@ -135,19 +137,19 @@ if __FILE__ == $0
     ttl = 3600
   INI
 
-  puts "Input:"
-  puts "-" * 40
+  puts 'Input:'
+  puts '-' * 40
   puts ini_content
   puts
-  puts "Parsed:"
-  puts "-" * 40
+  puts 'Parsed:'
+  puts '-' * 40
 
   ini = parse_ini(ini_content)
 
   puts
-  puts "=" * 60
-  puts "Accessing parsed data:"
-  puts "=" * 60
+  puts '=' * 60
+  puts 'Accessing parsed data:'
+  puts '=' * 60
   puts "database.host: #{ini.get('database', 'host')}"
   puts "database.port: #{ini.get('database', 'port')}"
   puts "server.debug: #{ini.get('server', 'debug')}"

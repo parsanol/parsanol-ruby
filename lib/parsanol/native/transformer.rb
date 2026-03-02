@@ -18,9 +18,9 @@ module Parsanol
     #
     class AstTransformer
       # Frozen string constants for tag comparisons (avoid allocations)
-      SEQUENCE_TAG = ':sequence'.freeze
-      REPETITION_TAG = ':repetition'.freeze
-      EMPTY_STRING = ''.freeze
+      SEQUENCE_TAG = ':sequence'
+      REPETITION_TAG = ':repetition'
+      EMPTY_STRING = ''
       EMPTY_ARRAY = [].freeze
       EMPTY_HASH = {}.freeze
 
@@ -48,11 +48,12 @@ module Parsanol
       # Convert string key to symbol with caching
       def self.cached_symbol(key)
         return key if key.is_a?(Symbol)
+
         @@symbol_cache[key] ||= key.to_sym
       end
 
       def self.transform_array(arr)
-        return EMPTY_ARRAY if arr.empty?  # Match Parsanol Ruby mode behavior
+        return EMPTY_ARRAY if arr.empty? # Match Parsanol Ruby mode behavior
 
         # Check if this is a tagged array from native parser
         first = arr.first
@@ -96,9 +97,7 @@ module Parsanol
       def self.transform_hash(hash)
         # Fast path: single-key hash (99.9% of cases from native parser)
         # Native parser always produces single-key hashes: {"name" => value}
-        if hash.length == 1
-          return transform_single_key_hash(hash)
-        end
+        return transform_single_key_hash(hash) if hash.length == 1
 
         # Slow path: multi-key hash (rare, from nested structures)
         transform_multi_key_hash(hash)
@@ -113,13 +112,13 @@ module Parsanol
 
         # Check if value is a tagged repetition from native parser
         is_tagged_repetition = value.is_a?(Array) && !value.empty? &&
-                        value.first.is_a?(String) && value.first == REPETITION_TAG
+                               value.first.is_a?(String) && value.first == REPETITION_TAG
 
         # Check RAW value for repetition pattern BEFORE transformation
         # Array with items that all have the parent key
         # e.g., [{x: 1}, {x: 2}] where parent key is :x
         is_raw_array_repetition = value.is_a?(Array) && !value.empty? &&
-          value.all? { |item| item.is_a?(Hash) && item.keys.length == 1 && item.key?(key) }
+                                  value.all? { |item| item.is_a?(Hash) && item.keys.length == 1 && item.key?(key) }
 
         # Empty array from native parser is a repetition result (not a sequence)
         # Sequences produce arrays of arrays like [[], []], not empty arrays
@@ -138,7 +137,9 @@ module Parsanol
         # Check for UNTAGGED repetition pattern (native output):
         # If array items all have the same key as parent, it's a repetition
         is_transformed_repetition = transformed.is_a?(Array) && !transformed.empty? &&
-          transformed.all? { |item| item.is_a?(Hash) && item.keys.length == 1 && item.key?(sym_key) }
+                                    transformed.all? do |item|
+                                      item.is_a?(Hash) && item.keys.length == 1 && item.key?(sym_key)
+                                    end
 
         is_repetition = is_tagged_repetition || is_raw_array_repetition || is_transformed_repetition || is_empty_repetition
 
@@ -169,7 +170,7 @@ module Parsanol
             { sym_key => transformed.map { |item| { sym_key => item } } }
           end
         elsif transformed == EMPTY_STRING
-          { sym_key => EMPTY_ARRAY }  # Empty repetition should be [], not ""
+          { sym_key => EMPTY_ARRAY } # Empty repetition should be [], not ""
         else
           { sym_key => transformed }
         end
@@ -186,7 +187,7 @@ module Parsanol
         elsif transformed.all? { |v| v.is_a?(Hash) && v.keys.length == 1 && v.key?(sym_key) }
           # Items already have the parent key (repetition pattern) - keep as-is
           { sym_key => transformed }
-        elsif transformed.all? { |v| v.is_a?(Hash) }
+        elsif transformed.all?(Hash)
           # Items are hashes with DIFFERENT keys (not the parent key)
           # This is a repetition result from (separator >> item).repeat pattern
           # The items already have their correct structure, DON'T wrap them
@@ -209,31 +210,31 @@ module Parsanol
 
           transformed = transform(value)
 
-          if is_repetition
-            result[sym_key] = if transformed.is_a?(Array)
-              if transformed.all? { |item| item.is_a?(Hash) && item.key?(sym_key) }
-                transformed
-              else
-                transformed.map { |item| { sym_key => item } }
-              end
-            elsif transformed == EMPTY_STRING
-              EMPTY_STRING
-            else
-              transformed
-            end
-          elsif transformed.is_a?(Hash)
-            result[sym_key] = transformed
-          elsif transformed.is_a?(Array)
-            result[sym_key] = if transformed.empty?
-              EMPTY_ARRAY
-            elsif transformed.all? { |v| v.is_a?(Hash) }
-              transformed.map { |item| { sym_key => item } }
-            else
-              transformed
-            end
-          else
-            result[sym_key] = transformed
-          end
+          result[sym_key] = if is_repetition
+                              if transformed.is_a?(Array)
+                                if transformed.all? { |item| item.is_a?(Hash) && item.key?(sym_key) }
+                                  transformed
+                                else
+                                  transformed.map { |item| { sym_key => item } }
+                                end
+                              elsif transformed == EMPTY_STRING
+                                EMPTY_STRING
+                              else
+                                transformed
+                              end
+                            elsif transformed.is_a?(Hash)
+                              transformed
+                            elsif transformed.is_a?(Array)
+                              if transformed.empty?
+                                EMPTY_ARRAY
+                              elsif transformed.all?(Hash)
+                                transformed.map { |item| { sym_key => item } }
+                              else
+                                transformed
+                              end
+                            else
+                              transformed
+                            end
         end
 
         result
@@ -255,7 +256,7 @@ module Parsanol
       #
       # Optimized: Single-pass with direct result building
       def self.flatten_sequence(items)
-        return EMPTY_ARRAY if items.empty?  # Match Parsanol Ruby mode
+        return EMPTY_ARRAY if items.empty? # Match Parsanol Ruby mode
 
         # DON'T unwrap single items - let the caller handle this
         # This preserves repetition results like [{:x => 1}]
@@ -359,18 +360,18 @@ module Parsanol
                 item[wrapper_key].is_a?(Hash)
               end
 
-              if all_values_are_hashes
-                # Wrapper pattern: merge the inner hashes
-                merged_inner = {}
-                items.each do |item|
-                  inner_value = item[wrapper_key]
-                  merged_inner.merge!(inner_value)
-                end
-                return { wrapper_key => merged_inner }
-              else
-                # Repetition pattern: keep as array
-                return items
+              return items unless all_values_are_hashes
+
+              # Wrapper pattern: merge the inner hashes
+              merged_inner = {}
+              items.each do |item|
+                inner_value = item[wrapper_key]
+                merged_inner.merge!(inner_value)
               end
+              return { wrapper_key => merged_inner }
+
+              # Repetition pattern: keep as array
+
             end
           end
 
@@ -382,9 +383,7 @@ module Parsanol
         # PARSLET SEQUENCE SEMANTICS:
         # If there are named captures (hashes) mixed with other things,
         # return ONLY the merged hash (discard unnamed strings)
-        if !merged_hash.empty?
-          return merged_hash
-        end
+        return merged_hash unless merged_hash.empty?
 
         # No named captures - handle strings and other items
         if string_parts.any?
@@ -392,9 +391,7 @@ module Parsanol
         end
 
         # Only other items (arrays, etc.)
-        if total_items == 0
-          return EMPTY_ARRAY
-        end
+        return EMPTY_ARRAY if total_items.zero?
 
         items.length == 1 ? items.first : items
       end
@@ -425,7 +422,7 @@ module Parsanol
         return EMPTY_ARRAY if flat_items.empty?
 
         # If all strings, join them (string-like repetition)
-        if all_strings && flat_items.all? { |i| i.is_a?(String) }
+        if all_strings && flat_items.all?(String)
           flat_items.join
         else
           flat_items

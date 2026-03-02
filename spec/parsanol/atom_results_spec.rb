@@ -1,7 +1,10 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe 'Result of a Parsanol#parse' do
-  include Parsanol; extend Parsanol
+  include Parsanol
+  extend Parsanol
 
   describe 'regression' do
     [
@@ -27,9 +30,9 @@ describe 'Result of a Parsanol#parse' do
 
       # Maybe behaviour / named vs. unnamed
       [str('f').maybe, '', ''],
-      [str('f').maybe.as(:f), '', { f: nil }],
+      [str('f').maybe.as(:f), '', { f: nil }]
     ].each do |parslet, input, result|
-      context parslet.inspect.to_s do
+      context parslet.inspect do
         it "parses \"#{input}\" into \"#{result}\"" do
           expect(strip_positions(parslet.parse(input))).to eq(result)
         end

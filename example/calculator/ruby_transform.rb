@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Calculator Example - Ruby Transform: Ruby Transform (Parslet-Compatible)
 #
 # This example demonstrates Ruby Transform where:
@@ -7,7 +9,7 @@
 #
 # This is the most flexible option and is 100% Parslet API compatible.
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 
@@ -15,24 +17,24 @@ require 'parsanol'
 class CalculatorParser < Parsanol::Parser
   root :expression
 
-  rule(:expression) {
+  rule(:expression) do
     (term.as(:left) >> add_op.as(:op) >> expression.as(:right)).as(:binop) |
-    term
-  }
+      term
+  end
 
-  rule(:term) {
+  rule(:term) do
     (factor.as(:left) >> mult_op.as(:op) >> term.as(:right)).as(:binop) |
-    factor
-  }
+      factor
+  end
 
-  rule(:factor) {
-    lparen >> expression >> rparen |
-    number
-  }
+  rule(:factor) do
+    (lparen >> expression >> rparen) |
+      number
+  end
 
-  rule(:number) {
-    (match('[0-9]').repeat(1)).as(:int) >> space?
-  }
+  rule(:number) do
+    match('[0-9]').repeat(1).as(:int) >> space?
+  end
 
   rule(:add_op) { match('[+-]').as(:op) >> space? }
   rule(:mult_op) { match('[*/]').as(:op) >> space? }
@@ -93,9 +95,9 @@ class CalculatorTransform < Parsanol::Transform
   # Transform binary operations
   # NOTE: The grammar wraps op with as(:op), so we get { op: { op: "+" } }
   # The outer :op is from add_op.as(:op), inner :op is from match('[+-]').as(:op)
-  rule(left: simple(:l), op: { op: simple(:o) }, right: simple(:r)) {
+  rule(left: simple(:l), op: { op: simple(:o) }, right: simple(:r)) do
     BinOpExpr.new(l, o, r)
-  }
+  end
 
   # Handle binop wrapper
   rule(binop: simple(:b)) { b }
@@ -111,7 +113,7 @@ def calculate(input)
   puts "Parse tree: #{tree.inspect}"
 
   ast = transform.apply(tree)
-  puts "AST: #{ast.to_s}"
+  puts "AST: #{ast}"
 
   result = ast.eval
   puts "Result: #{result}"
@@ -120,32 +122,32 @@ def calculate(input)
 end
 
 # Example usage
-if __FILE__ == $0
+if __FILE__ == $PROGRAM_NAME
   test_cases = [
-    ["42", 42],
-    ["1 + 2", 3],
-    ["3 * 4", 12],
-    ["2 + 3 * 4", 14],
-    ["(2 + 3) * 4", 20],
-    ["10 - 3 - 2", 5],  # Left associative: (10 - 3) - 2
-    ["100 / 5 / 2", 10], # Left associative: (100 / 5) / 2
+    ['42', 42],
+    ['1 + 2', 3],
+    ['3 * 4', 12],
+    ['2 + 3 * 4', 14],
+    ['(2 + 3) * 4', 20],
+    ['10 - 3 - 2', 5], # Left associative: (10 - 3) - 2
+    ['100 / 5 / 2', 10] # Left associative: (100 / 5) / 2
   ]
 
-  puts "=" * 60
-  puts "Calculator Example - Ruby Transform: Ruby Transform"
-  puts "=" * 60
+  puts '=' * 60
+  puts 'Calculator Example - Ruby Transform: Ruby Transform'
+  puts '=' * 60
 
   test_cases.each do |input, expected|
     puts
-    puts "-" * 40
+    puts '-' * 40
     puts "Input: #{input}"
     begin
       result = calculate(input)
-      status = result == expected ? "✓ PASS" : "✗ FAIL"
+      status = result == expected ? '✓ PASS' : '✗ FAIL'
       puts "Expected: #{expected}, Got: #{result} - #{status}"
-    rescue => e
+    rescue StandardError => e
       puts "Error: #{e.message}"
-      puts "✗ FAIL"
+      puts '✗ FAIL'
     end
   end
 end

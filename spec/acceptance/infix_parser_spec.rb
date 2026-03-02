@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe 'Infix expression parsing' do
@@ -89,7 +91,7 @@ describe 'Infix expression parsing' do
     describe 'right associativity' do
       it 'produces trees that lean right' do
         mo.should parse('1+2+3').as(
-          left: '1', op: '+', right: { left: '2', op: '+', right: '3' },
+          left: '1', op: '+', right: { left: '2', op: '+', right: '3' }
         )
       end
     end
@@ -97,7 +99,7 @@ describe 'Infix expression parsing' do
     describe 'left associativity' do
       it 'produces trees that lean left' do
         mo.should parse('1*2*3').as(
-          left: { left: '1', op: '*', right: '2' }, op: '*', right: '3',
+          left: { left: '1', op: '*', right: '2' }, op: '*', right: '3'
         )
       end
     end

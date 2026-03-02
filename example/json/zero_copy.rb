@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # JSON Parser Example - ZeroCopy: Mirrored Objects (Direct FFI)
 #
 # This example demonstrates ZeroCopy for parsing JSON:
@@ -8,7 +10,7 @@
 #
 # This option provides the best performance for JSON parsing.
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 
@@ -29,7 +31,7 @@ module Json
 
   class Null < Value
     def to_ruby = nil
-    def to_s = "null"
+    def to_s = 'null'
   end
 
   class Bool < Value
@@ -40,7 +42,7 @@ module Json
     end
 
     def to_ruby = @value
-    def to_s = @value ? "true" : "false"
+    def to_s = @value ? 'true' : 'false'
   end
 
   class Number < Value
@@ -73,7 +75,7 @@ module Json
     end
 
     def to_ruby = @elements.map(&:to_ruby)
-    def to_s = "[#{@elements.map(&:to_s).join(', ')}]"
+    def to_s = "[#{@elements.join(', ')}]"
   end
 
   class Object < Value
@@ -109,49 +111,49 @@ class JsonParser < Parsanol::Parser
 
   rule(:json) { space? >> value >> space? }
 
-  rule(:value) {
+  rule(:value) do
     object |
-    array |
-    string |
-    number |
-    true_value |
-    false_value |
-    null_value
-  }
+      array |
+      string |
+      number |
+      true_value |
+      false_value |
+      null_value
+  end
 
-  rule(:object) {
+  rule(:object) do
     str('{') >> space? >>
-    (entry >> (comma >> entry).repeat).maybe.as(:object) >>
-    space? >> str('}')
-  }
+      (entry >> (comma >> entry).repeat).maybe.as(:object) >>
+      space? >> str('}')
+  end
 
-  rule(:entry) {
+  rule(:entry) do
     (string.as(:key) >> space? >> colon >> space? >> value.as(:val)).as(:entry)
-  }
+  end
 
-  rule(:array) {
+  rule(:array) do
     str('[') >> space? >>
-    (value >> (comma >> value).repeat).maybe.as(:array) >>
-    space? >> str(']')
-  }
+      (value >> (comma >> value).repeat).maybe.as(:array) >>
+      space? >> str(']')
+  end
 
-  rule(:string) {
+  rule(:string) do
     str('"') >> (
-      str('\\') >> any | str('"').absent? >> any
+      (str('\\') >> any) | (str('"').absent? >> any)
     ).repeat.as(:string) >> str('"')
-  }
+  end
 
-  rule(:number) {
+  rule(:number) do
     (
       str('-').maybe >>
       (str('0') | (match('[1-9]') >> digit.repeat)) >>
       (str('.') >> digit.repeat(1)).maybe >>
       (match('[eE]') >> (str('+') | str('-')).maybe >> digit.repeat(1)).maybe
     ).as(:number)
-  }
+  end
 
-  rule(:true_value) { str('true').as(:true) }
-  rule(:false_value) { str('false').as(:false) }
+  rule(:true_value) { str('true').as(true) }
+  rule(:false_value) { str('false').as(false) }
   rule(:null_value) { str('null').as(:null) }
 
   rule(:digit) { match('[0-9]') }
@@ -173,7 +175,7 @@ end
 
 # Step 3: Parse with direct object construction
 def parse_json(input)
-  parser = JsonParser.new
+  JsonParser.new
 
   # ZeroCopy: Parse and get direct Ruby objects
   # NOTE: This requires native extension support
@@ -184,7 +186,7 @@ def parse_json(input)
   # For demonstration, simulate what ZeroCopy would return
   value = simulate_parse(input)
   puts "Parsed: #{value.class}"
-  puts "Value: #{value.to_s}"
+  puts "Value: #{value}"
 
   result = value.to_ruby
   puts "Ruby: #{result.inspect[0..100]}..."
@@ -204,20 +206,20 @@ def simulate_parse(input)
   when 'false'
     Json::Bool.new(false)
   when /^"(.*)"$/
-    Json::String.new($1)
+    Json::String.new(Regexp.last_match(1))
   when /^-?\d+$/
     Json::Number.new(input.to_i)
   when /^-?\d+\.\d+$/
     Json::Number.new(input.to_f)
   when /^\[(.*)\]$/
-    inner = $1.strip
+    inner = Regexp.last_match(1).strip
     return Json::Array.new([]) if inner.empty?
 
     # Simple split for demonstration
     elements = inner.split(',').map { |e| simulate_parse(e.strip) }
     Json::Array.new(elements)
   when /^\{(.*)\}$/
-    inner = $1.strip
+    inner = Regexp.last_match(1).strip
     return Json::Object.new({}) if inner.empty?
 
     # Simple parse for demonstration
@@ -232,60 +234,60 @@ def simulate_parse(input)
 end
 
 # Example usage
-if __FILE__ == $0
-  puts "=" * 60
-  puts "JSON Parser Example - ZeroCopy: Mirrored Objects"
-  puts "=" * 60
+if __FILE__ == $PROGRAM_NAME
+  puts '=' * 60
+  puts 'JSON Parser Example - ZeroCopy: Mirrored Objects'
+  puts '=' * 60
   puts
-  puts "NOTE: This example shows the planned API for ZeroCopy."
-  puts "The native extension support for parse_to_objects is coming soon."
+  puts 'NOTE: This example shows the planned API for ZeroCopy.'
+  puts 'The native extension support for parse_to_objects is coming soon.'
   puts
 
   test_cases = [
-    ['"hello"', "hello"],
+    ['"hello"', 'hello'],
     ['42', 42],
     ['true', true],
     ['null', nil],
     ['[1, 2, 3]', [1, 2, 3]],
-    ['{"a": 1}', { "a" => 1 }],
+    ['{"a": 1}', { 'a' => 1 }]
   ]
 
   test_cases.each do |input, expected|
     puts
-    puts "-" * 40
+    puts '-' * 40
     puts "Input: #{input}"
     begin
       result = parse_json(input)
-      status = result == expected ? "✓ PASS" : "✗ FAIL"
+      status = result == expected ? '✓ PASS' : '✗ FAIL'
       puts "Expected: #{expected.inspect}, Got: #{result.inspect} - #{status}"
-    rescue => e
+    rescue StandardError => e
       puts "Error: #{e.message}"
-      puts "✗ FAIL"
+      puts '✗ FAIL'
     end
   end
 
   # Show type safety benefit
   puts
-  puts "-" * 40
-  puts "Type Safety Example:"
+  puts '-' * 40
+  puts 'Type Safety Example:'
   json_obj = simulate_parse('{"name": "Alice", "age": 30}')
   puts "Parsed object type: #{json_obj.class}"
   puts "Name field type: #{json_obj['name'].class}"
   puts "Age field type: #{json_obj['age'].class}"
 
   puts
-  puts "=" * 60
-  puts "ZeroCopy Benefits for JSON:"
-  puts "- FASTEST: No serialization overhead"
-  puts "- Type-safe: Each JSON value type is a different class"
-  puts "- Methods: Can add custom methods to Json::Object, etc."
-  puts "- Zero-copy: Direct construction from Rust"
+  puts '=' * 60
+  puts 'ZeroCopy Benefits for JSON:'
+  puts '- FASTEST: No serialization overhead'
+  puts '- Type-safe: Each JSON value type is a different class'
+  puts '- Methods: Can add custom methods to Json::Object, etc.'
+  puts '- Zero-copy: Direct construction from Rust'
   puts
-  puts "When to use ZeroCopy for JSON:"
-  puts "- High-throughput JSON parsing"
-  puts "- When you need typed access to values"
-  puts "- When you want custom methods on JSON objects"
-  puts "=" * 60
+  puts 'When to use ZeroCopy for JSON:'
+  puts '- High-throughput JSON parsing'
+  puts '- When you need typed access to values'
+  puts '- When you want custom methods on JSON objects'
+  puts '=' * 60
 end
 
 # Rust code that would be needed (for reference):

@@ -25,9 +25,7 @@ module Parsanol
         unless (entry = @cache[beg]&.[](obj.object_id))
           result = obj.try(source, self, consume_all)
 
-          if obj.cached?
-            (@cache[beg] ||= {})[obj.object_id] = [result, source.bytepos - beg]
-          end
+          (@cache[beg] ||= {})[obj.object_id] = [result, source.bytepos - beg] if obj.cached?
 
           return result
         end
@@ -47,19 +45,22 @@ module Parsanol
         case parslets.size
         when 1
           success, value = parslets[0].apply(source, context, consume_all)
-          return success ? succ([:sequence, value]) : context.err(self, source, @error_msg, [value])
+          success ? succ([:sequence, value]) : context.err(self, source, @error_msg, [value])
         when 2
           success, v1 = parslets[0].apply(source, context, false)
           return context.err(self, source, @error_msg, [v1]) unless success
+
           success, v2 = parslets[1].apply(source, context, consume_all)
-          return success ? succ([:sequence, v1, v2]) : context.err(self, source, @error_msg, [v2])
+          success ? succ([:sequence, v1, v2]) : context.err(self, source, @error_msg, [v2])
         when 3
           success, v1 = parslets[0].apply(source, context, false)
           return context.err(self, source, @error_msg, [v1]) unless success
+
           success, v2 = parslets[1].apply(source, context, false)
           return context.err(self, source, @error_msg, [v2]) unless success
+
           success, v3 = parslets[2].apply(source, context, consume_all)
-          return success ? succ([:sequence, v1, v2, v3]) : context.err(self, source, @error_msg, [v3])
+          success ? succ([:sequence, v1, v2, v3]) : context.err(self, source, @error_msg, [v3])
         else
           result = [:sequence]
           last_idx = parslets.size - 1
@@ -67,6 +68,7 @@ module Parsanol
           while i <= last_idx
             success, value = parslets[i].apply(source, context, consume_all && i == last_idx)
             return context.err(self, source, @error_msg, [value]) unless success
+
             result << value
             i += 1
           end
@@ -86,9 +88,10 @@ module Parsanol
         tag = @tag
 
         # Fast path for .maybe
-        if min == 0 && max == 1
+        if min.zero? && max == 1
           success, value = parslet.apply(source, context, false)
           return succ([tag, value]) if success
+
           return succ(tag == :repetition ? EMPTY_REPETITION_ARRAY : [tag])
         end
 
@@ -101,13 +104,16 @@ module Parsanol
           when 2
             success, v1 = parslet.apply(source, context, false)
             return context.err_at(self, source, @error_msg, source.bytepos, [v1]) unless success
+
             success, v2 = parslet.apply(source, context, consume_all)
             return success ? succ([tag, v1, v2]) : context.err_at(self, source, @error_msg, source.bytepos, [v2])
           when 3
             success, v1 = parslet.apply(source, context, false)
             return context.err_at(self, source, @error_msg, source.bytepos, [v1]) unless success
+
             success, v2 = parslet.apply(source, context, false)
             return context.err_at(self, source, @error_msg, source.bytepos, [v2]) unless success
+
             success, v3 = parslet.apply(source, context, consume_all)
             return success ? succ([tag, v1, v2, v3]) : context.err_at(self, source, @error_msg, source.bytepos, [v3])
           end
@@ -134,9 +140,7 @@ module Parsanol
           return context.err_at(self, source, @error_msg, start_pos, [break_on])
         end
 
-        if consume_all && source.chars_left > 0
-          return context.err(self, source, @unconsumed_msg, [break_on])
-        end
+        return context.err(self, source, @unconsumed_msg, [break_on]) if consume_all && source.chars_left.positive?
 
         succ(result)
       end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Boolean Algebra Parser Example - RubyTransform: Ruby Transform
 #
 # This example demonstrates parsing boolean expressions with AND/OR operators.
@@ -5,7 +7,7 @@
 #
 # Run with: ruby -Ilib example/boolean_algebra_ruby_transform.rb
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 
@@ -16,22 +18,22 @@ class BooleanAlgebraParser < Parsanol::Parser
   rule(:expression) { or_expr }
 
   # OR expression (lowest precedence)
-  rule(:or_expr) {
+  rule(:or_expr) do
     (and_expr.as(:left) >> or_op >> or_expr.as(:right)).as(:or) |
-    and_expr
-  }
+      and_expr
+  end
 
   # AND expression (higher precedence)
-  rule(:and_expr) {
+  rule(:and_expr) do
     (primary.as(:left) >> and_op >> and_expr.as(:right)).as(:and) |
-    primary
-  }
+      primary
+  end
 
   # Primary: variable or parenthesized expression
-  rule(:primary) {
-    lparen >> expression >> rparen |
-    variable
-  }
+  rule(:primary) do
+    (lparen >> expression >> rparen) |
+      variable
+  end
 
   rule(:variable) { match['a-z'].repeat(1).as(:var) >> digit.repeat(1).as(:num) }
   rule(:digit) { match('[0-9]') }
@@ -101,38 +103,38 @@ class BooleanTransform < Parsanol::Transform
   rule(var: simple(:v), num: simple(:n)) { VarExpr.new("#{v}#{n}") }
   rule(and: simple(:a)) { a }
   rule(or: simple(:o)) { o }
-  rule(left: simple(:l), right: simple(:r)) {
+  rule(left: simple(:l), right: simple(:r)) do
     # This handles the case where there's no explicit operator
-    l  # Just return the left side for non-binary expressions
-  }
+    l # Just return the left side for non-binary expressions
+  end
 end
 
 # Transform that handles binary expressions properly
 class BooleanTransformFull < Parsanol::Transform
   rule(var: simple(:v), num: simple(:n)) { VarExpr.new("#{v}#{n}") }
 
-  rule(left: simple(:l), right: simple(:r)) {
+  rule(left: simple(:l), right: simple(:r)) do
     # This catches expressions without explicit and/or tags
     # Return just the first one (this is a simplified handling)
     l
-  }
+  end
 
   # These would need the actual tree structure to work correctly
-  rule(and: subtree(:a)) {
+  rule(and: subtree(:a)) do
     if a.is_a?(Hash) && a[:left] && a[:right]
       AndExpr.new(transform(a[:left]), transform(a[:right]))
     else
       a
     end
-  }
+  end
 
-  rule(or: subtree(:o)) {
+  rule(or: subtree(:o)) do
     if o.is_a?(Hash) && o[:left] && o[:right]
       OrExpr.new(transform(o[:left]), transform(o[:right]))
     else
       o
     end
-  }
+  end
 end
 
 # Manual AST builder for demonstration
@@ -156,8 +158,6 @@ def build_ast(tree)
   when Array
     build_ast(tree.first)
   when Parsanol::Slice
-    nil
-  else
     nil
   end
 end
@@ -202,52 +202,52 @@ def parse_boolean(input)
 
   # Build AST
   ast = build_ast(tree)
-  puts "AST: #{ast.to_s}"
+  puts "AST: #{ast}"
 
   ast
 end
 
 # Example usage
-if __FILE__ == $0
-  puts "=" * 60
-  puts "Boolean Algebra Parser - RubyTransform"
-  puts "=" * 60
+if __FILE__ == $PROGRAM_NAME
+  puts '=' * 60
+  puts 'Boolean Algebra Parser - RubyTransform'
+  puts '=' * 60
   puts
 
   expressions = [
-    "var1",
-    "var1 and var2",
-    "var1 or var2",
-    "var1 and var2 or var3",
-    "var1 or var2 and var3",
-    "(var1 or var2) and var3",
+    'var1',
+    'var1 and var2',
+    'var1 or var2',
+    'var1 and var2 or var3',
+    'var1 or var2 and var3',
+    '(var1 or var2) and var3'
   ]
 
   expressions.each do |expr_str|
-    puts "-" * 40
+    puts '-' * 40
     puts "Input: #{expr_str}"
     begin
-      ast = parse_boolean(expr_str)
-    rescue => e
+      parse_boolean(expr_str)
+    rescue StandardError => e
       puts "Error: #{e.message}"
     end
     puts
   end
 
   # Demonstrate evaluation
-  puts "=" * 60
-  puts "Evaluation Example"
-  puts "=" * 60
+  puts '=' * 60
+  puts 'Evaluation Example'
+  puts '=' * 60
 
-  bindings = { "var1" => true, "var2" => false, "var3" => true }
-  puts "Bindings: var1=true, var2=false, var3=true"
+  bindings = { 'var1' => true, 'var2' => false, 'var3' => true }
+  puts 'Bindings: var1=true, var2=false, var3=true'
   puts
 
   eval_exprs = [
-    "var1 and var2",
-    "var1 or var2",
-    "var1 and var3",
-    "(var1 or var2) and var3",
+    'var1 and var2',
+    'var1 or var2',
+    'var1 and var3',
+    '(var1 or var2) and var3'
   ]
 
   eval_exprs.each do |expr_str|
@@ -255,7 +255,7 @@ if __FILE__ == $0
       ast = parse_boolean(expr_str)
       result = ast.eval(bindings)
       puts "  #{expr_str} = #{result}"
-    rescue => e
+    rescue StandardError => e
       puts "  #{expr_str} = ERROR: #{e.message}"
     end
     puts

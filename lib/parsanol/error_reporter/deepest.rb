@@ -37,7 +37,7 @@ module Parsanol
       # @param children [Array, nil] child error causes
       # @return [Parsanol::Cause] the deepest known error cause
       #
-      def err(atom, source, message, children = nil)
+      def err(_atom, source, message, children = nil)
         error_pos = source.pos
         cause = Cause.format(source, error_pos, message, children)
         deepest(cause)
@@ -53,7 +53,7 @@ module Parsanol
       # @param children [Array, nil] child error causes
       # @return [Parsanol::Cause] the deepest known error cause
       #
-      def err_at(atom, source, message, pos, children = nil)
+      def err_at(_atom, source, message, pos, children = nil)
         cause = Cause.format(source, pos, message, children)
         deepest(cause)
       end
@@ -63,7 +63,7 @@ module Parsanol
       # @param source [Parsanol::Source] input source
       # @return [nil]
       #
-      def succ(source)
+      def succ(_source)
         nil
       end
 

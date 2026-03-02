@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # JSON Parser Example - Serialized: JSON Serialization
 #
 # This example demonstrates Serialized for parsing JSON:
@@ -9,7 +11,7 @@
 # Note: Since JSON output is already JSON, Serialized essentially
 # validates and normalizes the input JSON.
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 require 'json'
@@ -23,49 +25,49 @@ class JsonParser < Parsanol::Parser
 
   rule(:json) { space? >> value >> space? }
 
-  rule(:value) {
+  rule(:value) do
     object |
-    array |
-    string |
-    number |
-    true_value |
-    false_value |
-    null_value
-  }
+      array |
+      string |
+      number |
+      true_value |
+      false_value |
+      null_value
+  end
 
-  rule(:object) {
+  rule(:object) do
     str('{') >> space? >>
-    (entry >> (comma >> entry).repeat).maybe.as(:object) >>
-    space? >> str('}')
-  }
+      (entry >> (comma >> entry).repeat).maybe.as(:object) >>
+      space? >> str('}')
+  end
 
-  rule(:entry) {
+  rule(:entry) do
     (string.as(:key) >> space? >> colon >> space? >> value.as(:val)).as(:entry)
-  }
+  end
 
-  rule(:array) {
+  rule(:array) do
     str('[') >> space? >>
-    (value >> (comma >> value).repeat).maybe.as(:array) >>
-    space? >> str(']')
-  }
+      (value >> (comma >> value).repeat).maybe.as(:array) >>
+      space? >> str(']')
+  end
 
-  rule(:string) {
+  rule(:string) do
     str('"') >> (
-      str('\\') >> any | str('"').absent? >> any
+      (str('\\') >> any) | (str('"').absent? >> any)
     ).repeat.as(:string) >> str('"')
-  }
+  end
 
-  rule(:number) {
+  rule(:number) do
     (
       str('-').maybe >>
       (str('0') | (match('[1-9]') >> digit.repeat)) >>
       (str('.') >> digit.repeat(1)).maybe >>
       (match('[eE]') >> (str('+') | str('-')).maybe >> digit.repeat(1)).maybe
     ).as(:number)
-  }
+  end
 
-  rule(:true_value) { str('true').as(:true) }
-  rule(:false_value) { str('false').as(:false) }
+  rule(:true_value) { str('true').as(true) }
+  rule(:false_value) { str('false').as(false) }
   rule(:null_value) { str('null').as(:null) }
 
   rule(:digit) { match('[0-9]') }
@@ -80,19 +82,22 @@ class JsonValue; end
 
 class JsonString < JsonValue
   attr_reader :value
-  def initialize(value:) @value = value end
+
+  def initialize(value:) = @value = value
   def to_ruby = @value
 end
 
 class JsonNumber < JsonValue
   attr_reader :value
-  def initialize(value:) @value = value end
+
+  def initialize(value:) = @value = value
   def to_ruby = @value
 end
 
 class JsonBool < JsonValue
   attr_reader :value
-  def initialize(value:) @value = value end
+
+  def initialize(value:) = @value = value
   def to_ruby = @value
 end
 
@@ -102,13 +107,15 @@ end
 
 class JsonArray < JsonValue
   attr_reader :elements
-  def initialize(elements:) @elements = elements end
+
+  def initialize(elements:) = @elements = elements
   def to_ruby = @elements.map(&:to_ruby)
 end
 
 class JsonObject < JsonValue
   attr_reader :members
-  def initialize(members:) @members = members end
+
+  def initialize(members:) = @members = members
   def to_ruby = @members.transform_values(&:to_ruby)
 end
 
@@ -174,60 +181,60 @@ end
 
 # Transform class (needed for simulation)
 class JsonTransform < Parsanol::Transform
-  class Entry < Struct.new(:key, :val); end
+  Entry = Struct.new(:key, :val)
   rule(array: subtree(:ar)) { ar.is_a?(Array) ? ar : [ar] }
-  rule(object: subtree(:ob)) { (ob.is_a?(Array) ? ob : [ob]).each_with_object({}) { |e, h| h[e.key] = e.val } }
+  rule(object: subtree(:ob)) { (ob.is_a?(Array) ? ob : [ob]).to_h { |e| [e.key, e.val] } }
   rule(entry: { key: simple(:ke), val: simple(:va) }) { Entry.new(ke, va) }
   rule(string: simple(:st)) { st.to_s }
-  rule(number: simple(:nb)) {
+  rule(number: simple(:nb)) do
     s = nb.to_s
     s.match?(/[eE.]/) ? Float(s) : Integer(s)
-  }
+  end
   rule(null: simple(:_nu)) { nil }
-  rule(true: simple(:_tr)) { true }
-  rule(false: simple(:_fa)) { false }
+  rule(true => simple(:_tr)) { true }
+  rule(false => simple(:_fa)) { false }
 end
 
 # Example usage
-if __FILE__ == $0
-  puts "=" * 60
-  puts "JSON Parser Example - Serialized: JSON Serialization"
-  puts "=" * 60
+if __FILE__ == $PROGRAM_NAME
+  puts '=' * 60
+  puts 'JSON Parser Example - Serialized: JSON Serialization'
+  puts '=' * 60
   puts
-  puts "NOTE: This example shows the planned API for Serialized."
-  puts "The native extension support for parse_to_json is coming soon."
+  puts 'NOTE: This example shows the planned API for Serialized.'
+  puts 'The native extension support for parse_to_json is coming soon.'
   puts
 
   test_cases = [
-    ['"hello"', "hello"],
+    ['"hello"', 'hello'],
     ['42', 42],
     ['[1, 2, 3]', [1, 2, 3]],
-    ['{"a": 1}', { "a" => 1 }],
+    ['{"a": 1}', { 'a' => 1 }]
   ]
 
   test_cases.each do |input, expected|
     puts
-    puts "-" * 40
+    puts '-' * 40
     puts "Input: #{input}"
     begin
       result = parse_json(input)
-      status = result == expected ? "✓ PASS" : "✗ FAIL"
+      status = result == expected ? '✓ PASS' : '✗ FAIL'
       puts "Expected: #{expected.inspect}, Got: #{result.inspect} - #{status}"
-    rescue => e
+    rescue StandardError => e
       puts "Error: #{e.message}"
-      puts "✗ FAIL"
+      puts '✗ FAIL'
     end
   end
 
   puts
-  puts "=" * 60
-  puts "Serialized Benefits for JSON:"
-  puts "- Validates JSON structure"
-  puts "- Normalizes formatting"
-  puts "- Type-safe output (with typed classes)"
-  puts "- Easy to cache serialized results"
+  puts '=' * 60
+  puts 'Serialized Benefits for JSON:'
+  puts '- Validates JSON structure'
+  puts '- Normalizes formatting'
+  puts '- Type-safe output (with typed classes)'
+  puts '- Easy to cache serialized results'
   puts
-  puts "Note: For simple JSON parsing, Serialized adds validation but"
-  puts "the output is essentially the same as the input."
-  puts "=" * 60
+  puts 'Note: For simple JSON parsing, Serialized adds validation but'
+  puts 'the output is essentially the same as the input.'
+  puts '=' * 60
 end

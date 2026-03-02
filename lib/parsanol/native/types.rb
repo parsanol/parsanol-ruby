@@ -19,9 +19,9 @@ module Parsanol
       TAG_INLINE_STRING = 0x0A
 
       # Frozen string constants for transformer (avoid allocations)
-      SEQUENCE_TAG = ':sequence'.freeze
-      REPETITION_TAG = ':repetition'.freeze
-      EMPTY_STRING = ''.freeze
+      SEQUENCE_TAG = ':sequence'
+      REPETITION_TAG = ':repetition'
+      EMPTY_STRING = ''
       EMPTY_ARRAY = [].freeze
       EMPTY_HASH = {}.freeze
     end
@@ -35,6 +35,7 @@ module Parsanol
     # @return [Symbol] The symbol version of the key
     def self.cached_symbol(key)
       return key if key.is_a?(Symbol)
+
       @@symbol_cache[key] ||= key.to_sym
     end
   end

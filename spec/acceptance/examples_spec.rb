@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'open3'
 
@@ -18,21 +20,17 @@ describe 'Regression on' do
 
       it 'runs successfully' do
         # Skip if output files don't exist (new examples may not have expected outputs yet)
-        unless Dir["example/output/#{File.basename(example, '.rb')}.*"].any?
-          skip "No output file found for #{example}"
-        end
+        skip "No output file found for #{example}" unless Dir["example/output/#{File.basename(example, '.rb')}.*"].any?
 
         # Skip examples that have missing dependencies
-        skip_missing_deps = %w{
+        skip_missing_deps = %w[
           example/optimized_erb.rb
-        }
-        if skip_missing_deps.include?(example)
-          skip "Missing dependencies"
-        end
+        ]
+        skip 'Missing dependencies' if skip_missing_deps.include?(example)
 
         if RUBY_ENGINE == 'opal'
 
-          skip_examples = %w{
+          skip_examples = %w[
             example/calc.rb
             example/empty.rb
             example/erb.rb
@@ -41,17 +39,15 @@ describe 'Regression on' do
             example/nested_errors.rb
             example/optimized_erb.rb
             example/prec_calc.rb
-          }
-          if skip_examples.include?(example)
-            skip "Opal does not support #{example} yet"
-          end
+          ]
+          skip "Opal does not support #{example} yet" if skip_examples.include?(example)
 
           begin
             system("opal -srubygems -ropal-parser -rnodejs -Ilib -I. #{example} >_stdout 2>_stderr")
 
             handle_map = {
               '_stdout' => :out,
-              '_stderr' => :err,
+              '_stderr' => :err
             }
             expectation_found = handle_map.any? do |io, ext|
               name = product_path(example, ext)
@@ -72,7 +68,7 @@ describe 'Regression on' do
 
           handle_map = {
             stdout => :out,
-            stderr => :err,
+            stderr => :err
           }
           expectation_found = handle_map.any? do |io, ext|
             name = product_path(example, ext)
@@ -87,7 +83,7 @@ describe 'Regression on' do
         end
 
         unless expectation_found
-          raise "Example doesn't have either an .err or an .out file. " +
+          raise "Example doesn't have either an .err or an .out file. " \
                 'Please create in examples/output!'
         end
       end

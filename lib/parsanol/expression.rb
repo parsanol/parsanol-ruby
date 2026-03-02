@@ -52,53 +52,55 @@
 #   # Rust-accelerated parsing (if native extension available)
 #   Parsanol::Native.parse_with_grammar(atom, 'aaa')
 #
-class Parsanol::Expression
-  include Parsanol
+module Parsanol
+  class Expression
+    include Parsanol
 
-  autoload :Treetop, 'parsanol/expression/treetop'
+    autoload :Treetop, 'parsanol/expression/treetop'
 
-  # Creates a parser atom from a treetop-style expression string.
-  #
-  # @param str [String] a treetop expression
-  # @param opts [Hash] options (:type => :treetop, default)
-  # @return [Parsanol::Expression] expression object (call #to_parslet for atom)
-  #
-  # @example
-  #   expr = Parsanol::Expression.new("'a' 'b' ?")
-  #   atom = expr.to_parslet
-  #   atom.parse('a')  # => "a"@0
-  #
-  def initialize(str, opts = {}, _context = self)
-    @type = opts[:type] || :treetop
-    @exp = str
-    @parslet = transform(parse(str))
-  end
+    # Creates a parser atom from a treetop-style expression string.
+    #
+    # @param str [String] a treetop expression
+    # @param opts [Hash] options (:type => :treetop, default)
+    # @return [Parsanol::Expression] expression object (call #to_parslet for atom)
+    #
+    # @example
+    #   expr = Parsanol::Expression.new("'a' 'b' ?")
+    #   atom = expr.to_parslet
+    #   atom.parse('a')  # => "a"@0
+    #
+    def initialize(str, opts = {}, _context = self)
+      @type = opts[:type] || :treetop
+      @exp = str
+      @parslet = transform(parse(str))
+    end
 
-  # Transforms the parse tree into a parser atom.
-  #
-  # @param tree [Hash] parse tree from Treetop::Parser
-  # @return [Parsanol::Atoms::Base] parser atom
-  def transform(tree)
-    transform = Treetop::Transform.new
-    transform.apply(tree)
-  rescue StandardError
-    warn "Could not transform: #{tree.inspect}"
-    raise
-  end
+    # Transforms the parse tree into a parser atom.
+    #
+    # @param tree [Hash] parse tree from Treetop::Parser
+    # @return [Parsanol::Atoms::Base] parser atom
+    def transform(tree)
+      transform = Treetop::Transform.new
+      transform.apply(tree)
+    rescue StandardError
+      warn "Could not transform: #{tree.inspect}"
+      raise
+    end
 
-  # Parses the expression string and returns a parse tree.
-  #
-  # @param str [String] treetop expression
-  # @return [Hash] parse tree
-  def parse(str)
-    parser = Treetop::Parser.new
-    parser.parse(str)
-  end
+    # Parses the expression string and returns a parse tree.
+    #
+    # @param str [String] treetop expression
+    # @return [Hash] parse tree
+    def parse(str)
+      parser = Treetop::Parser.new
+      parser.parse(str)
+    end
 
-  # Returns the parser atom for this expression.
-  #
-  # @return [Parsanol::Atoms::Base] parser atom
-  def to_parslet
-    @parslet
+    # Returns the parser atom for this expression.
+    #
+    # @return [Parsanol::Atoms::Base] parser atom
+    def to_parslet
+      @parslet
+    end
   end
 end

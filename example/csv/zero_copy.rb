@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # CSV Parser Example - ZeroCopy: Mirrored Objects (Direct FFI)
 #
 # This example demonstrates ZeroCopy for parsing CSV:
@@ -6,7 +8,7 @@
 # 3. Direct Ruby object construction via FFI (no serialization!)
 # 4. Maximum performance with zero-copy
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 
@@ -32,6 +34,7 @@ module Csv
     end
 
     def to_s = @value
+
     def ==(other)
       other.is_a?(Field) && @value == other.value
     end
@@ -114,27 +117,27 @@ class CsvParser < Parsanol::Parser
 
   root :csv
 
-  rule(:csv) {
+  rule(:csv) do
     space? >> (row >> (newline >> row).repeat).maybe >> space?
-  }
+  end
 
-  rule(:row) {
+  rule(:row) do
     (field.as(:f) >> (comma >> field.as(:f)).repeat).as(:row)
-  }
+  end
 
-  rule(:field) {
+  rule(:field) do
     quoted_field | simple_field
-  }
+  end
 
-  rule(:quoted_field) {
+  rule(:quoted_field) do
     str('"') >> (
-      str('""') | str('"').absent? >> any
+      str('""') | (str('"').absent? >> any)
     ).repeat.as(:quoted) >> str('"')
-  }
+  end
 
-  rule(:simple_field) {
+  rule(:simple_field) do
     (comma.absent? >> newline.absent? >> any).repeat.as(:simple)
-  }
+  end
 
   rule(:comma) { str(',') }
   rule(:newline) { str("\n") | str("\r\n") | str("\r") }
@@ -151,7 +154,7 @@ end
 
 # Step 3: Parse with direct object construction
 def parse_csv(input)
-  parser = CsvParser.new
+  CsvParser.new
 
   # ZeroCopy: Parse and get direct Ruby objects
   # NOTE: This requires native extension support
@@ -189,13 +192,13 @@ def simulate_parse(input)
 end
 
 # Example usage
-if __FILE__ == $0
-  puts "=" * 60
-  puts "CSV Parser Example - ZeroCopy: Mirrored Objects"
-  puts "=" * 60
+if __FILE__ == $PROGRAM_NAME
+  puts '=' * 60
+  puts 'CSV Parser Example - ZeroCopy: Mirrored Objects'
+  puts '=' * 60
   puts
-  puts "NOTE: This example shows the planned API for ZeroCopy."
-  puts "The native extension support for parse_to_objects is coming soon."
+  puts 'NOTE: This example shows the planned API for ZeroCopy.'
+  puts 'The native extension support for parse_to_objects is coming soon.'
   puts
 
   simple_csv = <<~CSV
@@ -204,11 +207,11 @@ if __FILE__ == $0
     Bob,25,San Francisco
   CSV
 
-  puts "Simple CSV:"
-  puts "-" * 40
+  puts 'Simple CSV:'
+  puts '-' * 40
   doc = parse_csv(simple_csv)
 
-  puts "As arrays:"
+  puts 'As arrays:'
   doc.to_a.each { |row| puts row.inspect }
 
   puts
@@ -216,12 +219,12 @@ if __FILE__ == $0
   puts "Data rows: #{doc.data.size}"
 
   puts
-  puts "As hashes:"
+  puts 'As hashes:'
   doc.to_hashes.each { |row| puts row.inspect }
 
   # Type-safe access
   puts
-  puts "Type-safe access:"
+  puts 'Type-safe access:'
   puts "First row class: #{doc[0].class}"
   puts "First field class: #{doc[0][0].class}"
   puts "First field raw: #{doc[0][0].raw.inspect}"
@@ -229,24 +232,24 @@ if __FILE__ == $0
 
   # Custom method example
   puts
-  puts "Custom method on Field:"
+  puts 'Custom method on Field:'
   field = Csv::Field.new(raw: '"Hello, World"', value: 'Hello, World')
   puts "Field: #{field.value}"
 
   puts
-  puts "=" * 60
-  puts "ZeroCopy Benefits for CSV:"
-  puts "- FASTEST: No serialization overhead"
-  puts "- Type-safe: Each field is a Csv::Field object"
-  puts "- Custom methods: Can add validation, formatting, etc."
-  puts "- Zero-copy: Direct construction from Rust"
+  puts '=' * 60
+  puts 'ZeroCopy Benefits for CSV:'
+  puts '- FASTEST: No serialization overhead'
+  puts '- Type-safe: Each field is a Csv::Field object'
+  puts '- Custom methods: Can add validation, formatting, etc.'
+  puts '- Zero-copy: Direct construction from Rust'
   puts
-  puts "When to use ZeroCopy for CSV:"
-  puts "- High-throughput CSV processing"
-  puts "- When you need typed field access"
-  puts "- When you want custom methods on fields/rows"
-  puts "- When performance is critical"
-  puts "=" * 60
+  puts 'When to use ZeroCopy for CSV:'
+  puts '- High-throughput CSV processing'
+  puts '- When you need typed field access'
+  puts '- When you want custom methods on fields/rows'
+  puts '- When performance is critical'
+  puts '=' * 60
 end
 
 # Rust code that would be needed (for reference):

@@ -1,7 +1,10 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Parsanol::Atoms do
   include Parsanol
+
   let(:visitor) { double(:visitor) }
 
   describe Parsanol::Atoms::Str do

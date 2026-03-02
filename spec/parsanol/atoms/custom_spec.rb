@@ -8,7 +8,7 @@ class TestCustomAtom < Parsanol::Atoms::Custom
     super()
   end
 
-  def try_match(source, context, consume_all)
+  def try_match(source, _context, _consume_all)
     pos = source.bytepos
 
     # Try to match the string using consume (returns a Slice)
@@ -23,7 +23,7 @@ class TestCustomAtom < Parsanol::Atoms::Custom
     end
   end
 
-  def to_s_inner(prec = nil)
+  def to_s_inner(_prec = nil)
     "test_custom(#{@match_string.inspect})"
   end
 end

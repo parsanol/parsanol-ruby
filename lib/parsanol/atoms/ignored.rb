@@ -10,24 +10,28 @@
 #
 # Inspired by Parslet (MIT License).
 
-class Parsanol::Atoms::Ignored < Parsanol::Atoms::Base
-  attr_reader :wrapped_atom
+module Parsanol
+  module Atoms
+    class Ignored < Parsanol::Atoms::Base
+      attr_reader :wrapped_atom
 
-  def initialize(atom)
-    super()
-    @wrapped_atom = atom
-  end
+      def initialize(atom)
+        super()
+        @wrapped_atom = atom
+      end
 
-  def apply(source, context, consume_all)
-    ok, result = @wrapped_atom.apply(source, context, consume_all)
+      def apply(source, context, consume_all)
+        ok, result = @wrapped_atom.apply(source, context, consume_all)
 
-    return [false, result] unless ok
+        return [false, result] unless ok
 
-    # Success - return nil instead of the matched value
-    [true, nil]
-  end
+        # Success - return nil instead of the matched value
+        [true, nil]
+      end
 
-  def to_s_inner(prec)
-    "ignored(#{@wrapped_atom.to_s(prec)})"
+      def to_s_inner(prec)
+        "ignored(#{@wrapped_atom.to_s(prec)})"
+      end
+    end
   end
 end

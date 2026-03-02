@@ -93,12 +93,12 @@ module Parsanol
     # @return [Object] Direct Ruby object (type depends on grammar)
     # @raise [LoadError] If native extension not available
     # @raise [Parsanol::ParseFailed] If parsing fails
-    def parse(input, options = {})
+    def parse(input, _options = {})
       unless Parsanol::Native.available?
         raise LoadError,
-          "ZeroCopy mode requires native extension for direct FFI object construction. " \
-          "Run `rake compile` to build the extension, or use " \
-          "Parsanol::RubyTransform for Ruby-only parsing."
+              "ZeroCopy mode requires native extension for direct FFI object construction. " \
+              "Run `rake compile` to build the extension, or use " \
+              "Parsanol::RubyTransform for Ruby-only parsing."
       end
 
       grammar_json = Parsanol::Native.serialize_grammar(root)
@@ -106,8 +106,8 @@ module Parsanol
 
       if type_map.empty?
         raise ArgumentError,
-          "ZeroCopy mode requires output_types to be defined. " \
-          "Add `output_types(number: MyNumberClass)` to your parser class."
+              "ZeroCopy mode requires output_types to be defined. " \
+              "Add `output_types(number: MyNumberClass)` to your parser class."
       end
 
       Parsanol::Native.parse_to_objects(grammar_json, input, type_map)
@@ -119,9 +119,7 @@ module Parsanol
     # @param type_map [Hash] Override type mapping for this parse
     # @return [Object] Direct Ruby object
     def parse_with_types(input, type_map)
-      unless Parsanol::Native.available?
-        raise LoadError, "ZeroCopy mode requires native extension."
-      end
+      raise LoadError, 'ZeroCopy mode requires native extension.' unless Parsanol::Native.available?
 
       grammar_json = Parsanol::Native.serialize_grammar(root)
       Parsanol::Native.parse_to_objects(grammar_json, input, type_map)

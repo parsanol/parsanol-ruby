@@ -88,6 +88,7 @@ module Parsanol
     #
     def each(&block)
       return enum_for(:each) unless block_given?
+
       traverse(@tree, &block)
       self
     end
@@ -101,7 +102,7 @@ module Parsanol
     #   stream.nodes_of_type(Hash)
     #
     def nodes_of_type(klass)
-      select { |node| node.is_a?(klass) }
+      grep(klass)
     end
 
     # Returns all hash nodes in the tree.
@@ -208,9 +209,7 @@ module Parsanol
       return enum_for(:depth_traverse, node, current_depth, target_depth) unless block_given?
 
       # Check if we're at target depth
-      if current_depth == target_depth && yield(node)
-        return [node].to_enum
-      end
+      return [node].to_enum if current_depth == target_depth && yield(node)
 
       # Recurse to children if not at target depth yet
       results = []

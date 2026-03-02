@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Expression Evaluator - Ruby Implementation
 #
 # A complete expression parser with operator precedence, variables,
@@ -5,7 +7,7 @@
 #
 # Run with: ruby example/expression-evaluator/basic.rb
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol/parslet'
 
@@ -16,68 +18,68 @@ class ExpressionParser < Parsanol::Parser
   # Comparison (lowest precedence)
   rule(:expression) { comparison }
 
-  rule(:comparison) {
-    addition.as(:left) >>
-    ((match('==|!=|<=|>=|<>').as(:op) | str('<') | str('>')).as(:op) >>
-     addition.as(:right)).repeat(1) |
-    addition
-  }
+  rule(:comparison) do
+    (addition.as(:left) >>
+      ((match('==|!=|<=|>=|<>').as(:op) | str('<') | str('>')).as(:op) >>
+       addition.as(:right)).repeat(1)) |
+      addition
+  end
 
   # Addition/subtraction
-  rule(:addition) {
-    multiplication.as(:left) >>
-    (match('[+-]').as(:op) >> multiplication.as(:right)).repeat(1) |
-    multiplication
-  }
+  rule(:addition) do
+    (multiplication.as(:left) >>
+      (match('[+-]').as(:op) >> multiplication.as(:right)).repeat(1)) |
+      multiplication
+  end
 
   # Multiplication/division/modulo
-  rule(:multiplication) {
-    power.as(:left) >>
-    (match('[*/%]').as(:op) >> power.as(:right)).repeat(1) |
-    power
-  }
+  rule(:multiplication) do
+    (power.as(:left) >>
+      (match('[*/%]').as(:op) >> power.as(:right)).repeat(1)) |
+      power
+  end
 
   # Exponentiation (right associative)
-  rule(:power) {
-    unary.as(:left) >>
-    (str('^').as(:op) >> power.as(:right)).maybe |
-    unary
-  }
+  rule(:power) do
+    (unary.as(:left) >>
+      (str('^').as(:op) >> power.as(:right)).maybe) |
+      unary
+  end
 
   # Unary operators
-  rule(:unary) {
+  rule(:unary) do
     (str('-').as(:op) >> unary.as(:operand)).as(:unary) |
-    (str('!').as(:op) >> unary.as(:operand)).as(:unary) |
-    primary
-  }
+      (str('!').as(:op) >> unary.as(:operand)).as(:unary) |
+      primary
+  end
 
   # Primary: number, function call, variable, or parenthesized expression
-  rule(:primary) {
+  rule(:primary) do
     funcall |
-    number |
-    variable |
-    lparen >> expression >> rparen
-  }
+      number |
+      variable |
+      (lparen >> expression >> rparen)
+  end
 
-  rule(:number) {
-    (match('[0-9]').repeat(1) >> str('.') >> match('[0-9]').repeat(1) |
+  rule(:number) do
+    ((match('[0-9]').repeat(1) >> str('.') >> match('[0-9]').repeat(1)) |
      match('[0-9]').repeat(1)).as(:number) >> space?
-  }
+  end
 
-  rule(:variable) {
+  rule(:variable) do
     (match('[a-zA-Z_]') >> match('[a-zA-Z0-9_]').repeat).as(:variable) >> space?
-  }
+  end
 
-  rule(:funcall) {
+  rule(:funcall) do
     (match('[a-zA-Z_]') >> match('[a-zA-Z0-9_]').repeat).as(:name) >>
-    lparen >>
-    arglist.as(:args) >>
-    rparen
-  }
+      lparen >>
+      arglist.as(:args) >>
+      rparen
+  end
 
-  rule(:arglist) {
+  rule(:arglist) do
     (expression >> (comma >> expression).repeat).maybe
-  }
+  end
 
   rule(:lparen) { str('(') >> space? }
   rule(:rparen) { str(')') >> space? }
@@ -109,9 +111,9 @@ BinaryOp = Struct.new(:left, :op, :right) do
     when '*' then l * r
     when '/' then l / r
     when '%' then l % r
-    when '^' then l ** r
+    when '^' then l**r
     when '==' then l == r ? 1.0 : 0.0
-    when '!=' then l != r ? 1.0 : 0.0
+    when '!=' then l == r ? 0.0 : 1.0
     when '<' then l < r ? 1.0 : 0.0
     when '>' then l > r ? 1.0 : 0.0
     when '<=' then l <= r ? 1.0 : 0.0
@@ -126,7 +128,7 @@ UnaryOp = Struct.new(:op, :operand) do
     v = operand.eval(ctx)
     case op
     when '-' then -v
-    when '!' then v == 0 ? 1.0 : 0.0
+    when '!' then v.zero? ? 1.0 : 0.0
     else raise "Unknown unary operator: #{op}"
     end
   end
@@ -136,11 +138,9 @@ FunctionCall = Struct.new(:name, :args) do
   def eval(ctx)
     arg_values = args.map { |a| a.eval(ctx) }
 
-    if ctx.functions.key?(name)
-      ctx.functions[name].call(arg_values)
-    else
-      raise "Unknown function: #{name}"
-    end
+    raise "Unknown function: #{name}" unless ctx.functions.key?(name)
+
+    ctx.functions[name].call(arg_values)
   end
 end
 
@@ -149,22 +149,22 @@ class ExpressionTransform < Parsanol::Transform
   rule(number: simple(:n)) { Number.new(n.to_s.to_f) }
   rule(variable: simple(:v)) { Variable.new(v.to_s) }
 
-  rule(name: simple(:n), args: simple(:a)) {
+  rule(name: simple(:n), args: simple(:a)) do
     FunctionCall.new(n.to_s, a.is_a?(Array) ? a : [a])
-  }
-  rule(name: simple(:n), args: sequence(:a)) {
+  end
+  rule(name: simple(:n), args: sequence(:a)) do
     FunctionCall.new(n.to_s, a)
-  }
+  end
 
   rule(left: simple(:l)) { l }
 
-  rule(left: simple(:l), op: simple(:o), right: simple(:r)) {
+  rule(left: simple(:l), op: simple(:o), right: simple(:r)) do
     BinaryOp.new(l, o.to_s, r)
-  }
+  end
 
-  rule(unary: { op: simple(:o), operand: simple(:e) }) {
+  rule(unary: { op: simple(:o), operand: simple(:e) }) do
     UnaryOp.new(o.to_s, e)
-  }
+  end
 end
 
 # Evaluation context with variables and functions
@@ -207,9 +207,7 @@ def evaluate(str, ctx = EvalContext.new)
   ast = transform.apply(tree)
 
   # Handle BinaryOp chains with multiple ops
-  if ast.is_a?(Array) && ast.length == 1
-    ast = ast.first
-  end
+  ast = ast.first if ast.is_a?(Array) && ast.length == 1
 
   # Reduce left-associative chains
   while ast.is_a?(Hash) && ast.key?(:left)
@@ -224,7 +222,7 @@ def evaluate(str, ctx = EvalContext.new)
   end
 
   ast.eval(ctx)
-rescue => e
+rescue StandardError => e
   "Error: #{e.message}"
 end
 
@@ -241,33 +239,33 @@ def evaluate_helper(node, ctx)
 end
 
 # Main demo
-if __FILE__ == $0
+if __FILE__ == $PROGRAM_NAME
   ctx = EvalContext.new
   ctx.set('x', 10.0)
   ctx.set('y', 5.0)
 
-  puts "Expression Evaluator Example"
-  puts "=" * 40
+  puts 'Expression Evaluator Example'
+  puts '=' * 40
   puts
   puts "Variables: x = #{ctx.variables['x']}, y = #{ctx.variables['y']}"
   puts "Constants: PI = #{ctx.variables['PI']}, E = #{ctx.variables['E']}"
   puts
 
   expressions = [
-    "1 + 2 * 3",
-    "(1 + 2) * 3",
-    "2 ^ 3 ^ 2",
-    "x + y",
-    "x * y - 5",
-    "sin(PI / 2)",
-    "sqrt(16)",
-    "max(x, y)",
-    "x > y",
-    "min(sin(0), cos(0))"
+    '1 + 2 * 3',
+    '(1 + 2) * 3',
+    '2 ^ 3 ^ 2',
+    'x + y',
+    'x * y - 5',
+    'sin(PI / 2)',
+    'sqrt(16)',
+    'max(x, y)',
+    'x > y',
+    'min(sin(0), cos(0))'
   ]
 
-  printf "%-25s | %s\n", "Expression", "Result"
-  puts "-" * 40
+  printf "%-25s | %s\n", 'Expression', 'Result'
+  puts '-' * 40
 
   expressions.each do |expr|
     result = evaluate(expr, ctx)
@@ -275,7 +273,7 @@ if __FILE__ == $0
   end
 
   # Command line argument
-  if ARGV.length > 0
+  if ARGV.length.positive?
     expr = ARGV.join(' ')
     puts
     puts "Evaluating: #{expr}"

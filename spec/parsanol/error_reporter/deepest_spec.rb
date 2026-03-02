@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Parsanol::ErrorReporter::Deepest do
@@ -30,7 +32,7 @@ describe Parsanol::ErrorReporter::Deepest do
 
   describe '#deepest(cause)' do
     def fake_cause(pos = 13, children = nil)
-      double('cause' + pos.to_s, pos: pos, children: children)
+      double("cause#{pos}", pos: pos, children: children)
     end
 
     context 'when there is no deepest cause yet' do
@@ -50,7 +52,7 @@ describe Parsanol::ErrorReporter::Deepest do
 
       it 'returns the previous cause' do
         reporter.deepest(fake_cause(12))
-          .should == previous
+                .should == previous
       end
     end
 

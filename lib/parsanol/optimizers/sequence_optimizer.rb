@@ -29,10 +29,10 @@ module Parsanol
         return merged[0] if merged.size == 1
 
         # Return optimized sequence if changed
-        if merged != parslet.parslets
-          Parsanol::Atoms::Sequence.new(*merged)
-        else
+        if merged == parslet.parslets
           parslet
+        else
+          Parsanol::Atoms::Sequence.new(*merged)
         end
       end
 

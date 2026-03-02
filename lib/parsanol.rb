@@ -117,7 +117,7 @@ module Parsanol
   # @api private
   class CharacterClassBuilder
     def [](chars)
-      Atoms::Re.new("[" + chars + "]")
+      Atoms::Re.new("[#{chars}]")
     end
   end
 
@@ -130,6 +130,7 @@ module Parsanol
   # @return [Parsanol::Atoms::Re] regex atom
   def match(pattern = nil)
     return CharacterClassBuilder.new unless pattern
+
     Atoms::Re.new(pattern)
   end
   module_function :match
@@ -216,7 +217,7 @@ module Parsanol
   # Parses a treetop-style expression string and returns the corresponding atom.
   #
   # This is a convenience method for defining parsers using treetop syntax.
-# The expression parser is pure Ruby (not Rust-accelerated) since it runs only
+  # The expression parser is pure Ruby (not Rust-accelerated) since it runs only
   # at grammar definition time. The resulting atoms can be used with native parsing.
   #
   # @note Whitespace is required before operators: 'a' ? not 'a'?

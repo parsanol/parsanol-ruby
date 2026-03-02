@@ -112,6 +112,7 @@ describe Parsanol::ZeroCopy do
       it 'raises ArgumentError' do
         fresh_parser_class = Class.new(Parsanol::Parser) do
           include Parsanol::ZeroCopy
+
           rule(:test) { str('a') }
           root(:test)
         end

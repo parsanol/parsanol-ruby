@@ -122,7 +122,7 @@ RSpec.describe 'Parslet API Compatibility' do
       # repeat(0, 2) matches at most 2 characters
       # We must only parse 2 characters, not 3
       parser = match('[a-z]').repeat(0, 2)
-      expect(parser.parse('ab')).to eq('ab')  # Parse 'ab', not 'abc'
+      expect(parser.parse('ab')).to eq('ab') # Parse 'ab', not 'abc'
     end
 
     it 'produces array of named captures when name comes before repeat' do
@@ -242,10 +242,10 @@ RSpec.describe 'Parslet API Compatibility' do
 
       it 'handles nested sequences correctly' do
         parser = str('(') >>
-                  match('[a-z]').as(:first) >>
-                  str(',') >>
-                  match('[a-z]').as(:second) >>
-                  str(')')
+                 match('[a-z]').as(:first) >>
+                 str(',') >>
+                 match('[a-z]').as(:second) >>
+                 str(')')
 
         input = '(a,b)'
         ruby_ast = parser.parse(input)

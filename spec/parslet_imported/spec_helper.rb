@@ -17,15 +17,13 @@ module ParsletCompatibilityHelper
   end
 
   def parslet_module
-    @parslet_module ||= begin
-      if use_original_parslet?
-        require 'parslet'
-        Parslet
-      else
-        require 'parsanol/parslet'
-        Parsanol::Parslet
-      end
-    end
+    @parslet_module ||= if use_original_parslet?
+                          require 'parslet'
+                          Parslet
+                        else
+                          require 'parsanol/parslet'
+                          Parsanol::Parslet
+                        end
   end
 
   # Normalize results for comparison
@@ -47,7 +45,7 @@ module ParsletCompatibilityHelper
   def parslet_parse(parser, input)
     result = parser.parse(input)
     normalize_result(result)
-  rescue => e
+  rescue StandardError => e
     e
   end
 
@@ -63,10 +61,10 @@ RSpec.configure do |config|
   config.before(:suite) do
     # Pre-load the appropriate module
     if ENV['PARSANOL_BACKEND'] == 'parslet'
-      puts "Running tests with original Parslet"
+      puts 'Running tests with original Parslet'
       require 'parslet'
     else
-      puts "Running tests with Parsanol::Parslet compatibility layer"
+      puts 'Running tests with Parsanol::Parslet compatibility layer'
       require 'parsanol/parslet'
     end
   end

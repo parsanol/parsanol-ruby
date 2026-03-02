@@ -23,7 +23,7 @@ Gem::Specification.new do |spec|
     'documentation_uri' => 'https://parsanol.github.io/parsanol-ruby/',
     'homepage_uri' => 'https://github.com/parsanol/parsanol-ruby',
     'source_code_uri' => 'https://github.com/parsanol/parsanol-ruby',
-    'rubygems_mfa_required' => 'true',
+    'rubygems_mfa_required' => 'true'
   }
 
   # Rust extension

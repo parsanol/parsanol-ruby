@@ -13,8 +13,8 @@ module Parsanol
     #
     module Parser
       # Two-level grammar cache (module-level for proper initialization)
-      GRAMMAR_HASH_CACHE = {}  # object_id => hash_key
-      GRAMMAR_CACHE = {}       # hash_key => grammar_json
+      GRAMMAR_HASH_CACHE = {}.freeze  # object_id => hash_key
+      GRAMMAR_CACHE = {}.freeze       # hash_key => grammar_json
 
       class << self
         # Cached availability check
@@ -23,6 +23,7 @@ module Parsanol
         # Check if native extension is available
         def available?
           return @cached_available unless @cached_available.nil?
+
           @cached_available = begin
             require 'parsanol/parsanol_native'
             Parsanol::Native.is_available
@@ -36,9 +37,7 @@ module Parsanol
         # @param input [String] Input string to parse
         # @return Ruby AST from parsing
         def parse(grammar_json, input)
-          unless available?
-            raise LoadError, 'Native parser not available. Run `rake compile` to build.'
-          end
+          raise LoadError, 'Native parser not available. Run `rake compile` to build.' unless available?
 
           # Call native parse_batch (returns flat u64 array)
           flat = Parsanol::Native.parse_batch(grammar_json, input)
@@ -115,13 +114,12 @@ module Parsanol
 
           if cache_key
             # Fast path: already computed hash, check grammar cache
-            GRAMMAR_CACHE[cache_key] ||= GrammarSerializer.serialize(root_atom)
           else
             # Slow path: compute structural hash
             cache_key = grammar_structure_hash(root_atom)
             GRAMMAR_HASH_CACHE[obj_id] = cache_key
-            GRAMMAR_CACHE[cache_key] ||= GrammarSerializer.serialize(root_atom)
           end
+          GRAMMAR_CACHE[cache_key] ||= GrammarSerializer.serialize(root_atom)
         end
 
         # Clear grammar caches (call if grammar changes)
@@ -150,8 +148,8 @@ module Parsanol
         def parse_to_json(grammar_json, input)
           unless available?
             raise LoadError,
-              "Serialized mode requires native extension. " \
-              "Run `rake compile` to build the extension."
+                  "Serialized mode requires native extension. " \
+                  "Run `rake compile` to build the extension."
           end
 
           # Parse using native engine and convert result to JSON
@@ -170,11 +168,11 @@ module Parsanol
         # @param input [String] Input string to parse
         # @param type_map [Hash] Mapping of rule names to Ruby classes (not used in this mode)
         # @return [Object] Direct Ruby object (type depends on grammar)
-        def parse_to_objects(grammar_json, input, type_map = nil)
+        def parse_to_objects(grammar_json, input, _type_map = nil)
           unless available?
             raise LoadError,
-              "ZeroCopy mode requires native extension. " \
-              "Run `rake compile` to build the extension."
+                  "ZeroCopy mode requires native extension. " \
+                  "Run `rake compile` to build the extension."
           end
 
           # Call Rust function that returns Slice objects directly
@@ -193,8 +191,8 @@ module Parsanol
           case obj
           when Hash
             # Check if this is a slice marker from Rust
-            if obj["_slice"] == true
-              Parsanol::Slice.new(obj["offset"], obj["str"])
+            if obj['_slice'] == true
+              Parsanol::Slice.new(obj['offset'], obj['str'])
             else
               # Recursively convert hash values
               obj.transform_values { |v| convert_slices(v, input) }
@@ -219,8 +217,8 @@ module Parsanol
         def parse_with_spans(grammar_json, input)
           unless available?
             raise LoadError,
-              "Source location tracking requires native extension. " \
-              "Run `rake compile` to build the extension."
+                  "Source location tracking requires native extension. " \
+                  "Run `rake compile` to build the extension."
           end
 
           _parse_with_spans(grammar_json, input)
@@ -232,9 +230,7 @@ module Parsanol
         # @param node_id [Integer] Node identifier
         # @return [Hash] Span information {start: {offset, line, column}, end: {...}}
         def get_span(result, node_id)
-          unless available?
-            raise LoadError, "Source location tracking requires native extension."
-          end
+          raise LoadError, 'Source location tracking requires native extension.' unless available?
 
           _get_span(result, node_id)
         end
@@ -248,9 +244,7 @@ module Parsanol
         # @param prefix [String, nil] Optional prefix for imported rules
         # @return [String] Updated GrammarBuilder JSON
         def grammar_import(builder_json, grammar_json, prefix = nil)
-          unless available?
-            raise LoadError, "Grammar composition requires native extension."
-          end
+          raise LoadError, 'Grammar composition requires native extension.' unless available?
 
           _grammar_import(builder_json, grammar_json, prefix)
         end
@@ -261,9 +255,7 @@ module Parsanol
         # @param rule_name [String] Name of the rule to modify
         # @return [String] Updated GrammarBuilder JSON
         def grammar_rule_mut(builder_json, rule_name)
-          unless available?
-            raise LoadError, "Grammar composition requires native extension."
-          end
+          raise LoadError, 'Grammar composition requires native extension.' unless available?
 
           _grammar_rule_mut(builder_json, rule_name)
         end
@@ -275,9 +267,7 @@ module Parsanol
         # @param grammar_json [String] JSON-serialized grammar
         # @return [Object] Streaming parser instance
         def streaming_parser_new(grammar_json)
-          unless available?
-            raise LoadError, "Streaming parser requires native extension."
-          end
+          raise LoadError, 'Streaming parser requires native extension.' unless available?
 
           _streaming_parser_new(grammar_json)
         end
@@ -288,9 +278,7 @@ module Parsanol
         # @param chunk [String] Input chunk to add
         # @return [Boolean] True if more chunks needed, false if ready
         def streaming_parser_add_chunk(parser, chunk)
-          unless available?
-            raise LoadError, "Streaming parser requires native extension."
-          end
+          raise LoadError, 'Streaming parser requires native extension.' unless available?
 
           _streaming_parser_add_chunk(parser, chunk)
         end
@@ -300,9 +288,7 @@ module Parsanol
         # @param parser [Object] Streaming parser instance
         # @return [Object, nil] Parsed result or nil if need more data
         def streaming_parser_parse_chunk(parser)
-          unless available?
-            raise LoadError, "Streaming parser requires native extension."
-          end
+          raise LoadError, 'Streaming parser requires native extension.' unless available?
 
           _streaming_parser_parse_chunk(parser)
         end
@@ -315,9 +301,7 @@ module Parsanol
         # @param initial_input [String] Initial input string
         # @return [Object] Incremental parser instance
         def incremental_parser_new(grammar_json, initial_input)
-          unless available?
-            raise LoadError, "Incremental parser requires native extension."
-          end
+          raise LoadError, 'Incremental parser requires native extension.' unless available?
 
           _incremental_parser_new(grammar_json, initial_input)
         end
@@ -330,9 +314,7 @@ module Parsanol
         # @param inserted [String] Text to insert
         # @return [Object] Updated parser state
         def incremental_parser_apply_edit(parser, start, deleted, inserted = '')
-          unless available?
-            raise LoadError, "Incremental parser requires native extension."
-          end
+          raise LoadError, 'Incremental parser requires native extension.' unless available?
 
           _incremental_parser_apply_edit(parser, start, deleted, inserted)
         end
@@ -343,9 +325,7 @@ module Parsanol
         # @param new_input [String, nil] Optional new input (if not using apply_edit)
         # @return [Object] Parse result
         def incremental_parser_reparse(parser, new_input = nil)
-          unless available?
-            raise LoadError, "Incremental parser requires native extension."
-          end
+          raise LoadError, 'Incremental parser requires native extension.' unless available?
 
           _incremental_parser_reparse(parser, new_input)
         end
@@ -363,8 +343,8 @@ module Parsanol
         def parse_with_builder(grammar_json, input, builder)
           unless available?
             raise LoadError,
-              "Streaming builder requires native extension. " \
-              "Run `rake compile` to build the extension."
+                  "Streaming builder requires native extension. " \
+                  "Run `rake compile` to build the extension."
           end
 
           _parse_with_builder(grammar_json, input, builder)
@@ -382,8 +362,8 @@ module Parsanol
         def parse_batch_parallel(grammar_json, inputs, num_threads: nil)
           unless available?
             raise LoadError,
-              "Parallel parsing requires native extension. " \
-              "Run `rake compile` to build the extension."
+                  "Parallel parsing requires native extension. " \
+                  "Run `rake compile` to build the extension."
           end
 
           _parse_batch_parallel(grammar_json, inputs, num_threads)
@@ -401,8 +381,8 @@ module Parsanol
         def parse_with_limits(grammar_json, input, max_input_size: 100 * 1024 * 1024, max_recursion_depth: 1000)
           unless available?
             raise LoadError,
-              "Security limits require native extension. " \
-              "Run `rake compile` to build the extension."
+                  "Security limits require native extension. " \
+                  "Run `rake compile` to build the extension."
           end
 
           _parse_with_limits(grammar_json, input, max_input_size, max_recursion_depth)
@@ -418,8 +398,8 @@ module Parsanol
         def parse_with_trace(grammar_json, input)
           unless available?
             raise LoadError,
-              "Debug tracing requires native extension. " \
-              "Run `rake compile` to build the extension."
+                  "Debug tracing requires native extension. " \
+                  "Run `rake compile` to build the extension."
           end
 
           _parse_with_trace(grammar_json, input)
@@ -432,8 +412,8 @@ module Parsanol
         def grammar_to_mermaid(grammar_json)
           unless available?
             raise LoadError,
-              "Grammar visualization requires native extension. " \
-              "Run `rake compile` to build the extension."
+                  "Grammar visualization requires native extension. " \
+                  "Run `rake compile` to build the extension."
           end
 
           _grammar_to_mermaid(grammar_json)
@@ -446,8 +426,8 @@ module Parsanol
         def grammar_to_dot(grammar_json)
           unless available?
             raise LoadError,
-              "Grammar visualization requires native extension. " \
-              "Run `rake compile` to build the extension."
+                  "Grammar visualization requires native extension. " \
+                  "Run `rake compile` to build the extension."
           end
 
           _grammar_to_dot(grammar_json)
@@ -456,7 +436,7 @@ module Parsanol
         private
 
         def _incremental_parser_reparse(parser, new_input)
-          raise NotImplementedError, "Native extension method not available"
+          raise NotImplementedError, 'Native extension method not available'
         end
 
         def _parse_with_builder(grammar_json, input, builder)
@@ -466,23 +446,23 @@ module Parsanol
         end
 
         def _parse_batch_parallel(grammar_json, inputs, num_threads)
-          raise NotImplementedError, "Native extension method not available"
+          raise NotImplementedError, 'Native extension method not available'
         end
 
         def _parse_with_limits(grammar_json, input, max_input_size, max_recursion_depth)
-          raise NotImplementedError, "Native extension method not available"
+          raise NotImplementedError, 'Native extension method not available'
         end
 
         def _parse_with_trace(grammar_json, input)
-          raise NotImplementedError, "Native extension method not available"
+          raise NotImplementedError, 'Native extension method not available'
         end
 
         def _grammar_to_mermaid(grammar_json)
-          raise NotImplementedError, "Native extension method not available"
+          raise NotImplementedError, 'Native extension method not available'
         end
 
         def _grammar_to_dot(grammar_json)
-          raise NotImplementedError, "Native extension method not available"
+          raise NotImplementedError, 'Native extension method not available'
         end
 
         # Decode flat u64 array to Ruby AST
@@ -537,6 +517,7 @@ module Parsanol
                 chunk = flat[i + j]
                 8.times do |k|
                   break if bytes.length >= len
+
                   bytes << ((chunk >> (k * 8)) & 0xff)
                 end
               end
@@ -568,7 +549,7 @@ module Parsanol
             when 0x09 # hash_key
               # Format: tag, len, key_chunks..., then value
               len = flat[i + 1]
-              i += 2  # Skip tag and len
+              i += 2 # Skip tag and len
 
               # Read key bytes from u64 chunks
               chunks = (len + 7) / 8
@@ -577,6 +558,7 @@ module Parsanol
                 chunk = flat[i + j]
                 8.times do |k|
                   break if key_bytes.length >= len
+
                   key_bytes << ((chunk >> (k * 8)) & 0xff)
                 end
               end

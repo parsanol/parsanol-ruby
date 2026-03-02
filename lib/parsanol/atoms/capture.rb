@@ -7,28 +7,32 @@
 # @example
 #   str('a').capture(:first) >> dynamic { |ctx| str(ctx.captures[:first]) }
 #
-class Parsanol::Atoms::Capture < Parsanol::Atoms::Base
-  attr_reader :inner_atom, :capture_key
+module Parsanol
+  module Atoms
+    class Capture < Parsanol::Atoms::Base
+      attr_reader :inner_atom, :capture_key
 
-  def initialize(atom, name)
-    super()
-    @inner_atom = atom
-    @capture_key = name.to_sym
-  end
+      def initialize(atom, name)
+        super()
+        @inner_atom = atom
+        @capture_key = name.to_sym
+      end
 
-  def apply(source, context, consume_all)
-    success, result = @inner_atom.apply(source, context, consume_all)
+      def apply(source, context, consume_all)
+        success, result = @inner_atom.apply(source, context, consume_all)
 
-    if success
-      # Flatten and store the captured value in context
-      flattened = flatten(result)
-      context.captures[@capture_key] = flattened
+        if success
+          # Flatten and store the captured value in context
+          flattened = flatten(result)
+          context.captures[@capture_key] = flattened
+        end
+
+        [success, result]
+      end
+
+      def to_s_inner(prec)
+        "(#{@capture_key.inspect} = #{@inner_atom.to_s(prec)})"
+      end
     end
-
-    [success, result]
-  end
-
-  def to_s_inner(prec)
-    "(#{@capture_key.inspect} = #{@inner_atom.to_s(prec)})"
   end
 end

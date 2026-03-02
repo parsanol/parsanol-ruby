@@ -27,68 +27,70 @@
 #     end
 #   end
 #
-module Parsanol::ErrorReporter
-  # Base class for error reporters.
-  #
-  # Error reporters collect and format parse errors. The parsing engine
-  # calls reporter methods as it attempts to match atoms, building up
-  # an error structure that can be presented to the user.
-  #
-  # Subclasses must implement {#err} and {#err_at} methods.
-  #
-  class Base
-    # Report an error at the current parse position.
+module Parsanol
+  module ErrorReporter
+    # Base class for error reporters.
     #
-    # @param atom [Parsanol::Atoms::Base] The atom that failed to match
-    # @param source [Parsanol::Source] The input source
-    # @param message [String, Array<String>] Error message(s)
-    # @param children [Array<Cause>, nil] Child errors from deeper levels
-    # @return [Object] An error cause object (implementation-specific)
+    # Error reporters collect and format parse errors. The parsing engine
+    # calls reporter methods as it attempts to match atoms, building up
+    # an error structure that can be presented to the user.
     #
-    # @abstract Subclasses must implement this method
+    # Subclasses must implement {#err} and {#err_at} methods.
     #
-    def err(atom, source, message, children = nil)
-      raise NotImplementedError,
-        "Error reporters must implement #err(atom, source, message, children)"
-    end
+    class Base
+      # Report an error at the current parse position.
+      #
+      # @param atom [Parsanol::Atoms::Base] The atom that failed to match
+      # @param source [Parsanol::Source] The input source
+      # @param message [String, Array<String>] Error message(s)
+      # @param children [Array<Cause>, nil] Child errors from deeper levels
+      # @return [Object] An error cause object (implementation-specific)
+      #
+      # @abstract Subclasses must implement this method
+      #
+      def err(atom, source, message, children = nil)
+        raise NotImplementedError,
+              'Error reporters must implement #err(atom, source, message, children)'
+      end
 
-    # Report an error at a specific position.
-    #
-    # @param atom [Parsanol::Atoms::Base] The atom that failed to match
-    # @param source [Parsanol::Source] The input source
-    # @param message [String, Array<String>] Error message(s)
-    # @param pos [Integer] The byte position of the error
-    # @param children [Array<Cause>, nil] Child errors from deeper levels
-    # @return [Object] An error cause object (implementation-specific)
-    #
-    # @abstract Subclasses must implement this method
-    #
-    def err_at(atom, source, message, pos, children = nil)
-      raise NotImplementedError,
-        "Error reporters must implement #err_at(atom, source, message, pos, children)"
-    end
+      # Report an error at a specific position.
+      #
+      # @param atom [Parsanol::Atoms::Base] The atom that failed to match
+      # @param source [Parsanol::Source] The input source
+      # @param message [String, Array<String>] Error message(s)
+      # @param pos [Integer] The byte position of the error
+      # @param children [Array<Cause>, nil] Child errors from deeper levels
+      # @return [Object] An error cause object (implementation-specific)
+      #
+      # @abstract Subclasses must implement this method
+      #
+      def err_at(atom, source, message, pos, children = nil)
+        raise NotImplementedError,
+              'Error reporters must implement #err_at(atom, source, message, pos, children)'
+      end
 
-    # Called when an expression successfully parses.
-    #
-    # This method allows reporters to track successful parses for
-    # better error context. The default implementation does nothing.
-    #
-    # @param source [Parsanol::Source] The input source at success position
-    # @return [void]
-    #
-    def succ(source)
-      # Default: no-op
-    end
+      # Called when an expression successfully parses.
+      #
+      # This method allows reporters to track successful parses for
+      # better error context. The default implementation does nothing.
+      #
+      # @param source [Parsanol::Source] The input source at success position
+      # @return [void]
+      #
+      def succ(source)
+        # Default: no-op
+      end
 
-    # Called after parse completes for finalization.
-    #
-    # Override this method to perform cleanup or generate final reports.
-    # The default implementation does nothing.
-    #
-    # @return [void]
-    #
-    def finalize
-      # Default: no-op
+      # Called after parse completes for finalization.
+      #
+      # Override this method to perform cleanup or generate final reports.
+      # The default implementation does nothing.
+      #
+      # @return [void]
+      #
+      def finalize
+        # Default: no-op
+      end
     end
   end
 end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # CSV Parser Example - Serialized: JSON Serialization
 #
 # This example demonstrates Serialized for parsing CSV:
@@ -9,7 +11,7 @@
 # This option is useful when you need to validate/proces CSV
 # and get structured output for other tools.
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 require 'json'
@@ -21,27 +23,27 @@ require 'json'
 class CsvParser < Parsanol::Parser
   root :csv
 
-  rule(:csv) {
+  rule(:csv) do
     space? >> (row >> (newline >> row).repeat).maybe >> space?
-  }
+  end
 
-  rule(:row) {
+  rule(:row) do
     (field.as(:f) >> (comma >> field.as(:f)).repeat).as(:row)
-  }
+  end
 
-  rule(:field) {
+  rule(:field) do
     quoted_field | simple_field
-  }
+  end
 
-  rule(:quoted_field) {
+  rule(:quoted_field) do
     str('"') >> (
-      str('""') | str('"').absent? >> any
+      str('""') | (str('"').absent? >> any)
     ).repeat.as(:quoted) >> str('"')
-  }
+  end
 
-  rule(:simple_field) {
+  rule(:simple_field) do
     (comma.absent? >> newline.absent? >> any).repeat.as(:simple)
-  }
+  end
 
   rule(:comma) { str(',') }
   rule(:newline) { str("\n") | str("\r\n") | str("\r") }
@@ -138,9 +140,9 @@ end
 
 # Transform class (needed for simulation)
 class CsvTransform < Parsanol::Transform
-  rule(row: sequence(:fields)) {
+  rule(row: sequence(:fields)) do
     fields.map { |f| f.is_a?(Hash) ? unescape(f) : f }
-  }
+  end
 
   rule(quoted: simple(:q)) { unescape_quoted(q.to_s) }
   rule(simple: simple(:s)) { s.to_s.strip }
@@ -163,13 +165,13 @@ class CsvTransform < Parsanol::Transform
 end
 
 # Example usage
-if __FILE__ == $0
-  puts "=" * 60
-  puts "CSV Parser Example - Serialized: JSON Serialization"
-  puts "=" * 60
+if __FILE__ == $PROGRAM_NAME
+  puts '=' * 60
+  puts 'CSV Parser Example - Serialized: JSON Serialization'
+  puts '=' * 60
   puts
-  puts "NOTE: This example shows the planned API for Serialized."
-  puts "The native extension support for parse_to_json is coming soon."
+  puts 'NOTE: This example shows the planned API for Serialized.'
+  puts 'The native extension support for parse_to_json is coming soon.'
   puts
 
   simple_csv = <<~CSV
@@ -178,24 +180,24 @@ if __FILE__ == $0
     Bob,25,San Francisco
   CSV
 
-  puts "Simple CSV:"
-  puts "-" * 40
+  puts 'Simple CSV:'
+  puts '-' * 40
   csv_doc = parse_csv(simple_csv)
 
   puts
-  puts "As arrays:"
+  puts 'As arrays:'
   csv_doc.to_a.each { |row| puts row.inspect }
 
   puts
-  puts "As hashes:"
+  puts 'As hashes:'
   csv_doc.to_hashes.each { |row| puts row.inspect }
 
   puts
-  puts "=" * 60
-  puts "Serialized Benefits for CSV:"
-  puts "- Structured JSON output for other tools"
-  puts "- Easy to cache/store results"
-  puts "- Type-safe access via CsvRow/CsvDocument classes"
-  puts "- Cross-language compatibility"
-  puts "=" * 60
+  puts '=' * 60
+  puts 'Serialized Benefits for CSV:'
+  puts '- Structured JSON output for other tools'
+  puts '- Easy to cache/store results'
+  puts '- Type-safe access via CsvRow/CsvDocument classes'
+  puts '- Cross-language compatibility'
+  puts '=' * 60
 end

@@ -37,7 +37,7 @@ RSpec.configure do |config|
   begin
     require 'benchmark/ips'
   rescue LoadError
-    config.filter_run_excluding :benchmark => true
+    config.filter_run_excluding benchmark: true
   end
 
   # Run specs in random order to surface order dependencies

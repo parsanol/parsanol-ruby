@@ -34,7 +34,7 @@ module Parsanol
       attr_accessor :min_chunk_size
 
       def initialize
-        @num_threads = nil  # Auto-detect
+        @num_threads = nil # Auto-detect
         @min_chunk_size = 10
       end
 
@@ -79,8 +79,8 @@ module Parsanol
       def parse_batch(grammar_json, inputs, config: Config.new)
         unless Parsanol::Native.available?
           raise LoadError,
-            "Parallel parsing requires native extension. " \
-            "Run `rake compile` to build the extension."
+                "Parallel parsing requires native extension. " \
+                "Run `rake compile` to build the extension."
         end
 
         # Try to use native parallel parsing

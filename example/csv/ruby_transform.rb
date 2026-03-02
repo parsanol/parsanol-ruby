@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # CSV Parser Example - Ruby Transform: Ruby Transform (Parslet-Compatible)
 #
 # This example demonstrates Ruby Transform for parsing CSV:
@@ -5,7 +7,7 @@
 # 2. Returns a generic tree (hash/array/string structure)
 # 3. Ruby transform converts tree to Ruby objects
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 
@@ -13,29 +15,29 @@ require 'parsanol'
 class CsvParser < Parsanol::Parser
   root :csv
 
-  rule(:csv) {
+  rule(:csv) do
     space? >> (row >> (newline >> row).repeat).maybe >> space?
-  }
+  end
 
-  rule(:row) {
+  rule(:row) do
     (field.as(:f) >> (comma >> field.as(:f)).repeat).as(:row)
-  }
+  end
 
-  rule(:field) {
+  rule(:field) do
     quoted_field | simple_field
-  }
+  end
 
   # Quoted field: "value with ""escaped"" quotes"
-  rule(:quoted_field) {
+  rule(:quoted_field) do
     str('"') >> (
-      str('""') | str('"').absent? >> any
+      str('""') | (str('"').absent? >> any)
     ).repeat.as(:quoted) >> str('"')
-  }
+  end
 
   # Simple field: value without commas or quotes
-  rule(:simple_field) {
+  rule(:simple_field) do
     (comma.absent? >> newline.absent? >> any).repeat.as(:simple)
-  }
+  end
 
   # Helpers
   rule(:comma) { str(',') }
@@ -47,19 +49,19 @@ end
 # Step 2: Define the transform (Parslet-style)
 class CsvTransform < Parsanol::Transform
   # Transform a row (sequence of fields)
-  rule(row: sequence(:fields)) {
+  rule(row: sequence(:fields)) do
     fields.map { |f| f.is_a?(Hash) ? unescape(f) : f }
-  }
+  end
 
   # Transform quoted field
-  rule(quoted: simple(:q)) {
+  rule(quoted: simple(:q)) do
     q.to_s.gsub('""', '"')
-  }
+  end
 
   # Transform simple field
-  rule(simple: simple(:s)) {
+  rule(simple: simple(:s)) do
     s.to_s.strip
-  }
+  end
 end
 
 # Step 3: Parse and transform
@@ -91,10 +93,10 @@ def parse_csv_with_headers(input)
 end
 
 # Example usage
-if __FILE__ == $0
-  puts "=" * 60
-  puts "CSV Parser Example - Ruby Transform: Ruby Transform"
-  puts "=" * 60
+if __FILE__ == $PROGRAM_NAME
+  puts '=' * 60
+  puts 'CSV Parser Example - Ruby Transform: Ruby Transform'
+  puts '=' * 60
 
   # Simple CSV
   simple_csv = <<~CSV
@@ -104,15 +106,15 @@ if __FILE__ == $0
   CSV
 
   puts
-  puts "Simple CSV:"
-  puts "-" * 40
+  puts 'Simple CSV:'
+  puts '-' * 40
   result = parse_csv(simple_csv)
   puts result.inspect
 
   # CSV with headers parsed to hashes
   puts
-  puts "CSV with headers:"
-  puts "-" * 40
+  puts 'CSV with headers:'
+  puts '-' * 40
   result = parse_csv_with_headers(simple_csv)
   result.each { |row| puts row.inspect }
 
@@ -124,25 +126,25 @@ if __FILE__ == $0
   CSV
 
   puts
-  puts "CSV with quoted fields:"
-  puts "-" * 40
+  puts 'CSV with quoted fields:'
+  puts '-' * 40
   result = parse_csv_with_headers(quoted_csv)
   result.each { |row| puts row.inspect }
 
   # Empty CSV
-  empty_csv = ""
+  empty_csv = ''
 
   puts
-  puts "Empty CSV:"
-  puts "-" * 40
+  puts 'Empty CSV:'
+  puts '-' * 40
   result = parse_csv(empty_csv)
   puts result.inspect
 
   puts
-  puts "=" * 60
-  puts "Ruby Transform Benefits for CSV:"
-  puts "- Flexible transform logic"
-  puts "- Easy to add custom processing"
-  puts "- Compatible with existing Parslet code"
-  puts "=" * 60
+  puts '=' * 60
+  puts 'Ruby Transform Benefits for CSV:'
+  puts '- Flexible transform logic'
+  puts '- Easy to add custom processing'
+  puts '- Compatible with existing Parslet code'
+  puts '=' * 60
 end

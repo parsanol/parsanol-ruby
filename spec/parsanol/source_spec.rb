@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Parsanol::Source do
   describe 'using simple input' do
-    let(:str)     { 'a' * 100 + "\n" + 'a' * 100 + "\n" }
+    let(:str)     { "#{'a' * 100}\n#{'a' * 100}\n" }
     let(:source)  { described_class.new(str) }
 
     describe '<- #read(n)' do
@@ -71,8 +73,8 @@ describe Parsanol::Source do
 
       context 'on the first line' do
         it 'increases column with every read' do
-          10.times do |i|
-            source.line_and_column.last.should == 1 + i
+          10.times do |_i|
+            source.line_and_column.last.should
             source.consume(1)
           end
         end
@@ -129,7 +131,7 @@ describe Parsanol::Source do
             source.consume(1)
           end
 
-          @results.entries.size.should == 202
+          @results.entries.size.should
           @results
         end
 
@@ -151,7 +153,8 @@ describe Parsanol::Source do
         it 'gives the same results when reading' do
           cur = source.bytepos = 0
           while source.chars_left > 0
-            source.line_and_column.should == results[cur]
+            source.line_and_column.should
+            results[cur]
             cur += 1
             source.consume(1)
           end
@@ -170,37 +173,38 @@ describe Parsanol::Source do
     it 'reads characters, not bytes' do
       source.should match(r('é'))
       source.consume(1)
-      
-      # Note: pos now returns bytepos directly (not charpos)
-      # For UTF-8: é is 2 bytes, ö is 2 bytes
-      source.pos.should == if RUBY_ENGINE == 'opal'
-                             # In Opal/JavaScript, string indexing is character-based
-                             1
-                           else
-                             # In Ruby, multi-byte characters use multiple bytes
-                             2
-                           end
 
-      # TODO This needs to be fixed in code with Opal
+      # NOTE: pos now returns bytepos directly (not charpos)
+      # For UTF-8: é is 2 bytes, ö is 2 bytes
+      source.pos.should
       if RUBY_ENGINE == 'opal'
-        skip "Opal does not support byte positions and char positions correctly for multi-byte characters"
+        # In Opal/JavaScript, string indexing is character-based
+        1
+      else
+        # In Ruby, multi-byte characters use multiple bytes
+        2
       end
 
-      source.bytepos.should == 2  # Ruby: 2 bytes for 'é'
+      # TODO: This needs to be fixed in code with Opal
+      if RUBY_ENGINE == 'opal'
+        skip 'Opal does not support byte positions and char positions correctly for multi-byte characters'
+      end
+
+      source.bytepos.should # Ruby: 2 bytes for 'é'
 
       source.should match(r('ö'))
       source.consume(1)
-      
-      # After consuming 'é' (2 bytes) and 'ö' (2 bytes) = 4 bytes total
-      source.pos.should == 4
 
-      source.bytepos.should == 4
+      # After consuming 'é' (2 bytes) and 'ö' (2 bytes) = 4 bytes total
+      source.pos.should
+
+      source.bytepos.should
 
       source.should match(r('変'))
       source.consume(1)
 
       source.consume(2)
-      source.chars_left.should == 0
+      source.chars_left.should
       source.chars_left.should == 0
     end
   end

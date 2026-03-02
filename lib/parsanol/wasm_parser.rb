@@ -84,12 +84,12 @@ module Parsanol
     # @return [Boolean]
     #
     def self.available?
-      %x{
+      `
         if (typeof ParsletWasm === 'undefined') {
           return false;
         }
         return ParsletWasm.isInitialized ? ParsletWasm.isInitialized() : false;
-      }
+      `
     end
 
     # Initialize WASM module (async)
@@ -97,12 +97,12 @@ module Parsanol
     # @return [Promise] Promise that resolves when WASM is ready
     #
     def self.init
-      %x{
+      `
         if (typeof ParsletWasm !== 'undefined' && ParsletWasm.initParslet) {
           return ParsletWasm.initParslet();
         }
         return Promise.reject(new Error('ParsletWasm not loaded'));
-      }
+      `
     end
 
     private
@@ -110,7 +110,7 @@ module Parsanol
     def ensure_initialized
       return if @parser
 
-      %x{
+      `
         if (typeof ParsletWasm === 'undefined') {
           throw new Error('ParsletWasm not loaded. Include parslet.js and parsanol_native_bg.wasm');
         }
@@ -118,11 +118,11 @@ module Parsanol
           throw new Error('WASM not initialized. Call Parsanol::WasmParser.init first');
         }
         #{@parser} = new ParsletWasm.ParsletParser(#{@grammar_json});
-      }
+      `
     end
 
     # Convert JavaScript result to Ruby
-    def convert_js_to_ruby(js_obj)
+    def convert_js_to_ruby(_js_obj)
       %x{
         if (js_obj === null || js_obj === undefined) {
           return nil;
@@ -213,6 +213,7 @@ module Parsanol
             chunk = `#{flat}[#{i + j}]`
             8.times do |k|
               break if key_bytes.length >= len
+
               key_bytes << ((chunk >> (k * 8)) & 0xff)
             end
           end

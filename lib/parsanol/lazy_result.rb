@@ -11,7 +11,7 @@ module Parsanol
   #
   #   lazy = LazyResult.new(buffer, context)
   #   # No array allocated yet
-  #   
+  #
   #   lazy.to_a  # Now array is materialized and cached
   #   lazy.to_a  # Returns cached array
   #
@@ -25,10 +25,10 @@ module Parsanol
   class LazyResult
     # @return [Buffer] The underlying buffer
     attr_reader :buffer
-    
+
     # @return [Context] The context (for buffer release)
     attr_reader :context
-    
+
     # @return [Array, nil] Cached materialized array
     attr_reader :materialized
 
@@ -50,7 +50,7 @@ module Parsanol
     # @return [Array] Materialized array
     #
     def to_a
-      @materialized ||= @buffer.to_a
+      @to_a ||= @buffer.to_a
     end
 
     # Get element at index (materializes if needed).
@@ -69,7 +69,7 @@ module Parsanol
     def size
       @buffer.size
     end
-    
+
     alias length size
 
     # Check if empty.
@@ -87,6 +87,7 @@ module Parsanol
     #
     def each(&block)
       return to_enum(:each) unless block_given?
+
       to_a.each(&block)
       self
     end
@@ -99,7 +100,7 @@ module Parsanol
     def is_a?(other)
       other == Array || super
     end
-    
+
     alias kind_of? is_a?
 
     # Respond to array methods.
@@ -119,9 +120,9 @@ module Parsanol
     # @param block [Proc] Block if given
     # @return [Object] Result of method call
     #
-    def method_missing(method, *args, &block)
+    def method_missing(method, ...)
       if to_a.respond_to?(method)
-        to_a.public_send(method, *args, &block)
+        to_a.public_send(method, ...)
       else
         super
       end
@@ -152,7 +153,7 @@ module Parsanol
         super
       end
     end
-    
+
     alias eql? ==
 
     # Hash code based on materialized array.

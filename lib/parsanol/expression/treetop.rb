@@ -52,15 +52,15 @@ module Parsanol
 
         # Occurrence modifiers: ?, *, +, {min,max}
         rule(:occurrence) do
-          atom.as(:repetition) >> spaced('*').as(:sign) |
-            atom.as(:repetition) >> spaced('+').as(:sign) |
-            atom.as(:repetition) >> repetition_spec |
-            atom.as(:maybe) >> spaced('?') |
+          (atom.as(:repetition) >> spaced('*').as(:sign)) |
+            (atom.as(:repetition) >> spaced('+').as(:sign)) |
+            (atom.as(:repetition) >> repetition_spec) |
+            (atom.as(:maybe) >> spaced('?')) |
             atom
         end
 
         rule(:atom) do
-          spaced('(') >> expression.as(:unwrap) >> spaced(')') |
+          (spaced('(') >> expression.as(:unwrap) >> spaced(')')) |
             dot |
             string |
             char_class
@@ -69,7 +69,7 @@ module Parsanol
         # Character class: [a-z], [0-9], etc.
         rule(:char_class) do
           (str('[') >>
-            (str('\\') >> any | str(']').absent? >> any).repeat(1) >>
+            ((str('\\') >> any) | (str(']').absent? >> any)).repeat(1) >>
             str(']')).as(:match) >> space?
         end
 
@@ -79,7 +79,7 @@ module Parsanol
         # String literal: 'hello'
         rule(:string) do
           str("'") >>
-            (str('\\') >> any | str("'").absent? >> any).repeat.as(:string) >>
+            ((str('\\') >> any) | (str("'").absent? >> any)).repeat.as(:string) >>
             str("'") >> space?
         end
 
@@ -124,7 +124,7 @@ module Parsanol
           Parsanol::Atoms::Repetition.new(
             rep,
             Integer(min || 0),
-            max && Integer(max) || nil
+            (max && Integer(max)) || nil
           )
         end
 

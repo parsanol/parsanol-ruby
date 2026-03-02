@@ -1,4 +1,6 @@
-$:.unshift File.dirname(__FILE__) + "/../lib"
+# frozen_string_literal: true
+
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol/parslet'
 require 'parsanol/convenience'
@@ -7,16 +9,15 @@ require 'parsanol/convenience'
 # Originally contributed to Parslet, ported to Parsanol as an example.
 
 def prettify(str)
-  puts " "*3 + " "*4 + "." + " "*4 + "10" + " "*3 + "." + " "*4 + "20"
+  puts "#{' ' * 3}#{' ' * 4}.#{' ' * 4}10#{' ' * 3}.#{' ' * 4}20"
   str.lines.each_with_index do |line, index|
-    printf "%02d %s\n", 
-      index+1, 
-      line.chomp
+    printf "%02d %s\n",
+           index + 1,
+           line.chomp
   end
 end
 
 class Parser < Parsanol::Parser
-
   # commons
 
   rule(:space) { match('[ \t]').repeat(1) }
@@ -26,9 +27,9 @@ class Parser < Parsanol::Parser
 
   rule(:comment) { str('#') >> match('[^\r\n]').repeat }
 
-  rule(:line_separator) {
+  rule(:line_separator) do
     (space? >> ((comment.maybe >> newline) | str(';')) >> space?).repeat(1)
-  }
+  end
 
   rule(:blank) { line_separator | space }
   rule(:blank?) { blank.maybe }
@@ -37,70 +38,65 @@ class Parser < Parsanol::Parser
 
   # res_statement
 
-  rule(:reference) {
-    (str('@').repeat(1,2) >> identifier).as(:reference)
-  }
+  rule(:reference) do
+    (str('@').repeat(1, 2) >> identifier).as(:reference)
+  end
 
-  rule(:res_action_or_link) {
-    str('.').as(:dot) >> (identifier >> str('?').maybe ).as(:name) >> str('()')
-  }
+  rule(:res_action_or_link) do
+    str('.').as(:dot) >> (identifier >> str('?').maybe).as(:name) >> str('()')
+  end
 
-  rule(:res_actions) {
-    (
-      reference
-    ).as(:resources) >>
-    (
-      res_action_or_link.as(:res_action)
-    ).repeat(0).as(:res_actions)
-  }
+  rule(:res_actions) do
+    reference.as(:resources) >>
+      res_action_or_link.as(:res_action).repeat(0).as(:res_actions)
+  end
 
-  rule(:res_statement) {
+  rule(:res_statement) do
     res_actions >>
-    (str(':') >> identifier.as(:name)).maybe.as(:res_field)
-  }
+      (str(':') >> identifier.as(:name)).maybe.as(:res_field)
+  end
 
   # expression
 
-  rule(:expression) {
+  rule(:expression) do
     res_statement
-  }
+  end
 
   # body
 
-  rule(:body) {
+  rule(:body) do
     (line_separator >> (block | expression)).repeat(1).as(:body) >>
-    line_separator
-  }
+      line_separator
+  end
 
   # blocks
 
-  rule(:begin_block) {
+  rule(:begin_block) do
     (str('concurrent').as(:type) >> space).maybe.as(:pre) >>
-    str('begin').as(:begin) >>
-    body >>
-    str('end')
-  }
+      str('begin').as(:begin) >>
+      body >>
+      str('end')
+  end
 
-  rule(:define_block) {
+  rule(:define_block) do
     str('define').as(:define) >> space >>
-    identifier.as(:name) >> str('()') >>
-    body >>
-    str('end')
-  }
+      identifier.as(:name) >> str('()') >>
+      body >>
+      str('end')
+  end
 
-  rule(:block) {
+  rule(:block) do
     define_block | begin_block
-  }
+  end
 
   # root
 
-  rule(:radix) {
+  rule(:radix) do
     line_separator.maybe >> block >> line_separator.maybe
-  }
+  end
 
   root(:radix)
 end
-
 
 ds = [
   %{
@@ -118,15 +114,12 @@ ds = [
 ]
 
 ds.each do |d|
-
   puts '-' * 80
   prettify(d)
 
   parser = Parser.new
 
-  begin
-    parser.parse_with_debug(d)
-  end
+  parser.parse_with_debug(d)
 end
 
 puts '-' * 80

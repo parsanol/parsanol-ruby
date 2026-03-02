@@ -57,8 +57,8 @@ module Parsanol
     def parse_to_json(input)
       unless Parsanol::Native.available?
         raise LoadError,
-          "Serialized mode requires native extension for JSON serialization. " \
-          "Run `rake compile` or use Parsanol::RubyTransform for Ruby-only parsing."
+              "Serialized mode requires native extension for JSON serialization. " \
+              "Run `rake compile` or use Parsanol::RubyTransform for Ruby-only parsing."
       end
 
       grammar_json = Parsanol::Native.serialize_grammar(root)
@@ -83,7 +83,7 @@ module Parsanol
     # @return [Hash, Array] Ruby object from JSON
     # @raise [LoadError] If native extension not available
     # @raise [Parsanol::ParseFailed] If parsing fails
-    def parse(input, options = {})
+    def parse(input, _options = {})
       json = parse_to_json(input)
       JSON.parse(json)
     end

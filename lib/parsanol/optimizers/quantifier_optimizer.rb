@@ -20,15 +20,13 @@ module Parsanol
         inner = visit(parslet.parslet)
 
         # Optimization 1: repeat(1,1) is identity - unwrap it
-        if parslet.min == 1 && parslet.max == 1
-          return inner
-        end
+        return inner if parslet.min == 1 && parslet.max == 1
 
         # Optimization 2: Nested repetitions
         if inner.is_a?(Parsanol::Atoms::Repetition)
           # repeat(0,1).repeat(0,1) => repeat(0,1) (idempotent)
-          if parslet.min == 0 && parslet.max == 1 &&
-             inner.min == 0 && inner.max == 1
+          if parslet.min.zero? && parslet.max == 1 &&
+             inner.min.zero? && inner.max == 1
             return inner
           end
 

@@ -29,10 +29,10 @@ module Parsanol
         return deduplicated[0] if deduplicated.size == 1
 
         # Return optimized alternative if changed
-        if deduplicated != parslet.alternatives
-          Parsanol::Atoms::Alternative.new(*deduplicated)
-        else
+        if deduplicated == parslet.alternatives
           parslet
+        else
+          Parsanol::Atoms::Alternative.new(*deduplicated)
         end
       end
 

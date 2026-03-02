@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Parsanol::ErrorReporter::Contextual do
@@ -32,7 +34,7 @@ describe Parsanol::ErrorReporter::Contextual do
 
   describe '#deepest(cause)' do
     def fake_cause(pos = 13, children = nil)
-      double('cause' + pos.to_s, pos: pos, children: children)
+      double("cause#{pos}", pos: pos, children: children)
     end
 
     context 'when there is no deepest cause yet' do
@@ -52,7 +54,7 @@ describe Parsanol::ErrorReporter::Contextual do
 
       it 'returns the previous cause' do
         reporter.deepest(fake_cause(12))
-          .should == previous
+                .should == previous
       end
     end
 
@@ -85,7 +87,7 @@ describe Parsanol::ErrorReporter::Contextual do
   describe '#reset' do
     before do
       allow(fake_source).to receive(:pos).and_return(Parsanol::Position.new(
-                                                       "source", 13, 13
+                                                       'source', 13, 13
                                                      ))
       allow(fake_source).to receive(:line_and_column).and_return([1, 1])
     end
@@ -101,7 +103,7 @@ describe Parsanol::ErrorReporter::Contextual do
   describe 'label' do
     before do
       allow(fake_source).to receive(:pos).and_return(Parsanol::Position.new(
-                                                       "source", 13, 13
+                                                       'source', 13, 13
                                                      ))
       allow(fake_source).to receive(:line_and_column).and_return([1, 1])
     end

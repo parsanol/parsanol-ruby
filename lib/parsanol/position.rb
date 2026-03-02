@@ -1,52 +1,54 @@
+# frozen_string_literal: true
 
 # Encapsules the concept of a position inside a string.
 #
-class Parsanol::Position
-  include Parsanol::Resettable
+module Parsanol
+  class Position
+    include Parsanol::Resettable
 
-  # Changed to accessor to support pooling
-  attr_accessor :bytepos
-  attr_accessor :string, :charpos
+    # Changed to accessor to support pooling
+    attr_accessor :bytepos
+    attr_accessor :string, :charpos
 
-  include Comparable
+    include Comparable
 
-  def initialize(string, bytepos, charpos = nil)
-    @string = string
-    @bytepos = bytepos
-    @charpos = charpos
-  end
+    def initialize(string, bytepos, charpos = nil)
+      @string = string
+      @bytepos = bytepos
+      @charpos = charpos
+    end
 
-  # Reset the position for reuse in object pooling.
-  # This allows the position to be reinitialized with new values for efficient reuse.
-  #
-  # @param string [String] Source string for position tracking
-  # @param bytepos [Integer] New byte position
-  # @param charpos [Integer, nil] Optional character position
-  # @return [self] Returns self for method chaining
-  #
-  def reset!(string, bytepos, charpos = nil)
-    @string = string
-    @bytepos = bytepos
-    @charpos = charpos
-    self
-  end
+    # Reset the position for reuse in object pooling.
+    # This allows the position to be reinitialized with new values for efficient reuse.
+    #
+    # @param string [String] Source string for position tracking
+    # @param bytepos [Integer] New byte position
+    # @param charpos [Integer, nil] Optional character position
+    # @return [self] Returns self for method chaining
+    #
+    def reset!(string, bytepos, charpos = nil)
+      @string = string
+      @bytepos = bytepos
+      @charpos = charpos
+      self
+    end
 
-  def charpos
-    # If charpos was provided during initialization, use it
-    return @charpos if @charpos
+    def charpos
+      # If charpos was provided during initialization, use it
+      return @charpos if @charpos
 
-    # Cache the calculated charpos to avoid repeated calculations
-    @charpos ||= calculate_charpos
-  end
+      # Cache the calculated charpos to avoid repeated calculations
+      @charpos ||= calculate_charpos
+    end
 
-  private
+    private
 
-  def calculate_charpos
-    # Calculate it based on platform
-    if defined?(RUBY_ENGINE) && RUBY_ENGINE == 'opal'
-      # In Opal, convert byte position to character position.
-      # We need to calculate how many characters occupy the first @bytepos bytes.
-      %x{
+    def calculate_charpos
+      # Calculate it based on platform
+      if defined?(RUBY_ENGINE) && RUBY_ENGINE == 'opal'
+        # In Opal, convert byte position to character position.
+        # We need to calculate how many characters occupy the first @bytepos bytes.
+        `
         var str = #{@string};
         var bytePos = #{@bytepos};
         var chars = Array.from(str);
@@ -76,16 +78,17 @@ class Parsanol::Position
         }
 
         return charCount;
-      }
-    else
-      # Ruby: Use standard byteslice which handles Unicode correctly
-      @string.byteslice(0, @bytepos).size
+      `
+      else
+        # Ruby: Use standard byteslice which handles Unicode correctly
+        @string.byteslice(0, @bytepos).size
+      end
     end
-  end
 
-  public
+    public
 
-  def <=>(b)
-    bytepos <=> b.bytepos
+    def <=>(other)
+      bytepos <=> other.bytepos
+    end
   end
 end

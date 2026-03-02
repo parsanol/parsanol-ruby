@@ -1,9 +1,11 @@
-require "mkmf"
-require "rb_sys/mkmf"
+# frozen_string_literal: true
 
-create_rust_makefile("parsanol/parsanol_native") do |r|
+require 'mkmf'
+require 'rb_sys/mkmf'
+
+create_rust_makefile('parsanol/parsanol_native') do |r|
   # Create debug builds in dev, release in production
-  r.profile = ENV.fetch("RB_SYS_CARGO_PROFILE", :dev).to_sym
+  r.profile = ENV.fetch('RB_SYS_CARGO_PROFILE', :dev).to_sym
 
   # Enable stable API compiled fallback for ruby-head and older Ruby versions
   r.use_stable_api_compiled_fallback = true

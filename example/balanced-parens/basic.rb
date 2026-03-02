@@ -1,42 +1,45 @@
+# frozen_string_literal: true
+
 # A small example that demonstrates the power of tree pattern matching. Also
 # uses '.as(:name)' to construct a tree that can reliably be matched
-# afterwards. 
+# afterwards.
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'pp'
 require 'parsanol/parslet'
 
-module LISP # as in 'lots of insipid and stupid parenthesis'
+# as in 'lots of insipid and stupid parenthesis'
+module LISP
   class Parser < Parsanol::Parser
-    rule(:balanced) {
+    rule(:balanced) do
       str('(').as(:l) >> balanced.maybe.as(:m) >> str(')').as(:r)
-    }
-  
+    end
+
     root(:balanced)
   end
 
   class Transform < Parsanol::Transform
-    rule(:l => '(', :m => simple(:x), :r => ')') { 
+    rule(l: '(', m: simple(:x), r: ')') do
       # innermost :m will contain nil
-      x.nil? ? 1 : x+1
-    }
+      x.nil? ? 1 : x + 1
+    end
   end
 end
 
 parser = LISP::Parser.new
 transform = LISP::Transform.new
-%w!
+%w[
   ()
   (())
   ((((()))))
   ((())
-!.each do |pexp|
+].each do |pexp|
   begin
     result = parser.parse(pexp)
-    puts "#{"%20s"%pexp}: #{result.inspect} (#{transform.apply(result)} parens)"
-  rescue Parsanol::ParseFailed => m
-    puts "#{"%20s"%pexp}: #{m}"
+    puts "#{'%20s' % pexp}: #{result.inspect} (#{transform.apply(result)} parens)"
+  rescue Parsanol::ParseFailed => e
+    puts "#{'%20s' % pexp}: #{e}"
   end
   puts
 end

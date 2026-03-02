@@ -1,38 +1,40 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Parsanol::Scope do
   let(:scope) { described_class.new }
-  
+
   describe 'simple store/retrieve' do
     before(:each) { scope[:foo] = :bar }
-    it "allows storing objects" do
+    it 'allows storing objects' do
       scope[:obj] = 42
-    end 
-    it "raises on access of empty slots" do
-      expect {
+    end
+    it 'raises on access of empty slots' do
+      expect do
         scope[:empty]
-      }.to raise_error(Parsanol::Scope::NotFound)
-    end 
-    it "allows retrieval of stored values" do
+      end.to raise_error(Parsanol::Scope::NotFound)
+    end
+    it 'allows retrieval of stored values' do
       scope[:foo].should == :bar
-    end 
+    end
   end
-  
+
   describe 'scoping' do
     before(:each) { scope[:depth] = 1 }
     before(:each) { scope.push }
-    
+
     let(:depth) { scope[:depth] }
     subject { depth }
-    
+
     it { should == 1 }
     describe 'after a push' do
       before(:each) { scope.push }
       it { should == 1 }
-      
+
       describe 'and reassign' do
         before(:each) { scope[:depth] = 2 }
-        
+
         it { should == 2 }
 
         describe 'and a pop' do

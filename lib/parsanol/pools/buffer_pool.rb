@@ -29,13 +29,13 @@ module Parsanol
     class BufferPool
       # Standard size classes (power of 2 for efficiency)
       SIZE_CLASSES = [2, 4, 8, 16, 32, 64].freeze
-      
+
       # Default pool size per class
       DEFAULT_POOL_SIZE = 100
-      
+
       # @return [Hash] Pools by size class
       attr_reader :pools
-      
+
       # @return [Hash] Statistics per size class
       attr_reader :stats
 
@@ -47,7 +47,7 @@ module Parsanol
         @pool_size = pool_size
         @pools = {}
         @stats = {}
-        
+
         # Create pool for each size class
         SIZE_CLASSES.each do |size|
           @pools[size] = []
@@ -65,14 +65,12 @@ module Parsanol
       #
       def acquire(size:)
         size_class = select_size_class(size)
-        
+
         # For non-standard size classes, create buffer on demand
-        unless @pools.key?(size_class)
-          return Buffer.new(capacity: size_class)
-        end
-        
+        return Buffer.new(capacity: size_class) unless @pools.key?(size_class)
+
         pool = @pools[size_class]
-        
+
         if pool.empty?
           @stats[size_class][:created] += 1
           Buffer.new(capacity: size_class)
@@ -92,13 +90,13 @@ module Parsanol
       def release(buffer)
         size_class = buffer.capacity
         pool = @pools[size_class]
-        
+
         # Discard if pool is full or size not in standard classes
         if !pool || pool.size >= @pool_size
           @stats[size_class][:discarded] += 1 if @stats[size_class]
           return false
         end
-        
+
         buffer.clear!
         @stats[size_class][:released] += 1
         pool.push(buffer)
@@ -114,9 +112,12 @@ module Parsanol
         SIZE_CLASSES.each do |size|
           stats = @stats[size]
           total_acquires = stats[:created] + stats[:reused]
-          utilization = total_acquires.zero? ? 0.0 : 
-                       (stats[:reused].to_f / total_acquires * 100)
-          
+          utilization = if total_acquires.zero?
+                          0.0
+                        else
+                          (stats[:reused].to_f / total_acquires * 100)
+                        end
+
           result[size] = {
             available: @pools[size].size,
             created: stats[:created],
@@ -152,7 +153,7 @@ module Parsanol
       def select_size_class(size)
         SIZE_CLASSES.find { |sc| sc >= size } || next_power_of_2(size)
       end
-      
+
       # Find next power of 2 greater than or equal to n.
       #
       # @param n [Integer] Input value
@@ -160,7 +161,8 @@ module Parsanol
       #
       def next_power_of_2(n)
         return 1 if n <= 0
-        n = n - 1
+
+        n -= 1
         n |= n >> 1
         n |= n >> 2
         n |= n >> 4

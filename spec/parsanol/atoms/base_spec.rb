@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Parsanol::Atoms::Base do
@@ -35,7 +37,7 @@ describe Parsanol::Atoms::Base do
       [['a'], nil], ['a'],                          # handling of rhs nil
       [{ a: 'a' }, nil], { a: 'a' }
     ].each_slice(2) do |sequence, result|
-      context 'for ' + sequence.inspect do
+      context "for #{sequence.inspect}" do
         it "equals #{result.inspect}" do
           parslet.flatten_sequence(sequence).should == result
         end

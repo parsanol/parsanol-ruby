@@ -204,7 +204,7 @@ module Parsanol
       end
 
       def on_success
-        @events << "success"
+        @events << 'success'
       end
 
       def on_error(message)
@@ -228,7 +228,7 @@ module Parsanol
       end
 
       def on_nil
-        @events << "nil"
+        @events << 'nil'
       end
 
       def on_hash_start(size = nil)
@@ -288,7 +288,7 @@ module Parsanol
 
       def on_error(message); end
 
-      def on_string(value, offset, length)
+      def on_string(value, _offset, _length)
         @strings << value
       end
 
@@ -313,19 +313,19 @@ module Parsanol
 
       def on_error(message); end
 
-      def on_string(value, offset, length)
+      def on_string(_value, _offset, _length)
         @counts[:string] += 1
       end
 
-      def on_int(value)
+      def on_int(_value)
         @counts[:int] += 1
       end
 
-      def on_float(value)
+      def on_float(_value)
         @counts[:float] += 1
       end
 
-      def on_bool(value)
+      def on_bool(_value)
         @counts[:bool] += 1
       end
 
@@ -333,15 +333,15 @@ module Parsanol
         @counts[:nil] += 1
       end
 
-      def on_hash_start(size = nil)
+      def on_hash_start(_size = nil)
         @counts[:hash] += 1
       end
 
-      def on_array_start(size = nil)
+      def on_array_start(_size = nil)
         @counts[:array] += 1
       end
 
-      def on_named_start(name)
+      def on_named_start(_name)
         @counts[:named] += 1
       end
 

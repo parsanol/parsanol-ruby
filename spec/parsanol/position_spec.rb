@@ -1,9 +1,9 @@
-# Encoding: UTF-8
+# frozen_string_literal: true
 
 require 'spec_helper'
 
 describe Parsanol::Position do
-  slet(:position) { described_class.new("öäüö", 4, 2) }
+  slet(:position) { described_class.new('öäüö', 4, 2) }
 
   it 'should have a charpos of 2' do
     position.charpos.should == 2

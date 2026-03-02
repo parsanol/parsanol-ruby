@@ -9,19 +9,19 @@ describe 'Automatic Rule Optimization' do
     class OptimizedParser < Parsanol::Parser
       optimize_rules!
 
-      rule(:redundant) {
+      rule(:redundant) do
         str('a').repeat(1, 1) >>
-        str('b').repeat(1, 1) >>
-        str('c').repeat(1, 1)
-      }
+          str('b').repeat(1, 1) >>
+          str('c').repeat(1, 1)
+      end
 
-      rule(:nested_maybe) {
+      rule(:nested_maybe) do
         str('x').repeat(0, 1).repeat(0, 1)
-      }
+      end
 
-      rule(:exact_counts) {
+      rule(:exact_counts) do
         str('m').repeat(2, 2).repeat(3, 3)
-      }
+      end
 
       root :redundant
     end
@@ -63,10 +63,10 @@ describe 'Automatic Rule Optimization' do
     class UnoptimizedParser < Parsanol::Parser
       # As of v3.1.0, optimizations are DISABLED by default (opt-in)
       # This avoids overhead on tiny/small inputs
-      rule(:redundant) {
+      rule(:redundant) do
         str('a').repeat(1, 1) >>
-        str('b').repeat(1, 1)
-      }
+          str('b').repeat(1, 1)
+      end
 
       root :redundant
     end
@@ -82,15 +82,15 @@ describe 'Automatic Rule Optimization' do
       expect(UnoptimizedParser.optimize_rules?).to be false
     end
   end
-  
+
   context 'when optimization is explicitly disabled' do
     class ExplicitlyUnoptimizedParser < Parsanol::Parser
-      disable_optimization!  # Explicit opt-out
-      
-      rule(:redundant) {
+      disable_optimization! # Explicit opt-out
+
+      rule(:redundant) do
         str('a').repeat(1, 1) >>
-        str('b').repeat(1, 1)
-      }
+          str('b').repeat(1, 1)
+      end
 
       root :redundant
     end
@@ -98,7 +98,7 @@ describe 'Automatic Rule Optimization' do
     it 'respects explicit disable_optimization!' do
       expect(ExplicitlyUnoptimizedParser.optimize_rules?).to be false
     end
-    
+
     it 'still parses correctly without optimization' do
       parser = ExplicitlyUnoptimizedParser.new
       expect(parser.redundant.parse('ab')).to be_truthy
@@ -109,13 +109,13 @@ describe 'Automatic Rule Optimization' do
     class ComplexOptimizedParser < Parsanol::Parser
       optimize_rules!
 
-      rule(:deeply_nested) {
+      rule(:deeply_nested) do
         str('a').repeat(1, 1).repeat(1, 1).repeat(1, 1)
-      }
+      end
 
-      rule(:mixed) {
+      rule(:mixed) do
         str('x').repeat(1, 1) >> str('y').repeat(0, 1) >> str('z')
-      }
+      end
 
       root :deeply_nested
     end
@@ -158,12 +158,12 @@ describe 'Automatic Rule Optimization' do
     class CombinedOptParser < Parsanol::Parser
       optimize_rules!
 
-      rule(:combined) {
+      rule(:combined) do
         # Has both quantifier and sequence issues
         (str('h') >> str('e') >> str('l') >> str('l') >> str('o')).repeat(1, 1) >>
-        str(' ') >>
-        (str('w') >> str('o') >> str('r') >> str('l') >> str('d')).repeat(1, 1)
-      }
+          str(' ') >>
+          (str('w') >> str('o') >> str('r') >> str('l') >> str('d')).repeat(1, 1)
+      end
 
       root :combined
     end
@@ -197,13 +197,13 @@ describe 'Automatic Rule Optimization' do
     class EdgeCaseParser < Parsanol::Parser
       optimize_rules!
 
-      rule(:normal_repeat) {
-        str('a').repeat(0, 3)  # Should not be simplified
-      }
+      rule(:normal_repeat) do
+        str('a').repeat(0, 3) # Should not be simplified
+      end
 
-      rule(:variable_repeat) {
-        str('b').repeat(1)  # Should not be simplified (unbounded)
-      }
+      rule(:variable_repeat) do
+        str('b').repeat(1) # Should not be simplified (unbounded)
+      end
 
       root :normal_repeat
     end
@@ -226,13 +226,13 @@ describe 'Automatic Rule Optimization' do
     class ChoiceOptParser < Parsanol::Parser
       optimize_rules!
 
-      rule(:duplicate_choices) {
+      rule(:duplicate_choices) do
         str('a') | str('b') | str('a') | str('c') | str('b')
-      }
+      end
 
-      rule(:nested_alternatives) {
+      rule(:nested_alternatives) do
         (str('x') | str('y')) | (str('z') | str('w'))
-      }
+      end
 
       root :duplicate_choices
     end
@@ -259,17 +259,17 @@ describe 'Automatic Rule Optimization' do
     class LookaheadOptParser < Parsanol::Parser
       optimize_rules!
 
-      rule(:double_negation) {
+      rule(:double_negation) do
         str('a').absent?.absent? >> str('a')
-      }
+      end
 
-      rule(:idempotent_positive) {
+      rule(:idempotent_positive) do
         str('b').present?.present? >> str('b')
-      }
+      end
 
-      rule(:negative_of_positive) {
+      rule(:negative_of_positive) do
         str('c').present?.absent? >> str('d')
-      }
+      end
 
       root :double_negation
     end
@@ -297,18 +297,18 @@ describe 'Automatic Rule Optimization' do
     class AllOptimizationsParser < Parsanol::Parser
       optimize_rules!
 
-      rule(:everything) {
+      rule(:everything) do
         # Quantifiers: repeat(1,1)
         # Sequences: adjacent strings
         # Choices: duplicate alternatives
         ((str('a') >> str('b')).repeat(1, 1) | (str('a') >> str('b')).repeat(1, 1)) >>
-        (str('c') | str('c') | str('d'))
-      }
+          (str('c') | str('c') | str('d'))
+      end
 
-      rule(:with_lookahead) {
+      rule(:with_lookahead) do
         # Add lookahead optimization test
         str('x').absent?.absent? >> str('y')
-      }
+      end
 
       root :everything
     end

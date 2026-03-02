@@ -1,4 +1,6 @@
-$:.unshift File.dirname(__FILE__) + "/../lib"
+# frozen_string_literal: true
+
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 #
 # MIT License - (c) 2011 John Mettraux
@@ -7,18 +9,15 @@ $:.unshift File.dirname(__FILE__) + "/../lib"
 require 'rubygems'
 require 'parsanol/parslet' # gem install parslet
 
-
 module MyJson
-
   class Parser < Parsanol::Parser
-
     rule(:spaces) { match('\s').repeat(1) }
     rule(:spaces?) { spaces.maybe }
 
     rule(:comma) { spaces? >> str(',') >> spaces? }
     rule(:digit) { match('[0-9]') }
 
-    rule(:number) {
+    rule(:number) do
       (
         str('-').maybe >> (
           str('0') | (match('[1-9]') >> digit.repeat)
@@ -28,40 +27,40 @@ module MyJson
           match('[eE]') >> (str('+') | str('-')).maybe >> digit.repeat(1)
         ).maybe
       ).as(:number)
-    }
+    end
 
-    rule(:string) {
+    rule(:string) do
       str('"') >> (
-        str('\\') >> any | str('"').absent? >> any
+        (str('\\') >> any) | (str('"').absent? >> any)
       ).repeat.as(:string) >> str('"')
-    }
+    end
 
-    rule(:array) {
+    rule(:array) do
       str('[') >> spaces? >>
-      (value >> (comma >> value).repeat).maybe.as(:array) >>
-      spaces? >> str(']')
-    }
+        (value >> (comma >> value).repeat).maybe.as(:array) >>
+        spaces? >> str(']')
+    end
 
-    rule(:object) {
+    rule(:object) do
       str('{') >> spaces? >>
-      (entry >> (comma >> entry).repeat).maybe.as(:object) >>
-      spaces? >> str('}')
-    }
+        (entry >> (comma >> entry).repeat).maybe.as(:object) >>
+        spaces? >> str('}')
+    end
 
-    rule(:value) {
+    rule(:value) do
       string | number |
-      object | array |
-      str('true').as(:true) | str('false').as(:false) |
-      str('null').as(:null)
-    }
+        object | array |
+        str('true').as(true) | str('false').as(false) |
+        str('null').as(:null)
+    end
 
-    rule(:entry) {
+    rule(:entry) do
       (
          string.as(:key) >> spaces? >>
          str(':') >> spaces? >>
          value.as(:val)
-      ).as(:entry)
-    }
+       ).as(:entry)
+    end
 
     rule(:attribute) { (entry | value).as(:attribute) }
 
@@ -71,58 +70,58 @@ module MyJson
   end
 
   class Transformer < Parsanol::Transform
+    Entry = Struct.new(:key, :val)
 
-    class Entry < Struct.new(:key, :val); end
+    rule(array: subtree(:ar)) do
+      ar.is_a?(Array) ? ar : [ar]
+    end
+    rule(object: subtree(:ob)) do
+      (ob.is_a?(Array) ? ob : [ob]).to_h do |e|
+        [e.key, e.val]
+      end
+    end
 
-    rule(:array => subtree(:ar)) {
-      ar.is_a?(Array) ? ar : [ ar ]
-    }
-    rule(:object => subtree(:ob)) {
-      (ob.is_a?(Array) ? ob : [ ob ]).inject({}) { |h, e| h[e.key] = e.val; h }
-    }
-
-    rule(:entry => { :key => simple(:ke), :val => simple(:va) }) {
+    rule(entry: { key: simple(:ke), val: simple(:va) }) do
       Entry.new(ke, va)
-    }
+    end
 
-    rule(:string => simple(:st)) {
+    rule(string: simple(:st)) do
       st.to_s
-    }
-    rule(:number => simple(:nb)) {
-      nb.match(/[eE\.]/) ? Float(nb) : Integer(nb)
-    }
+    end
+    rule(number: simple(:nb)) do
+      nb.match(/[eE.]/) ? Float(nb) : Integer(nb)
+    end
 
-    rule(:null => simple(:nu)) { nil }
-    rule(:true => simple(:tr)) { true }
-    rule(:false => simple(:fa)) { false }
+    rule(null: simple(:nu)) { nil }
+    rule(true => simple(:tr)) { true }
+    rule(false => simple(:fa)) { false }
   end
 
   def self.parse(s)
-
     parser = Parser.new
     transformer = Transformer.new
 
     tree = parser.parse(s)
-    puts; p tree; puts
-    out = transformer.apply(tree)
-
-    out
+    puts
+    p tree
+    puts
+    transformer.apply(tree)
   end
 end
 
-
-s = %{
+s = %(
   [ 1, 2, 3, null,
     "asdfasdf asdfds", { "a": -1.2 }, { "b": true, "c": false },
     0.1e24, true, false, [ 1 ] ]
-}
+)
 
 out = MyJson.parse(s)
 
-p out; puts
+p out
+puts
 
 out == [
   1, 2, 3, nil,
-  "asdfasdf asdfds", { "a" => -1.2 }, { "b" => true, "c" => false },
-  0.1e24, true, false, [ 1 ]
-] || raise("MyJson is a failure")
+  'asdfasdf asdfds', { 'a' => -1.2 }, { 'b' => true, 'c' => false },
+  0.1e24, true, false, [1]
+] || raise('MyJson is a failure')

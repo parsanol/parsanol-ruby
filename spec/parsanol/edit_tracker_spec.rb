@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'parsanol/edit_tracker'
 
@@ -48,15 +50,15 @@ describe Parsanol::EditTracker do
 
     context 'with edit before interval' do
       it 'shifts both boundaries forward for insertion' do
-        tracker.insert(5, 10)  # Insert 10 chars at position 5
+        tracker.insert(5, 10) # Insert 10 chars at position 5
         result = tracker.shift_interval(10, 20)
-        expect(result).to eq [20, 30]  # Both shifted by +10
+        expect(result).to eq [20, 30] # Both shifted by +10
       end
 
       it 'shifts both boundaries backward for deletion' do
-        tracker.delete(5, 3)  # Delete 3 chars at position 5
+        tracker.delete(5, 3) # Delete 3 chars at position 5
         result = tracker.shift_interval(10, 20)
-        expect(result).to eq [7, 17]  # Both shifted by -3
+        expect(result).to eq [7, 17] # Both shifted by -3
       end
     end
 
@@ -76,29 +78,29 @@ describe Parsanol::EditTracker do
 
     context 'with edit inside interval' do
       it 'invalidates interval for insertion' do
-        tracker.insert(15, 5)  # Insert inside [10, 20)
+        tracker.insert(15, 5) # Insert inside [10, 20)
         result = tracker.shift_interval(10, 20)
-        expect(result).to be_nil  # Invalidated
+        expect(result).to be_nil # Invalidated
       end
 
       it 'invalidates interval for deletion' do
-        tracker.delete(15, 3)  # Delete inside [10, 20)
+        tracker.delete(15, 3) # Delete inside [10, 20)
         result = tracker.shift_interval(10, 20)
-        expect(result).to be_nil  # Invalidated
+        expect(result).to be_nil # Invalidated
       end
 
       it 'invalidates interval for edit at start boundary' do
-        tracker.insert(10, 5)  # Edit at start of [10, 20)
+        tracker.insert(10, 5) # Edit at start of [10, 20)
         result = tracker.shift_interval(10, 20)
-        expect(result).to be_nil  # Invalidated
+        expect(result).to be_nil # Invalidated
       end
     end
 
     context 'with edit at end boundary' do
       it 'does not invalidate interval' do
-        tracker.insert(20, 5)  # Edit at end of [10, 20) - not inside
+        tracker.insert(20, 5) # Edit at end of [10, 20) - not inside
         result = tracker.shift_interval(10, 20)
-        expect(result).to eq [10, 20]  # Not invalidated
+        expect(result).to eq [10, 20] # Not invalidated
       end
     end
 
@@ -117,7 +119,7 @@ describe Parsanol::EditTracker do
         tracker.insert(25, 5)   # Inside shifted interval [20,30)
 
         result = tracker.shift_interval(10, 20)
-        expect(result).to be_nil  # Invalidated by second edit
+        expect(result).to be_nil # Invalidated by second edit
       end
 
       it 'handles complex sequence of edits' do
@@ -134,15 +136,15 @@ describe Parsanol::EditTracker do
 
     context 'with invalidation conditions' do
       it 'invalidates if shifted interval becomes negative' do
-        tracker.delete(5, 20)  # Large deletion before interval
+        tracker.delete(5, 20) # Large deletion before interval
         result = tracker.shift_interval(10, 20)
-        expect(result).to be_nil  # Would become [<0, <0)
+        expect(result).to be_nil # Would become [<0, <0)
       end
 
       it 'invalidates if high becomes less than low' do
-        tracker.delete(5, 100)  # Very large deletion
+        tracker.delete(5, 100) # Very large deletion
         result = tracker.shift_interval(10, 20)
-        expect(result).to be_nil  # Would become invalid
+        expect(result).to be_nil # Would become invalid
       end
     end
   end
@@ -200,19 +202,19 @@ describe Parsanol::EditTracker do
     it 'handles negative positions in edits' do
       tracker.insert(-5, 10)
       result = tracker.shift_interval(10, 20)
-      expect(result).to eq [20, 30]  # Shifted
+      expect(result).to eq [20, 30] # Shifted
     end
   end
 
   describe 'Edit#to_s' do
     it 'describes insertions' do
       edit = Parsanol::EditTracker::Edit.new(10, 5)
-      expect(edit.to_s).to eq "Insert(5 chars at 10)"
+      expect(edit.to_s).to eq 'Insert(5 chars at 10)'
     end
 
     it 'describes deletions' do
       edit = Parsanol::EditTracker::Edit.new(20, -3)
-      expect(edit.to_s).to eq "Delete(3 chars at 20)"
+      expect(edit.to_s).to eq 'Delete(3 chars at 20)'
     end
   end
 end

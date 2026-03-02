@@ -6,9 +6,9 @@ describe Parsanol::LazyResult do
   let(:context) { Parsanol::Atoms::Context.new }
   let(:buffer) do
     buf = context.acquire_buffer(size: 4)
-    buf.push("a")
-    buf.push("b")
-    buf.push("c")
+    buf.push('a')
+    buf.push('b')
+    buf.push('c')
     buf
   end
   let(:lazy) { described_class.new(buffer, context) }
@@ -25,15 +25,15 @@ describe Parsanol::LazyResult do
     it 'materializes buffer to array' do
       result = lazy.to_a
       expect(result).to be_a(Array)
-      expect(result).to eq(["a", "b", "c"])
+      expect(result).to eq(%w[a b c])
     end
-    
+
     it 'caches materialized array' do
       arr1 = lazy.to_a
       arr2 = lazy.to_a
       expect(arr2.object_id).to eq(arr1.object_id)
     end
-    
+
     it 'only materializes once' do
       expect(buffer).to receive(:to_a).once.and_call_original
       lazy.to_a
@@ -44,17 +44,17 @@ describe Parsanol::LazyResult do
 
   describe '#[]' do
     it 'accesses elements by index' do
-      expect(lazy[0]).to eq("a")
-      expect(lazy[1]).to eq("b")
-      expect(lazy[2]).to eq("c")
+      expect(lazy[0]).to eq('a')
+      expect(lazy[1]).to eq('b')
+      expect(lazy[2]).to eq('c')
     end
-    
+
     it 'materializes on first access' do
       expect(lazy.materialized).to be_nil
       lazy[0]
       expect(lazy.materialized).not_to be_nil
     end
-    
+
     it 'returns nil for out of bounds index' do
       expect(lazy[10]).to be_nil
     end
@@ -79,7 +79,7 @@ describe Parsanol::LazyResult do
       expect(lazy.empty?).to be false
       expect(lazy.materialized).to be_nil
     end
-    
+
     it 'returns true for empty buffer' do
       empty_buffer = context.acquire_buffer(size: 2)
       empty_lazy = described_class.new(empty_buffer, context)
@@ -89,17 +89,16 @@ describe Parsanol::LazyResult do
 
   describe '#each' do
     it 'iterates over elements' do
-      result = []
-      lazy.each { |e| result << e }
-      expect(result).to eq(["a", "b", "c"])
+      result = lazy.map { |e| e }
+      expect(result).to eq(%w[a b c])
     end
-    
+
     it 'returns enumerator without block' do
       enum = lazy.each
       expect(enum).to be_a(Enumerator)
-      expect(enum.to_a).to eq(["a", "b", "c"])
+      expect(enum.to_a).to eq(%w[a b c])
     end
-    
+
     it 'returns self when block given' do
       result = lazy.each { |e| }
       expect(result).to eq(lazy)
@@ -110,11 +109,11 @@ describe Parsanol::LazyResult do
     it 'reports as Array' do
       expect(lazy.is_a?(Array)).to be true
     end
-    
+
     it 'reports as LazyResult' do
       expect(lazy.is_a?(Parsanol::LazyResult)).to be true
     end
-    
+
     it 'reports as Object' do
       expect(lazy.is_a?(Object)).to be true
     end
@@ -122,8 +121,8 @@ describe Parsanol::LazyResult do
 
   describe '#kind_of?' do
     it 'is an alias for is_a?' do
-      expect(lazy.kind_of?(Array)).to be true
-      expect(lazy.kind_of?(Parsanol::LazyResult)).to be true
+      expect(lazy.is_a?(Array)).to be true
+      expect(lazy.is_a?(Parsanol::LazyResult)).to be true
     end
   end
 
@@ -134,7 +133,7 @@ describe Parsanol::LazyResult do
       expect(lazy.respond_to?(:first)).to be true
       expect(lazy.respond_to?(:last)).to be true
     end
-    
+
     it 'responds to LazyResult methods' do
       expect(lazy.respond_to?(:to_a)).to be true
       expect(lazy.respond_to?(:size)).to be true
@@ -144,25 +143,25 @@ describe Parsanol::LazyResult do
 
   describe '#method_missing' do
     it 'delegates map to materialized array' do
-      expect(lazy.map { |e| e.upcase }).to eq(["A", "B", "C"])
+      expect(lazy.map(&:upcase)).to eq(%w[A B C])
     end
-    
+
     it 'delegates select to materialized array' do
-      expect(lazy.select { |e| e > "a" }).to eq(["b", "c"])
+      expect(lazy.select { |e| e > 'a' }).to eq(%w[b c])
     end
-    
+
     it 'delegates first to materialized array' do
-      expect(lazy.first).to eq("a")
+      expect(lazy.first).to eq('a')
     end
-    
+
     it 'delegates last to materialized array' do
-      expect(lazy.last).to eq("c")
+      expect(lazy.last).to eq('c')
     end
-    
+
     it 'delegates join to materialized array' do
-      expect(lazy.join(", ")).to eq("a, b, c")
+      expect(lazy.join(', ')).to eq('a, b, c')
     end
-    
+
     it 'raises NoMethodError for unknown methods' do
       expect { lazy.unknown_method }.to raise_error(NoMethodError)
     end
@@ -173,7 +172,7 @@ describe Parsanol::LazyResult do
       expect(lazy.respond_to?(:map)).to be true
       expect(lazy.respond_to?(:flatten)).to be true
     end
-    
+
     it 'returns false for non-existent methods' do
       expect(lazy.respond_to?(:nonexistent_method)).to be false
     end
@@ -181,40 +180,40 @@ describe Parsanol::LazyResult do
 
   describe '#==' do
     it 'compares equal to array with same content' do
-      expect(lazy == ["a", "b", "c"]).to be true
-      expect(lazy).to eq(["a", "b", "c"])
+      expect(lazy == %w[a b c]).to be true
+      expect(lazy).to eq(%w[a b c])
     end
-    
+
     it 'compares not equal to array with different content' do
-      expect(lazy == ["x", "y", "z"]).to be false
-      expect(lazy).not_to eq(["x", "y", "z"])
+      expect(lazy == %w[x y z]).to be false
+      expect(lazy).not_to eq(%w[x y z])
     end
-    
+
     it 'compares equal to another LazyResult with same content' do
       buffer2 = context.acquire_buffer(size: 4)
-      buffer2.push("a")
-      buffer2.push("b")
-      buffer2.push("c")
+      buffer2.push('a')
+      buffer2.push('b')
+      buffer2.push('c')
       lazy2 = described_class.new(buffer2, context)
-      
+
       expect(lazy == lazy2).to be true
       expect(lazy).to eq(lazy2)
     end
-    
+
     it 'works with rspec eq matcher' do
-      expect(lazy).to eq(["a", "b", "c"])
+      expect(lazy).to eq(%w[a b c])
     end
   end
 
   describe '#eql?' do
     it 'is an alias for ==' do
-      expect(lazy.eql?(["a", "b", "c"])).to be true
+      expect(lazy.eql?(%w[a b c])).to be true
     end
   end
 
   describe '#hash' do
     it 'returns same hash as equivalent array' do
-      array = ["a", "b", "c"]
+      array = %w[a b c]
       expect(lazy.hash).to eq(array.hash)
     end
   end
@@ -223,31 +222,31 @@ describe Parsanol::LazyResult do
     it 'defers materialization until needed' do
       new_lazy = described_class.new(buffer, context)
       expect(new_lazy.materialized).to be_nil
-      
+
       # These don't materialize
       new_lazy.size
       new_lazy.empty?
       new_lazy.length
       expect(new_lazy.materialized).to be_nil
-      
+
       # This does materialize
       new_lazy.to_a
       expect(new_lazy.materialized).not_to be_nil
     end
-    
+
     it 'materializes on array method calls' do
       new_lazy = described_class.new(buffer, context)
       expect(new_lazy.materialized).to be_nil
-      
+
       # Array access materializes
       new_lazy[0]
       expect(new_lazy.materialized).not_to be_nil
     end
-    
+
     it 'materializes on enumerable methods' do
       new_lazy = described_class.new(buffer, context)
       expect(new_lazy.materialized).to be_nil
-      
+
       # map materializes
       new_lazy.map { |x| x }
       expect(new_lazy.materialized).not_to be_nil
@@ -257,13 +256,13 @@ describe Parsanol::LazyResult do
   describe '#inspect' do
     it 'shows buffer size when not materialized' do
       new_lazy = described_class.new(buffer, context)
-      expect(new_lazy.inspect).to include("buffer.size=3")
-      expect(new_lazy.inspect).not_to include("materialized=")
+      expect(new_lazy.inspect).to include('buffer.size=3')
+      expect(new_lazy.inspect).not_to include('materialized=')
     end
-    
+
     it 'shows materialized array after materialization' do
       lazy.to_a
-      expect(lazy.inspect).to include("materialized=")
+      expect(lazy.inspect).to include('materialized=')
       expect(lazy.inspect).to include('["a", "b", "c"]')
     end
   end
@@ -277,12 +276,12 @@ describe Parsanol::LazyResult do
       expect(lazy.last).to eq(result_array.last)
       expect(lazy.empty?).to eq(result_array.empty?)
     end
-    
+
     it 'supports array destructuring' do
       a, b, c = lazy
-      expect(a).to eq("a")
-      expect(b).to eq("b")
-      expect(c).to eq("c")
+      expect(a).to eq('a')
+      expect(b).to eq('b')
+      expect(c).to eq('c')
     end
   end
 end

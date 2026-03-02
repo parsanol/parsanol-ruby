@@ -1,14 +1,11 @@
 AllCops:
   NewCops: enable
-  TargetRubyVersion: 2.7
-
-# Exclude vendor directory (bundled gems)
+  TargetRubyVersion: 3.0
   Exclude:
     - vendor/**/*
     - tmp/**/*
     - benchmark/**/*
     - spec/fixtures/**/*
-    - example/**/*
 
 # Metrics - allow longer methods in test files
 Metrics/BlockLength:
@@ -16,12 +13,30 @@ Metrics/BlockLength:
     - spec/**/*_spec.rb
     - spec/spec_helper.rb
     - spec/support/**/*.rb
+    - Rakefile
+    - Steepfile
 
 Metrics/MethodLength:
   Max: 15
+  Exclude:
+    - example/**/*
 
 Metrics/ClassLength:
   Max: 200
+  Exclude:
+    - example/**/*
+
+Metrics/AbcSize:
+  Exclude:
+    - example/**/*
+
+Metrics/CyclomaticComplexity:
+  Exclude:
+    - example/**/*
+
+Metrics/PerceivedComplexity:
+  Exclude:
+    - example/**/*
 
 # Style - prefer single quotes but allow double quotes for readability
 Style/StringLiterals:
@@ -36,4 +51,32 @@ Style/HashSyntax:
 Layout/LineLength:
   Max: 120
   Exclude:
-    - spec/**/*_spec.rb
+    - spec/**/*
+
+# Example files - allow more flexibility for demonstration code
+Style/Documentation:
+  Exclude:
+    - example/**/*
+    - spec/**/*
+
+Style/OneClassPerFile:
+  Exclude:
+    - example/**/*
+    - spec/**/*
+
+Lint/StructNewOverride:
+  Exclude:
+    - example/**/*
+
+Style/FormatString:
+  Exclude:
+    - example/**/*
+
+Style/FormatStringToken:
+  Exclude:
+    - example/**/*
+    - Rakefile
+
+Lint/ConstantDefinitionInBlock:
+  Exclude:
+    - spec/**/*

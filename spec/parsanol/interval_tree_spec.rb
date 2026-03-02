@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'parsanol/interval_tree'
 
@@ -140,7 +142,7 @@ describe Parsanol::IntervalTree do
     it 'handles many intervals efficiently' do
       # Insert 100 intervals
       100.times do |i|
-        tree.insert(i * 10, i * 10 + 15, "data#{i}")
+        tree.insert(i * 10, (i * 10) + 15, "data#{i}")
       end
 
       expect(tree.size).to eq 100

@@ -142,7 +142,7 @@ module Parsanol
     # @return [self]
     #
     def add_element(value)
-      @buffer.push(value) if value  # Skip nil values
+      @buffer.push(value) if value # Skip nil values
       self
     end
 
@@ -174,7 +174,7 @@ module Parsanol
     # @param context [Context] Parse context
     #
     def initialize(context)
-      super(context)
+      super
       @hash = {}
     end
 

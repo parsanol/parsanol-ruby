@@ -68,7 +68,7 @@ module Parsanol
         # Clear array before pooling to prevent stale data
         # Note: Array#clear is more efficient than array = []
         array.clear
-        super(array)
+        super
       end
     end
   end

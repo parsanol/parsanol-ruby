@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "parsanol/native"
+require 'parsanol/native'
 
 module Parsanol
   # Generic lexer for fast tokenization
@@ -49,7 +49,7 @@ module Parsanol
       # @param pattern [Regexp] Pattern to ignore
       def ignore(pattern)
         token_definitions << Definition.new(
-          name: "__ignore__",
+          name: '__ignore__',
           pattern: pattern.source,
           priority: 0,
           ignore: true,
@@ -107,10 +107,10 @@ module Parsanol
 
       # Apply any transforms
       tokens.map do |token|
-        transform = @transforms[token["type"]]
+        transform = @transforms[token['type']]
         if transform
           token = token.dup
-          token["value"] = transform.call(token["value"])
+          token['value'] = transform.call(token['value'])
         end
         token
       end
@@ -123,10 +123,10 @@ module Parsanol
 
       definitions = self.class.token_definitions.map do |d|
         {
-          "name" => d.name,
-          "pattern" => d.pattern,
-          "priority" => d.priority,
-          "ignore" => d.ignore
+          'name' => d.name,
+          'pattern' => d.pattern,
+          'priority' => d.priority,
+          'ignore' => d.ignore
         }
       end
 
@@ -136,9 +136,7 @@ module Parsanol
     def build_transforms
       transforms = {}
       self.class.token_definitions.each do |d|
-        if d.transform && !d.ignore
-          transforms[d.name] = d.transform
-        end
+        transforms[d.name] = d.transform if d.transform && !d.ignore
       end
       transforms
     end

@@ -76,7 +76,7 @@ module Parsanol
     Context = ::Parsanol::Context
 
     # Module functions for DSL (delegate to Parsanol)
-    extend self
+    module_function
 
     def match(str = nil)
       Parsanol.match(str)

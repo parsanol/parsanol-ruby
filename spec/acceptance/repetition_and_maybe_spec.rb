@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe 'Tree output' do
@@ -29,7 +31,7 @@ describe 'Tree output' do
 
       # The other way around: Contents would be tagged, but nil result isn't
       (str('a') >> str('b')).as(:f).maybe => '',
-      (str('a') >> str('b')).as(:f).repeat => '',
+      (str('a') >> str('b')).as(:f).repeat => ''
     )
   end
 
@@ -38,7 +40,7 @@ describe 'Tree output' do
 
     hash_examples(
       # since they're not named, repetitions get merged together.
-      str('a').as(:a).repeat >> str('a').as(:a).repeat => [{ a: 'a' }, { a: 'a' }],
+      str('a').as(:a).repeat >> str('a').as(:a).repeat => [{ a: 'a' }, { a: 'a' }]
     )
   end
 end

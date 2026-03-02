@@ -103,7 +103,7 @@ RSpec.describe 'Parslet Combinators' do
     it 'respects max boundary' do
       parser = parslet.match('[a-z]').repeat(0, 2)
       expect(parser.parse('ab')).to eq('ab')
-      # Note: This should only parse 2 characters, not fail
+      # NOTE: This should only parse 2 characters, not fail
     end
 
     it 'produces array of named captures when name comes before repeat' do

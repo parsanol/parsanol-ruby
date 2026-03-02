@@ -14,19 +14,23 @@
 #   # Prints the error tree automatically and returns nil
 #
 # Inspired by Parslet (MIT License).
-class Parsanol::Atoms::Base
-  # Parses input and automatically displays error information on failure.
-  # This is a convenience method for development and debugging.
-  # Unlike #parse, this method catches ParseFailed and prints debug info.
-  #
-  # @param input [String] the input to parse
-  # @param options [Hash] options passed to #parse
-  # @return [Object] parse result on success, nil on failure
-  def parse_with_debug(input, options = {})
-    parse(input, options)
-  rescue Parsanol::ParseFailed => error
-    # Display the error tree for debugging
-    puts error.parse_failure_cause.ascii_tree
-    nil
+module Parsanol
+  module Atoms
+    class Base
+      # Parses input and automatically displays error information on failure.
+      # This is a convenience method for development and debugging.
+      # Unlike #parse, this method catches ParseFailed and prints debug info.
+      #
+      # @param input [String] the input to parse
+      # @param options [Hash] options passed to #parse
+      # @return [Object] parse result on success, nil on failure
+      def parse_with_debug(input, options = {})
+        parse(input, options)
+      rescue Parsanol::ParseFailed => e
+        # Display the error tree for debugging
+        puts e.parse_failure_cause.ascii_tree
+        nil
+      end
+    end
   end
 end

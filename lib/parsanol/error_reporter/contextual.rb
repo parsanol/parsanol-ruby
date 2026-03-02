@@ -69,7 +69,7 @@ module Parsanol
       # @return [Parsanol::Cause] the error cause
       #
       def err(atom, src, msg, nested = nil)
-        cause = super(atom, src, msg, nested)
+        cause = super
 
         # Apply label if the atom has one
         if atom.respond_to?(:label) && (lbl = atom.label)
@@ -89,10 +89,10 @@ module Parsanol
       # @return [void]
       #
       def maybe_update_label(lbl, byte_pos)
-        if byte_pos >= @active_label_pos
-          @active_label_pos = byte_pos
-          @active_label_text = lbl
-        end
+        return unless byte_pos >= @active_label_pos
+
+        @active_label_pos = byte_pos
+        @active_label_text = lbl
       end
     end
   end

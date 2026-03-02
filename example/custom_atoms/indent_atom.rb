@@ -23,7 +23,7 @@ class IndentAtom < Parsanol::Atoms::Custom
   end
 
   # Required: Implement the matching logic
-  def try_match(source, context, consume_all)
+  def try_match(source, _context, _consume_all)
     # Save position for potential backtrack
     start_pos = source.bytepos
 
@@ -36,6 +36,7 @@ class IndentAtom < Parsanol::Atoms::Custom
       # Consume one space
       char = source.consume(1)
       break unless char == ' '
+
       indent += 1
     end
 
@@ -51,13 +52,13 @@ class IndentAtom < Parsanol::Atoms::Custom
   end
 
   # Override to_s_inner for better error messages
-  def to_s_inner(prec = nil)
+  def to_s_inner(_prec = nil)
     "indent(#{@expected_indent})"
   end
 end
 
 # Example usage
-if __FILE__ == $0
+if __FILE__ == $PROGRAM_NAME
   class IndentedParser < Parsanol::Parser
     rule(:line) { indent >> content }
     rule(:indent) { IndentAtom.new(2) }
@@ -68,11 +69,11 @@ if __FILE__ == $0
   parser = IndentedParser.new
 
   # This should parse - exactly 2 spaces of indentation
-  puts parser.parse("  hello").inspect
+  puts parser.parse('  hello').inspect
 
   # This will fail - wrong indentation
   begin
-    puts parser.parse("    hello").inspect
+    puts parser.parse('    hello').inspect
   rescue Parsanol::ParseFailed => e
     puts "Failed as expected: #{e.message}"
   end

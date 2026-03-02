@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 # Markup Parser - Ruby Implementation
 #
 # Parse a simple markup language: headers, lists, paragraphs, inline formatting.
 #
 # Run with: ruby example/markup/basic.rb
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol/parslet'
 
@@ -16,49 +18,49 @@ class MarkupParser < Parsanol::Parser
   rule(:document) { block.repeat(1).as(:document) }
 
   # Block-level elements
-  rule(:block) {
+  rule(:block) do
     heading |
-    unordered_list |
-    paragraph |
-    blank_line.as(:blank)
-  }
+      unordered_list |
+      paragraph |
+      blank_line.as(:blank)
+  end
 
   # Heading: = for H1, == for H2, === for H3
-  rule(:heading) {
+  rule(:heading) do
     (str('=').repeat(1, 3).as(:level) >>
      space >>
      heading_content.as(:text) >>
      newline).as(:heading)
-  }
+  end
 
-  rule(:heading_content) {
+  rule(:heading_content) do
     (newline.absent? >> any).repeat(1)
-  }
+  end
 
   # Paragraph: text until blank line
-  rule(:paragraph) {
+  rule(:paragraph) do
     (paragraph_line >> newline).repeat(1).as(:paragraph)
-  }
+  end
 
-  rule(:paragraph_line) {
+  rule(:paragraph_line) do
     (blank_line.absent? >> (str('=').absent? | space.absent?) >> any).repeat(1)
-  }
+  end
 
   # Unordered list: - items
-  rule(:unordered_list) {
+  rule(:unordered_list) do
     list_item.repeat(1).as(:unordered_list)
-  }
+  end
 
-  rule(:list_item) {
+  rule(:list_item) do
     (str('-') >>
      space >>
      list_content.as(:text) >>
      newline).as(:item)
-  }
+  end
 
-  rule(:list_content) {
+  rule(:list_content) do
     (newline.absent? >> any).repeat(1)
-  }
+  end
 
   # Helpers
   rule(:space) { str(' ') }
@@ -96,21 +98,21 @@ end
 
 # Transform parse tree to AST
 class MarkupTransform < Parsanol::Transform
-  rule(document: sequence(:blocks)) {
+  rule(document: sequence(:blocks)) do
     MarkupDocument.new(blocks.reject { |b| b == :blank })
-  }
+  end
 
-  rule(heading: { level: simple(:l), text: simple(:t) }) {
+  rule(heading: { level: simple(:l), text: simple(:t) }) do
     MarkupHeading.new(l.to_s, t.to_s)
-  }
+  end
 
-  rule(paragraph: sequence(:lines)) {
+  rule(paragraph: sequence(:lines)) do
     MarkupParagraph.new(lines.map(&:to_s))
-  }
+  end
 
-  rule(unordered_list: sequence(:items)) {
+  rule(unordered_list: sequence(:items)) do
     MarkupList.new(items)
-  }
+  end
 
   rule(item: { text: simple(:t) }) { { text: t.to_s } }
   rule(blank: simple(:_)) { :blank }
@@ -129,9 +131,9 @@ rescue Parsanol::ParseError => e
 end
 
 # Main demo
-if __FILE__ == $0
-  puts "Markup Parser"
-  puts "=" * 50
+if __FILE__ == $PROGRAM_NAME
+  puts 'Markup Parser'
+  puts '=' * 50
   puts
 
   markup = <<~MU
@@ -155,19 +157,19 @@ if __FILE__ == $0
     Final content.
   MU
 
-  puts "Input:"
-  puts "-" * 50
+  puts 'Input:'
+  puts '-' * 50
   puts markup
-  puts "-" * 50
+  puts '-' * 50
   puts
 
-  result = parse_markup(markup + "\n")
+  result = parse_markup("#{markup}\n")
 
   if result
-    puts "Parsed AST:"
+    puts 'Parsed AST:'
     pp result
     puts
-    puts "HTML Output:"
+    puts 'HTML Output:'
     puts result.to_html
   end
 end

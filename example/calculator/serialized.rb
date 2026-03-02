@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Calculator Example - Serialized: JSON Serialization
 #
 # This example demonstrates Serialized where:
@@ -7,52 +9,52 @@
 #
 # This option provides cross-language compatibility and structured output.
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 require 'parsanol'
 require 'json'
 
 # Check native extension availability
 unless Parsanol::Native.available?
-  puts "=" * 60
-  puts "Calculator Example - Serialized: JSON Serialization"
-  puts "=" * 60
+  puts '=' * 60
+  puts 'Calculator Example - Serialized: JSON Serialization'
+  puts '=' * 60
   puts
-  puts "ERROR: Native extension not available!"
-  puts "Please run: rake compile"
-  puts "=" * 60
+  puts 'ERROR: Native extension not available!'
+  puts 'Please run: rake compile'
+  puts '=' * 60
   exit 1
 end
 
-puts "=" * 60
-puts "Calculator Example - Serialized: JSON Serialization"
-puts "=" * 60
+puts '=' * 60
+puts 'Calculator Example - Serialized: JSON Serialization'
+puts '=' * 60
 puts
-puts "✓ Native extension loaded successfully!"
+puts '✓ Native extension loaded successfully!'
 puts
 
 # Step 1: Define the parser grammar (same as RubyTransform)
 class CalculatorParser < Parsanol::Parser
   root :expression
 
-  rule(:expression) {
+  rule(:expression) do
     (term.as(:left) >> add_op.as(:op) >> expression.as(:right)).as(:binop) |
-    term
-  }
+      term
+  end
 
-  rule(:term) {
+  rule(:term) do
     (factor.as(:left) >> mult_op.as(:op) >> term.as(:right)).as(:binop) |
-    factor
-  }
+      factor
+  end
 
-  rule(:factor) {
-    lparen >> expression >> rparen |
-    number
-  }
+  rule(:factor) do
+    (lparen >> expression >> rparen) |
+      number
+  end
 
-  rule(:number) {
-    (match('[0-9]').repeat(1)).as(:int) >> space?
-  }
+  rule(:number) do
+    match('[0-9]').repeat(1).as(:int) >> space?
+  end
 
   rule(:add_op) { match('[+-]').as(:op) >> space? }
   rule(:mult_op) { match('[*/]').as(:op) >> space? }
@@ -153,9 +155,7 @@ def parse_json_to_expr(data)
     result
   when String
     # Could be a number string
-    Integer(data) rescue nil
-  else
-    nil
+    Integer(data, exception: false)
   end
 end
 
@@ -171,7 +171,7 @@ def extract_op(data)
     # Find the op value in the array
     data.each do |elem|
       result = extract_op(elem)
-      return result if result.is_a?(String) && result.match?(/^[+\-*\/]$/)
+      return result if result.is_a?(String) && result.match?(%r{^[+\-*/]$})
     end
     nil
   when String
@@ -196,62 +196,60 @@ def calculate(input)
   expr = parse_json_to_expr(data)
 
   if expr
-    puts "AST: #{expr.to_s}"
+    puts "AST: #{expr}"
     result = expr.eval
-    puts "Result: #{result}"
-    result
   else
     # Fall back to pure Ruby parsing
     tree = parser.parse(input)
     transform = CalculatorTransform.new
     ast = transform.apply(tree)
-    puts "AST (fallback): #{ast.to_s}"
+    puts "AST (fallback): #{ast}"
     result = ast.eval
-    puts "Result: #{result}"
-    result
   end
+  puts "Result: #{result}"
+  result
 end
 
 # Transform class for fallback
 class CalculatorTransform < Parsanol::Transform
   rule(int: simple(:n)) { NumberExpr.new(Integer(n)) }
-  rule(left: simple(:l), op: { op: simple(:o) }, right: simple(:r)) {
+  rule(left: simple(:l), op: { op: simple(:o) }, right: simple(:r)) do
     BinOpExpr.new(l, o, r)
-  }
+  end
   rule(binop: simple(:b)) { b }
 end
 
 # Example usage
-if __FILE__ == $0
+if __FILE__ == $PROGRAM_NAME
   test_cases = [
-    ["42", 42],
-    ["1 + 2", 3],
-    ["3 * 4", 12],
-    ["2 + 3 * 4", 14],
-    ["(2 + 3) * 4", 20],
+    ['42', 42],
+    ['1 + 2', 3],
+    ['3 * 4', 12],
+    ['2 + 3 * 4', 14],
+    ['(2 + 3) * 4', 20]
   ]
 
   test_cases.each do |input, expected|
     puts
-    puts "-" * 40
+    puts '-' * 40
     puts "Input: #{input}"
     begin
       result = calculate(input)
-      status = result == expected ? "✓ PASS" : "✗ FAIL"
+      status = result == expected ? '✓ PASS' : '✗ FAIL'
       puts "Expected: #{expected}, Got: #{result} - #{status}"
-    rescue => e
+    rescue StandardError => e
       puts "Error: #{e.message}"
       puts e.backtrace.first(3).join("\n")
-      puts "✗ FAIL"
+      puts '✗ FAIL'
     end
   end
 
   puts
-  puts "=" * 60
-  puts "Serialized Benefits:"
-  puts "- Cross-language: Same JSON works for Python, JavaScript, etc."
-  puts "- Native performance: All parsing done in Rust"
-  puts "- Structured output with type information"
-  puts "- Easy to cache/store results"
-  puts "=" * 60
+  puts '=' * 60
+  puts 'Serialized Benefits:'
+  puts '- Cross-language: Same JSON works for Python, JavaScript, etc.'
+  puts '- Native performance: All parsing done in Rust'
+  puts '- Structured output with type information'
+  puts '- Easy to cache/store results'
+  puts '=' * 60
 end
