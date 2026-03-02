@@ -92,10 +92,11 @@ jobs:
 
       - name: Build native gem
         run: |
-          bundle exec rake compile
-          gem build parsanol-ruby.gemspec
-          mkdir -p pkg
-          mv *.gem pkg/ || true
+          # Use the proper rake task that:
+          # 1. Compiles the native extension
+          # 2. Creates platform-specific gemspec
+          # 3. Packages gem with pre-compiled binary (no extension build on install)
+          bundle exec rake gem:native:${{ matrix.platform }}
 
       - name: Verify native extension
         if: matrix.platform != 'any'
