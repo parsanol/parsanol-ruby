@@ -30,19 +30,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Linux x86_64
+          # Linux x86_64 (cache only on 3.4)
           - os: ubuntu-22.04
             ruby: "3.2"
-            cargo-cache: true
+            cargo-cache: "false"
           - os: ubuntu-22.04
             ruby: "3.3"
-            cargo-cache: true
+            cargo-cache: "false"
           - os: ubuntu-22.04
             ruby: "3.4"
             cargo-cache: true
           - os: ubuntu-22.04
             ruby: "4.0"
-            cargo-cache: true
+            cargo-cache: "false"
 
           # Linux ARM64
           - os: ubuntu-22.04-arm
@@ -58,47 +58,47 @@ jobs:
             ruby: "4.0"
             cargo-cache: "false"
 
-          # macOS Intel
+          # macOS Intel (cache only on 3.4)
           - os: macos-15-intel
             ruby: "3.2"
-            cargo-cache: true
+            cargo-cache: "false"
           - os: macos-15-intel
             ruby: "3.3"
-            cargo-cache: true
+            cargo-cache: "false"
           - os: macos-15-intel
             ruby: "3.4"
             cargo-cache: true
           - os: macos-15-intel
             ruby: "4.0"
-            cargo-cache: true
+            cargo-cache: "false"
 
-          # macOS Apple Silicon
+          # macOS Apple Silicon (cache only on 3.4)
           - os: macos-15
             ruby: "3.2"
-            cargo-cache: true
+            cargo-cache: "false"
           - os: macos-15
             ruby: "3.3"
-            cargo-cache: true
+            cargo-cache: "false"
           - os: macos-15
             ruby: "3.4"
             cargo-cache: true
           - os: macos-15
             ruby: "4.0"
-            cargo-cache: true
+            cargo-cache: "false"
 
-          # Windows x64
+          # Windows x64 (cache only on 3.4)
           - os: windows-2025
             ruby: "3.2"
-            cargo-cache: true
+            cargo-cache: "false"
           - os: windows-2025
             ruby: "3.3"
-            cargo-cache: true
+            cargo-cache: "false"
           - os: windows-2025
             ruby: "3.4"
             cargo-cache: true
           - os: windows-2025
             ruby: "4.0"
-            cargo-cache: true
+            cargo-cache: "false"
 
           # Windows ARM64 (Ruby 3.4+ only)
           # Note: oxidize-rb action has issues with Windows ARM64 toolchain detection,
