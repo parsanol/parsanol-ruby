@@ -14,27 +14,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ci-data:
+    name: Fetch CI data
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.fetch.outputs.result }}
+    steps:
+      - uses: oxidize-rb/actions/fetch-ci-data@v1
+        id: fetch
+        with:
+          stable-ruby-versions: |
+            exclude: [head]
+
   # Native extension tests (required)
   test-native:
     name: Native ${{ matrix.ruby }} on ${{ matrix.os }}
+    needs: ci-data
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest ]
-        ruby: [ '3.2', '3.3', '3.4', '4.0' ]
+        ruby: ${{ fromJSON(needs.ci-data.outputs.result).stable-ruby-versions }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
+      - name: Setup Ruby and Rust
+        uses: oxidize-rb/actions/setup-ruby-and-rust@v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
+          cargo-cache: true
 
       - name: Compile native extension
         run: bundle exec rake compile
@@ -72,10 +83,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Ruby and Rust
+        uses: oxidize-rb/actions/setup-ruby-and-rust@v1
         with:
-          components: clippy
+          ruby-version: '3.4'
+          rustup-components: clippy
 
       - name: Run Clippy
         run: |
