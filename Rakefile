@@ -86,7 +86,7 @@ namespace :gem do
   end
 
   # Generate tasks for each platform
-  PLATFORMS.each do |platform, _host|
+  PLATFORMS.each do |platform, _host| # rubocop:disable Style/HashEachMethods
     desc "Build pre-compiled gem for the #{platform} platform"
     task "native:#{platform}" do
       sh "rake compile gem:platform:#{platform} gem"
