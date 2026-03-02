@@ -65,8 +65,8 @@ class CsvRow
     @fields[index]
   end
 
-  def each(&block)
-    @fields.each(&block)
+  def each(&)
+    @fields.each(&)
   end
 end
 

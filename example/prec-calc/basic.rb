@@ -19,8 +19,8 @@ class InfixExpressionParser < Parsanol::Parser
     atom >> space.repeat
   end
 
-  def infix(*args)
-    Infix.new(*args)
+  def infix(*)
+    Infix.new(*)
   end
 
   # This is the heart of the infix expression parser: real simple definitions

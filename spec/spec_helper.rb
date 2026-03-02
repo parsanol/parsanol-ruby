@@ -55,9 +55,9 @@ def catch_failed_parse
   exception&.parse_failure_cause
 end
 
-def slet(name, &block)
-  let(name, &block)
-  subject(&block)
+def slet(name, &)
+  let(name, &)
+  subject(&)
 end
 
 # Helper method to convert Parsanol::Slice objects to plain strings for comparison

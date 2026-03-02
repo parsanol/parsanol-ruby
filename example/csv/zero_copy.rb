@@ -56,8 +56,8 @@ module Csv
       @fields.size
     end
 
-    def each(&block)
-      @fields.each(&block)
+    def each(&)
+      @fields.each(&)
     end
 
     def to_a
@@ -85,8 +85,8 @@ module Csv
       @rows[index]
     end
 
-    def each(&block)
-      @rows.each(&block)
+    def each(&)
+      @rows.each(&)
     end
 
     def headers
