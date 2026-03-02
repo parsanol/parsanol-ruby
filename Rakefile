@@ -11,29 +11,10 @@ rescue LoadError, NoMethodError
   # Opal not available or incompatible with current Ruby version
 end
 
-# Native extension compilation using rb-sys
-begin
-  require 'rb_sys/extensiontask'
+GEMSPEC = Gem::Specification.load('parsanol-ruby.gemspec')
 
-  GEMSPEC = Gem::Specification.load('parsanol-ruby.gemspec')
-
-  RbSys::ExtensionTask.new('parsanol_native', GEMSPEC) do |ext|
-    ext.lib_dir = 'lib/parsanol'
-    ext.cross_compile = true
-    ext.cross_platform = %w[
-      x86_64-linux
-      x86_64-linux-musl
-      aarch64-linux
-      aarch64-linux-musl
-      x86_64-darwin
-      arm64-darwin
-      x64-mingw-ucrt
-      arm64-mingw-ucrt
-    ]
-  end
-rescue LoadError
-  # rb-sys not available
-end
+# Load rake tasks from rakelib/
+Dir.glob('rakelib/*.rake').each { |r| load r }
 
 desc 'Run all tests'
 RSpec::Core::RakeTask.new(:spec)
@@ -71,23 +52,8 @@ task :stat do
 end
 
 # ===== Native Gem Building =====
-# Platform definitions for precompiled gems
-PLATFORMS = [
-  %w[x64-mingw32 x86_64-w64-mingw32],
-  %w[x64-mingw-ucrt x86_64-w64-mingw32],
-  %w[arm64-mingw-ucrt aarch64-w64-mingw32],
-  %w[x86_64-linux x86_64-linux-gnu],
-  %w[x86_64-linux-gnu x86_64-linux-gnu],
-  %w[x86_64-linux-musl x86_64-linux-musl],
-  %w[aarch64-linux aarch64-linux-gnu],
-  %w[aarch64-linux-gnu aarch64-linux-gnu],
-  %w[aarch64-linux-musl aarch64-linux-musl],
-  %w[x86_64-darwin x86_64-apple-darwin],
-  %w[arm64-darwin arm64-apple-darwin]
-].freeze
-
 namespace :gem do
-  desc 'Build install-compilation gem (platform: any)'
+  desc 'Build source gem (compile on install)'
   task 'native:any' do
     sh 'rake gem:platform:any gem'
   end
@@ -97,40 +63,6 @@ namespace :gem do
     spec = Gem::Specification.load('parsanol-ruby.gemspec').dup
     task = Gem::PackageTask.new(spec)
     task.define
-  end
-
-  # Generate tasks for each platform
-  PLATFORMS.each do |platform, _host| # rubocop:disable Style/HashEachMethods
-    desc "Build pre-compiled gem for the #{platform} platform"
-    task "native:#{platform}" do
-      sh "rake compile gem:platform:#{platform} gem"
-    end
-
-    desc "Define the gem task to build on the #{platform} platform (binary gem)"
-    task "platform:#{platform}" do
-      spec = Gem::Specification.load('parsanol-ruby.gemspec').dup
-      spec.platform = Gem::Platform.new(platform)
-
-      # Include pre-compiled native extension
-      spec.files += Dir.glob('lib/parsanol/*.{so,dylib,dll,bundle}')
-
-      # Remove extension build for binary gems (already compiled)
-      spec.extensions = []
-
-      # Remove build-time dependencies
-      spec.dependencies.reject! { |d| d.name == 'rb_sys' }
-      spec.dependencies.reject! { |d| d.name == 'rake-compiler' }
-
-      task = Gem::PackageTask.new(spec)
-      task.define
-    end
-  end
-
-  desc 'Build all platform gems (requires cross-compilation setup)'
-  task :native do
-    puts 'Building all platform gems...'
-    puts 'Run individual tasks like: rake gem:native:x86_64-linux'
-    puts 'Or use the CI workflow for cross-compilation.'
   end
 end
 

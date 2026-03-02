@@ -1,101 +1,81 @@
-# Main CI workflow for Parsanol
-# Runs tests with native Rust extension
-
-name: rake
+---
+name: CI
 
 on:
   push:
-    branches: [ master, main ]
-    tags: [ v* ]
+    branches: [main, master]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
-  group: '${{ github.workflow }}-${{ github.head_ref || github.ref_name }}'
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   ci-data:
-    name: Fetch CI data
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.fetch.outputs.result }}
     steps:
-      - uses: oxidize-rb/actions/fetch-ci-data@v1
-        id: fetch
+      - id: fetch
+        uses: oxidize-rb/actions/fetch-ci-data@v1
         with:
           stable-ruby-versions: |
             exclude: [head]
 
-  # Native extension tests (required)
-  test-native:
-    name: Native ${{ matrix.ruby }} on ${{ matrix.os }}
-    needs: ci-data
+  ci:
     runs-on: ${{ matrix.os }}
+    needs: ci-data
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ubuntu-latest, macos-latest]
         ruby: ${{ fromJSON(needs.ci-data.outputs.result).stable-ruby-versions }}
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Ruby and Rust
-        uses: oxidize-rb/actions/setup-ruby-and-rust@v1
+      - uses: oxidize-rb/actions/setup-ruby-and-rust@v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
           cargo-cache: true
+          cache-version: v1
 
-      - name: Verify Rust installation
-        run: |
-          which cargo
-          cargo --version
-          rustc --version
-
-      - name: Compile native extension
+      - name: Compile rust ext
         run: bundle exec rake compile
 
-      - name: Run tests with native extension
+      - name: Run ruby tests
         run: bundle exec rspec spec/ --format progress
 
       - name: Run performance benchmarks
         if: matrix.os == 'ubuntu-latest' && matrix.ruby == '3.4'
-        run: |
-          bundle exec rspec spec/performance/native_benchmark_spec.rb --format documentation
+        run: bundle exec rspec spec/performance/native_benchmark_spec.rb --format documentation
 
-  # Lint check
   lint:
-    name: Lint
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.4'
+          ruby-version: "3.4"
           bundler-cache: true
 
-      - name: Run RuboCop
+      - name: Lint ruby
         run: bundle exec rubocop
 
-  # Clippy check for Rust code
   clippy:
-    name: Clippy
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Ruby and Rust
-        uses: oxidize-rb/actions/setup-ruby-and-rust@v1
+      - uses: oxidize-rb/actions/setup-ruby-and-rust@v1
         with:
-          ruby-version: '3.4'
+          ruby-version: "3.4"
           rustup-components: clippy
 
-      - name: Run Clippy
+      - name: Lint rust
         run: |
           cd ext/parsanol_native
           cargo clippy --all-features -- -D warnings
+          cargo fmt --check

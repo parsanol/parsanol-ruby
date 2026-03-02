@@ -1,140 +1,80 @@
-name: gem-build
+---
+name: Build gems
 
 on:
-  workflow_call:
-    inputs:
-      platforms:
-        description: 'JSON array of platforms to build (e.g., ["x86_64-linux", "arm64-darwin"])'
-        required: false
-        type: string
-        default: ''
   workflow_dispatch:
-    inputs:
-      platforms:
-        description: 'JSON array of platforms to build'
-        required: false
-        type: string
-        default: ''
+  push:
+    branches: [main, master, "cross-gem/*", "pkg/*"]
 
 concurrency:
-  group: '${{ github.workflow }}-${{ github.head_ref || github.ref_name }}'
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-permissions:
-  contents: read
-  packages: write
 
 jobs:
   ci-data:
-    name: Fetch CI data
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.fetch.outputs.result }}
     steps:
-      - uses: oxidize-rb/actions/fetch-ci-data@v1
-        id: fetch
+      - id: fetch
+        uses: oxidize-rb/actions/fetch-ci-data@v1
         with:
+          supported-ruby-platforms: |
+            exclude: [arm-linux, x64-mingw32]
           stable-ruby-versions: |
             exclude: [head]
 
-  prepare:
-    name: Prepare platform matrix
+  native:
+    name: Build native gems
     needs: ci-data
-    runs-on: ubuntu-latest
-    outputs:
-      build-matrix: ${{ steps.set-matrix.outputs.build-matrix }}
-      test-matrix: ${{ steps.set-matrix.outputs.test-matrix }}
-      ruby-versions: ${{ steps.set-ruby.outputs.ruby-versions }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: set-ruby
-        run: |
-          RUBY_VERSIONS="${{ needs.ci-data.outputs.result }}"
-          RUBY_VERSIONS=$(echo "$RUBY_VERSIONS" | jq -r '.["stable-ruby-versions"] | join(",")')
-          echo "ruby-versions=$RUBY_VERSIONS" >> $GITHUB_OUTPUT
-
-      - id: set-matrix
-        run: |
-          if [[ -n "${{ inputs.platforms }}" ]]; then
-            PLATFORMS='${{ inputs.platforms }}'
-          else
-            # Extract platforms where build=true
-            PLATFORMS=$(jq -c '[.platforms | to_entries[] | .value[] | select(.build == true) | .platform]' .github/platforms.json)
-          fi
-          echo "build-matrix=$PLATFORMS" >> $GITHUB_OUTPUT
-
-          # Get test matrix: platforms with test=true, mapped to their test_os
-          TEST_MATRIX=$(jq -c '[.platforms | to_entries[] | .value[] | select(.test == true) | {platform: .platform, os: .test_os[0], ruby: .ruby}]' .github/platforms.json)
-          echo "test-matrix=$TEST_MATRIX" >> $GITHUB_OUTPUT
-
-  # Cross-compile ALL platforms using oxidize-rb/actions (uses Docker)
-  build:
-    name: build (${{ matrix.platform }})
-    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{ fromJSON(needs.prepare.outputs.build-matrix) }}
+        ruby-platform: ${{ fromJSON(needs.ci-data.outputs.result).supported-ruby-platforms }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.4'
-          bundler-cache: true
+          ruby-version: "3.4"
 
-      - name: Cross-compile native gem
-        uses: oxidize-rb/actions/cross-gem@v1
+      - uses: oxidize-rb/actions/cross-gem@v1
+        id: cross-gem
         with:
-          platform: ${{ matrix.platform }}
-          ruby-versions: ${{ needs.prepare.outputs.ruby-versions }}
-
-      - name: Inspect gem
-        run: |
-          echo "=== Built gems ==="
-          ls -la pkg/
+          platform: ${{ matrix.ruby-platform }}
+          ruby-versions: ${{ join(fromJSON(needs.ci-data.outputs.result).stable-ruby-versions, ',') }}
 
       - uses: actions/upload-artifact@v4
         with:
-          name: gem-${{ matrix.platform }}
-          path: pkg/*.gem
+          name: cross-gem-${{ matrix.ruby-platform }}
+          path: ${{ steps.cross-gem.outputs.gem-path }}
+          if-no-files-found: error
 
-  # Test native gems on native platforms
-  test:
-    name: test (${{ matrix.platform }} on ${{ matrix.os }})
-    needs: [prepare, build]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.prepare.outputs.test-matrix) }}
+      - name: Smoke gem install
+        if: matrix.ruby-platform == 'x86_64-linux'
+        run: |
+          gem install pkg/parsanol-*.gem --verbose
+          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+
+  source:
+    name: Build source gem
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ruby/setup-ruby@v1
+      - uses: oxidize-rb/actions/setup-ruby-and-rust@v1
         with:
-          ruby-version: ${{ matrix.ruby }}
+          ruby-version: "3.4"
+          bundler-cache: true
+          cargo-cache: true
+          cache-version: v1
 
-      - name: Download gem
-        uses: actions/download-artifact@v4
+      - name: Build source gem
+        run: bundle exec rake gem:native:any
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: gem-${{ matrix.platform }}
-          path: pkg/
-
-      - name: Install gem
-        run: |
-          echo "=== Installing gem ==="
-          ls -la pkg/
-          gem install pkg/*.gem --no-document
-
-      - name: Test installed gem
-        run: |
-          echo "=== Testing installed gem ==="
-          ruby .github/scripts/test_installed_gem.rb
-
-      - name: Verify native extension
-        if: matrix.platform != 'any'
-        run: |
-          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+          name: cross-gem-any
+          path: pkg/*.gem
+          if-no-files-found: error

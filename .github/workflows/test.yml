@@ -1,98 +1,73 @@
-name: test-gems
+---
+name: Test gems
 
 on:
-  push:
-    branches: [ master, main, 'fast-mode' ]
-  pull_request:
   workflow_dispatch:
+  push:
+    branches: [main, master]
 
 concurrency:
-  group: '${{ github.workflow }}-${{ github.job }}-${{ github.head_ref || github.ref_name }}'
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-permissions:
-  contents: read
-  packages: write
 
 jobs:
   ci-data:
-    name: Fetch CI data
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.fetch.outputs.result }}
     steps:
-      - uses: oxidize-rb/actions/fetch-ci-data@v1
-        id: fetch
+      - id: fetch
+        uses: oxidize-rb/actions/fetch-ci-data@v1
         with:
+          supported-ruby-platforms: |
+            exclude: [arm-linux, x64-mingw32]
           stable-ruby-versions: |
             exclude: [head]
 
-  # Build all gems first using the gem-build workflow
   build:
     name: Build gems
     uses: ./.github/workflows/gem-build.yml
 
-  prepare:
-    name: Prepare test matrix
-    needs: ci-data
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - id: set-matrix
-        run: |
-          # Get stable ruby versions from CI data
-          CI_DATA='${{ needs.ci-data.outputs.result }}'
-          RUBY_VERSIONS=$(echo "$CI_DATA" | jq -c '.["stable-ruby-versions"]')
-
-          # Read platforms.json and generate test matrix
-          # For each platform where test=true, create entries for each test_os and ruby version
-          MATRIX=$(jq -c --argjson ruby_versions "$RUBY_VERSIONS" '{
-            include: [
-              .platforms
-              | to_entries[]
-              | .value[]
-              | select(.test == true)
-              | .platform as $platform
-              | .test_os as $test_os
-              | $test_os[] as $os
-              | $ruby_versions[] as $ruby
-              | {os: $os, platform: $platform, ruby: $ruby}
-            ]
-          }' .github/platforms.json)
-          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-
-  # Test pre-built gems on multiple platforms
-  test-gem:
-    needs: [build, prepare]
+  test:
+    name: Test ${{ matrix.ruby-platform }} on ${{ matrix.os }}
+    needs: [ci-data, build]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+      matrix:
+        include:
+          - os: ubuntu-latest
+            ruby-platform: x86_64-linux
+            ruby: "3.4"
+          - os: ubuntu-22.04-arm
+            ruby-platform: aarch64-linux
+            ruby: "3.4"
+          - os: macos-latest
+            ruby-platform: arm64-darwin
+            ruby: "3.4"
+          - os: macos-13
+            ruby-platform: x86_64-darwin
+            ruby: "3.4"
+          - os: windows-latest
+            ruby-platform: x64-mingw-ucrt
+            ruby: "3.4"
     steps:
       - uses: actions/checkout@v4
         with:
           sparse-checkout: |
-            spec
             .github/scripts
 
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
 
-      - name: Download pre-built gem
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: gem-${{ matrix.platform }}
-          path: pkg
+          name: cross-gem-${{ matrix.ruby-platform }}
+          path: pkg/
 
-      - name: Install native gem
-        run: |
-          cd pkg
-          gem install parsanol-*.gem --verbose
+      - name: Install gem
+        run: gem install pkg/parsanol-*.gem --verbose
 
       - name: Test installed gem
-        run: |
-          ruby .github/scripts/test_installed_gem.rb
+        run: ruby .github/scripts/test_installed_gem.rb
