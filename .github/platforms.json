@@ -1,85 +1,73 @@
 {
   "comment": "Centralized platform configuration for native gem builds and tests",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "platforms": {
-    "windows": [
-      {
-        "platform": "x64-mingw32",
-        "os": "windows-latest",
-        "ruby": "3.4",
-        "description": "Windows x64 (MinGW)",
-        "build": true,
-        "test": true,
-        "test_os": ["windows-2022", "windows-latest"],
-        "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
-      },
-      {
-        "platform": "x64-mingw-ucrt",
-        "os": "windows-latest",
-        "ruby": "3.4",
-        "description": "Windows x64 UCRT (MinGW)",
-        "build": true,
-        "test": true,
-        "test_os": ["windows-2022", "windows-latest"],
-        "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
-      },
-      {
-        "platform": "arm64-mingw-ucrt",
-        "os": "windows-11-arm",
-        "ruby": "3.4",
-        "description": "Windows ARM64 UCRT",
-        "build": true,
-        "test": true,
-        "test_os": ["windows-11-arm"],
-        "ruby_versions": ["3.4"],
-        "notes": "Windows 11 ARM only supports Ruby 3.4+"
-      }
-    ],
     "macos": [
       {
-        "platform": "x86_64-darwin",
-        "os": "macos-13",
+        "platform": "arm64-darwin",
+        "os": "macos-14",
         "ruby": "3.4",
-        "description": "macOS Intel (x86_64)",
+        "description": "macOS 14 Sonoma Apple Silicon (ARM64)",
         "build": true,
         "test": true,
-        "test_os": ["macos-13"],
+        "test_os": ["macos-14"],
+        "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
+      },
+      {
+        "platform": "x86_64-darwin",
+        "os": "macos-15-intel",
+        "ruby": "3.4",
+        "description": "macOS 15 Sequoia Intel (x86_64)",
+        "build": true,
+        "test": true,
+        "test_os": ["macos-15-intel"],
         "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
       },
       {
         "platform": "arm64-darwin",
-        "os": "macos-latest",
+        "os": "macos-15",
         "ruby": "3.4",
-        "description": "macOS Apple Silicon (ARM64)",
+        "description": "macOS 15 Sequoia Apple Silicon (ARM64)",
         "build": true,
         "test": true,
-        "test_os": ["macos-latest"],
+        "test_os": ["macos-15"],
+        "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
+      },
+      {
+        "platform": "arm64-darwin",
+        "os": "macos-26",
+        "ruby": "3.4",
+        "description": "macOS 26 Tahoe Apple Silicon (ARM64)",
+        "build": true,
+        "test": true,
+        "test_os": ["macos-26"],
         "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
       }
     ],
     "linux_x86_64": [
       {
         "platform": "x86_64-linux",
-        "os": "ubuntu-latest",
+        "os": "ubuntu-22.04",
         "ruby": "3.4",
-        "description": "Linux x86_64 (generic)",
+        "description": "Linux x86_64 (Ubuntu 22.04)",
         "build": true,
         "test": true,
-        "test_os": ["ubuntu-latest", "ubuntu-22.04"],
+        "test_os": ["ubuntu-22.04"],
         "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
       },
       {
-        "platform": "x86_64-linux-gnu",
-        "os": "ubuntu-latest",
+        "platform": "x86_64-linux",
+        "os": "ubuntu-24.04",
         "ruby": "3.4",
-        "description": "Linux x86_64 GNU libc",
+        "description": "Linux x86_64 (Ubuntu 24.04)",
         "build": true,
-        "test": false,
+        "test": true,
+        "test_os": ["ubuntu-24.04"],
         "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
       },
       {
         "platform": "x86_64-linux-musl",
-        "os": "ubuntu-latest",
+        "os": "ubuntu-24.04",
         "ruby": "3.4",
         "description": "Linux x86_64 musl libc (Alpine compatible)",
         "build": true,
@@ -92,24 +80,25 @@
         "platform": "aarch64-linux",
         "os": "ubuntu-22.04-arm",
         "ruby": "3.4",
-        "description": "Linux ARM64 (generic)",
+        "description": "Linux ARM64 (Ubuntu 22.04)",
         "build": true,
         "test": true,
-        "test_os": ["ubuntu-22.04-arm", "ubuntu-latest"],
+        "test_os": ["ubuntu-22.04-arm"],
         "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
       },
       {
-        "platform": "aarch64-linux-gnu",
-        "os": "ubuntu-22.04-arm",
+        "platform": "aarch64-linux",
+        "os": "ubuntu-24.04-arm",
         "ruby": "3.4",
-        "description": "Linux ARM64 GNU libc",
+        "description": "Linux ARM64 (Ubuntu 24.04)",
         "build": true,
-        "test": false,
+        "test": true,
+        "test_os": ["ubuntu-24.04-arm"],
         "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
       },
       {
         "platform": "aarch64-linux-musl",
-        "os": "ubuntu-22.04-arm",
+        "os": "ubuntu-24.04-arm",
         "ruby": "3.4",
         "description": "Linux ARM64 musl libc (Alpine compatible)",
         "build": true,
@@ -117,10 +106,43 @@
         "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
       }
     ],
+    "windows": [
+      {
+        "platform": "x64-mingw-ucrt",
+        "os": "windows-2022",
+        "ruby": "3.4",
+        "description": "Windows x64 UCRT (Server 2022)",
+        "build": true,
+        "test": true,
+        "test_os": ["windows-2022"],
+        "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
+      },
+      {
+        "platform": "x64-mingw-ucrt",
+        "os": "windows-2025",
+        "ruby": "3.4",
+        "description": "Windows x64 UCRT (Server 2025)",
+        "build": true,
+        "test": true,
+        "test_os": ["windows-2025"],
+        "ruby_versions": ["3.1", "3.2", "3.3", "3.4", "4.0"]
+      },
+      {
+        "platform": "arm64-mingw-ucrt",
+        "os": "windows-11-arm",
+        "ruby": "3.4",
+        "description": "Windows 11 ARM64 UCRT",
+        "build": true,
+        "test": true,
+        "test_os": ["windows-11-arm"],
+        "ruby_versions": ["3.4"],
+        "notes": "Windows 11 ARM only supports Ruby 3.4+"
+      }
+    ],
     "source": [
       {
         "platform": "any",
-        "os": "ubuntu-latest",
+        "os": "ubuntu-24.04",
         "ruby": "3.4",
         "description": "Source gem (platform-independent)",
         "build": true,
@@ -130,21 +152,17 @@
     ]
   },
   "build_platforms": [
-    "x64-mingw32",
     "x64-mingw-ucrt",
     "arm64-mingw-ucrt",
     "x86_64-darwin",
     "arm64-darwin",
     "x86_64-linux",
-    "x86_64-linux-gnu",
     "x86_64-linux-musl",
     "aarch64-linux",
-    "aarch64-linux-gnu",
     "aarch64-linux-musl",
     "any"
   ],
   "test_platforms": [
-    "x64-mingw32",
     "x64-mingw-ucrt",
     "arm64-mingw-ucrt",
     "x86_64-darwin",

@@ -1,0 +1,12 @@
+== Parsanol 1.0.0 (2025-03-02)
+
+Initial release of Parsanol, a high-performance PEG parser library for Ruby.
+
+Features:
+
+* Parslet-compatible API for easy migration
+* Optional Rust native extension for 17-42x faster parsing
+* Static frozen parsers for thread-safe operation
+* Dynamic parsers for mutable grammars
+* Great error reporting with source location tracking
+* Packrat memoization for O(n) parsing complexity
