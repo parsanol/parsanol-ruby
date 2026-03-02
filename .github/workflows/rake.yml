@@ -47,6 +47,12 @@ jobs:
           bundler-cache: true
           cargo-cache: true
 
+      - name: Verify Rust installation
+        run: |
+          which cargo
+          cargo --version
+          rustc --version
+
       - name: Compile native extension
         run: bundle exec rake compile
 
