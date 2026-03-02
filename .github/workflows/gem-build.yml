@@ -29,7 +29,8 @@ jobs:
     name: Prepare platform matrix
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      build-matrix: ${{ steps.set-matrix.outputs.build-matrix }}
+      test-matrix: ${{ steps.set-matrix.outputs.test-matrix }}
     steps:
       - uses: actions/checkout@v4
 
@@ -41,7 +42,11 @@ jobs:
             # Extract platforms where build=true
             PLATFORMS=$(jq -c '[.platforms | to_entries[] | .value[] | select(.build == true) | .platform]' .github/platforms.json)
           fi
-          echo "matrix=$PLATFORMS" >> $GITHUB_OUTPUT
+          echo "build-matrix=$PLATFORMS" >> $GITHUB_OUTPUT
+
+          # Get test matrix: platforms with test=true, mapped to their test_os
+          TEST_MATRIX=$(jq -c '[.platforms | to_entries[] | .value[] | select(.test == true) | {platform: .platform, os: .test_os[0], ruby: .ruby}]' .github/platforms.json)
+          echo "test-matrix=$TEST_MATRIX" >> $GITHUB_OUTPUT
 
   # Cross-compile ALL platforms using oxidize-rb/actions (uses Docker)
   build:
@@ -51,7 +56,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+        platform: ${{ fromJSON(needs.prepare.outputs.build-matrix) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -72,5 +77,43 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.run_number }}-${{ matrix.platform }}-pkg
+          name: gem-${{ matrix.platform }}
           path: pkg/*.gem
+
+  # Test native gems on native platforms
+  test:
+    name: test (${{ matrix.platform }} on ${{ matrix.os }})
+    needs: [prepare, build]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.test-matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+
+      - name: Download gem
+        uses: actions/download-artifact@v4
+        with:
+          name: gem-${{ matrix.platform }}
+          path: pkg/
+
+      - name: Install gem
+        run: |
+          echo "=== Installing gem ==="
+          ls -la pkg/
+          gem install pkg/*.gem --no-document
+
+      - name: Test installed gem
+        run: |
+          echo "=== Testing installed gem ==="
+          ruby .github/scripts/test_installed_gem.rb
+
+      - name: Verify native extension
+        if: matrix.platform != 'any'
+        run: |
+          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"

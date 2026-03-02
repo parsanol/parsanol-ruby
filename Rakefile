@@ -11,14 +11,26 @@ rescue LoadError, NoMethodError
   # Opal not available or incompatible with current Ruby version
 end
 
-# Native extension compilation using rake-compiler
+# Native extension compilation using rb-sys
 begin
-  require 'rake/extensiontask'
-  Rake::ExtensionTask.new('parsanol_native') do |ext|
+  require 'rb_sys/extensiontask'
+
+  GEMSPEC = Gem::Specification.load('parsanol-ruby.gemspec')
+
+  RbSys::ExtensionTask.new('parsanol_native', GEMSPEC) do |ext|
     ext.lib_dir = 'lib/parsanol'
+    ext.cross_compile = true
+    ext.cross_platform = %w[
+      x86_64-linux
+      aarch64-linux
+      x86_64-darwin
+      arm64-darwin
+      x64-mingw-ucrt
+      arm64-mingw-ucrt
+    ]
   end
 rescue LoadError
-  # rake-compiler not available
+  # rb-sys not available
 end
 
 desc 'Run all tests'
