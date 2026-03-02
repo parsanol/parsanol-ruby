@@ -187,7 +187,7 @@ describe Parsanol::Rope do
       rope = described_class.new
       100.times { |i| rope.append(i.to_s) }
       result = rope.to_s
-      expected = (0...100).map(&:to_s).join
+      expected = (0...100).map(&:to_s).join # rubocop:disable Style/MapJoin
       expect(result).to eq(expected)
     end
 

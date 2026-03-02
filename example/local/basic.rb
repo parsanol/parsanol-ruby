@@ -18,8 +18,8 @@ a = str('a').repeat >> str('aa')
 #
 # S = E2 | E1 S
 
-def this(name, &block)
-  Parsanol::Atoms::Entity.new(name, &block)
+def this(name, &)
+  Parsanol::Atoms::Entity.new(name, &)
 end
 
 def epsilon
