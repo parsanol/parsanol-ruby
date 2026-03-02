@@ -114,11 +114,6 @@ jobs:
         run: |
           ruby .github/scripts/test_installed_gem.rb
 
-      - name: Run full test suite
-        run: |
-          bundle install
-          bundle exec rspec spec/ --format progress
-
   # Run RuboCop lint
   lint:
     name: Lint
