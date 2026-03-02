@@ -48,6 +48,9 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rdoc', '~> 6.0'
   spec.add_development_dependency 'rspec', '~> 3.0'
 
+  # For code style checking
+  spec.add_development_dependency 'rubocop', '~> 1.0'
+
   # For Parslet compatibility verification
   spec.add_development_dependency 'parslet', '~> 2.0.0'
 

@@ -156,45 +156,46 @@ jobs:
           name: lib-${{ github.run_number }}-${{ matrix.platform }}
           path: lib/parsanol/parsanol_native.*
 
-  # Build WASM module
-  build-wasm:
-    name: Build WASM module
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@v0.4.0
-
-      - name: Build WASM (web target)
-        run: |
-          cd ext/parsanol_native
-          wasm-pack build --target web --out-dir ../../lib/parsanol/wasm --scope plurimath -- --features wasm
-
-      - name: Build WASM (nodejs target)
-        run: |
-          cd ext/parsanol_native
-          wasm-pack build --target nodejs --out-dir ../../lib/parsanol/wasm-node --scope plurimath -- --features wasm
-
-      - name: Verify WASM build
-        run: |
-          echo "=== Web target ==="
-          ls -la lib/parsanol/wasm/
-          echo ""
-          echo "=== Node.js target ==="
-          ls -la lib/parsanol/wasm-node/
-          echo ""
-          echo "=== WASM binary size ==="
-          du -h lib/parsanol/wasm/parsanol_native_bg.wasm
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wasm-modules-${{ github.run_number }}
-          path: |
-            lib/parsanol/wasm/
-            lib/parsanol/wasm-node/
+  # WASM build disabled - needs parsanol-rs wasm module to be public
+  # See wasm.yml.disabled for future implementation
+  # build-wasm:
+  #   name: Build WASM module
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Setup Rust
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         targets: wasm32-unknown-unknown
+  #
+  #     - name: Install wasm-pack
+  #       uses: jetli/wasm-pack-action@v0.4.0
+  #
+  #     - name: Build WASM (web target)
+  #       run: |
+  #         cd ext/parsanol_native
+  #         wasm-pack build --target web --out-dir ../../lib/parsanol/wasm --scope plurimath -- --features wasm
+  #
+  #     - name: Build WASM (nodejs target)
+  #       run: |
+  #         cd ext/parsanol_native
+  #         wasm-pack build --target nodejs --out-dir ../../lib/parsanol/wasm-node --scope plurimath -- --features wasm
+  #
+  #     - name: Verify WASM build
+  #       run: |
+  #         echo "=== Web target ==="
+  #         ls -la lib/parsanol/wasm/
+  #         echo ""
+  #         echo "=== Node.js target ==="
+  #         ls -la lib/parsanol/wasm-node/
+  #         echo ""
+  #         echo "=== WASM binary size ==="
+  #         du -h lib/parsanol/wasm/parsanol_native_bg.wasm
+  #
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wasm-modules-${{ github.run_number }}
+  #         path: |
+  #           lib/parsanol/wasm/
+  #           lib/parsanol/wasm-node/
