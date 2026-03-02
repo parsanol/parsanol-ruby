@@ -29,13 +29,17 @@ Gem::Specification.new do |spec|
   # Rust extension
   spec.extensions = ['ext/parsanol_native/extconf.rb']
 
-  spec.files = Dir.glob('{lib,spec,example}/**/*') + %w[
+  spec.files = Dir.glob('{lib,ext}/**/*') + %w[
     HISTORY.txt
     LICENSE
     Rakefile
     README.adoc
     parsanol-ruby.gemspec
+    Cargo.toml
+    Cargo.lock
   ]
+  spec.files.reject! { |f| File.directory?(f) }
+  spec.files.reject! { |f| f =~ /\.(dll|so|dylib|lib|bundle)\Z/ }
   spec.require_paths = ['lib']
 
   spec.required_ruby_version = '>= 3.2.0'
