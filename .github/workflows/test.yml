@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   ci-data:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       result: ${{ steps.fetch.outputs.result }}
     steps:
@@ -29,28 +29,90 @@ jobs:
     uses: ./.github/workflows/gem-build.yml
 
   test:
-    name: Test ${{ matrix.ruby-platform }} on ${{ matrix.os }}
+    name: Test ${{ matrix.ruby-platform }} (Ruby ${{ matrix.ruby }}) on ${{ matrix.os }}
     needs: [ci-data, build]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          # Linux x86_64
+          - os: ubuntu-22.04
+            ruby-platform: x86_64-linux
+            ruby: "3.2"
+          - os: ubuntu-22.04
+            ruby-platform: x86_64-linux
+            ruby: "3.3"
+          - os: ubuntu-22.04
             ruby-platform: x86_64-linux
             ruby: "3.4"
+          - os: ubuntu-22.04
+            ruby-platform: x86_64-linux
+            ruby: "4.0"
+
+          # Linux ARM64
+          - os: ubuntu-22.04-arm
+            ruby-platform: aarch64-linux
+            ruby: "3.2"
+          - os: ubuntu-22.04-arm
+            ruby-platform: aarch64-linux
+            ruby: "3.3"
           - os: ubuntu-22.04-arm
             ruby-platform: aarch64-linux
             ruby: "3.4"
-          - os: macos-latest
-            ruby-platform: arm64-darwin
-            ruby: "3.4"
-          - os: macos-13
+          - os: ubuntu-22.04-arm
+            ruby-platform: aarch64-linux
+            ruby: "4.0"
+
+          # macOS Intel
+          - os: macos-15-intel
+            ruby-platform: x86_64-darwin
+            ruby: "3.2"
+          - os: macos-15-intel
+            ruby-platform: x86_64-darwin
+            ruby: "3.3"
+          - os: macos-15-intel
             ruby-platform: x86_64-darwin
             ruby: "3.4"
-          - os: windows-latest
+          - os: macos-15-intel
+            ruby-platform: x86_64-darwin
+            ruby: "4.0"
+
+          # macOS Apple Silicon
+          - os: macos-15
+            ruby-platform: arm64-darwin
+            ruby: "3.2"
+          - os: macos-15
+            ruby-platform: arm64-darwin
+            ruby: "3.3"
+          - os: macos-15
+            ruby-platform: arm64-darwin
+            ruby: "3.4"
+          - os: macos-15
+            ruby-platform: arm64-darwin
+            ruby: "4.0"
+
+          # Windows x64
+          - os: windows-2025
+            ruby-platform: x64-mingw-ucrt
+            ruby: "3.2"
+          - os: windows-2025
+            ruby-platform: x64-mingw-ucrt
+            ruby: "3.3"
+          - os: windows-2025
             ruby-platform: x64-mingw-ucrt
             ruby: "3.4"
+          - os: windows-2025
+            ruby-platform: x64-mingw-ucrt
+            ruby: "4.0"
+
+          # Windows ARM64 (Ruby 3.4+ only)
+          - os: windows-11-arm
+            ruby-platform: arm64-mingw-ucrt
+            ruby: "3.4"
+          - os: windows-11-arm
+            ruby-platform: arm64-mingw-ucrt
+            ruby: "4.0"
     steps:
       - uses: actions/checkout@v4
         with:
