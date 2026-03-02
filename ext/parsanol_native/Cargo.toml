@@ -20,6 +20,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # rb-sys for Ruby C API - with link-ruby to link at compile time
+# On Windows ARM64, we need to build from source since pre-built binaries aren't available
 rb-sys = { version = "0.9.124", features = ["link-ruby", "global-allocator"] }
 
 # magnus for Ruby bindings (0.8 for Ruby 3.1 support)
