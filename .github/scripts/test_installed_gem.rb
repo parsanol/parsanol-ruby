@@ -42,11 +42,11 @@ puts "Test 3: Testing basic parsing..."
 begin
   # Define a simple calculator parser
   class TestCalculatorParser < Parsanol::Parser
-    rule(:digit) { match["0-9"] }
+    rule(:digit) { match['0-9'] }
     rule(:number) { digit.repeat(1).as(:number) }
-    rule(:space) { match[" \t"] }
+    rule(:space) { match[' \t'] }
     rule(:spaces) { space.repeat }
-    rule(:operator) { match["+-\\*"] }
+    rule(:operator) { match['+\\-*'] }
     rule(:expression) { number >> spaces >> operator >> spaces >> number }
     root :expression
   end
@@ -86,11 +86,11 @@ puts "Test 5: Testing JSON parser..."
 begin
   class TestJsonParser < Parsanol::Parser
     rule(:string) { str('"') >> (str('\\') >> any | str('"').absent? >> any).repeat >> str('"') }
-    rule(:number) { match["0-9"].repeat(1) >> (str(".") >> match["0-9"].repeat(1)).maybe }
-    rule(:value) { string | number | array | object | str("true") | str("false") | str("null") }
-    rule(:array) { str("[") >> value >> (str(",") >> value).repeat >> str("]") }
-    rule(:pair) { string >> str(":") >> value }
-    rule(:object) { str("{") >> pair >> (str(",") >> pair).repeat >> str("}") }
+    rule(:number) { match['0-9'].repeat(1) >> (str('.') >> match['0-9'].repeat(1)).maybe }
+    rule(:value) { string | number | array | object | str('true') | str('false') | str('null') }
+    rule(:array) { str('[') >> value >> (str(',') >> value).repeat >> str(']') }
+    rule(:pair) { string >> str(':') >> value }
+    rule(:object) { str('{') >> pair >> (str(',') >> pair).repeat >> str('}') }
     root :value
   end
 

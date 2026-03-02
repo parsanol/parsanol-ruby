@@ -35,11 +35,17 @@ module Parsanol
       def initialize(parser, min_count, max_count, tag = :repetition)
         super()
 
-        raise ArgumentError, "Cannot repeat zero times: #{parser.inspect}" if max_count.zero?
+        # Handle nil max_count (unbounded repetition)
+        if max_count.nil?
+          @max = Float::INFINITY
+        else
+          raise ArgumentError, "Cannot repeat zero times: #{parser.inspect}" if max_count.zero?
+
+          @max = max_count
+        end
 
         @parslet = parser
         @min = min_count
-        @max = max_count
         @result_tag = tag
 
         # Pre-built error messages
