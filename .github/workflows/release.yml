@@ -227,6 +227,7 @@ jobs:
         env:
           GEM_HOST_API_KEY: ${{ secrets.PARSANOL_CI_RUBYGEMS_API_KEY }}
         run: |
+          set +e  # Disable exit on error so we can capture and show errors
           echo "Setting up gem credentials..."
           mkdir -p $HOME/.gem
           touch $HOME/.gem/credentials
@@ -236,22 +237,24 @@ jobs:
           cat $HOME/.gem/credentials | head -1
           echo "Listing gems to push..."
           ls -l
+          final_exit=0
           for i in *.gem; do
             if [ -f "$i" ]; then
               echo "Pushing $i..."
-              gem push "$i" >push.out 2>&1
-              gemerr=$?
+              gem push "$i" 2>&1 | tee push.out
+              gemerr=${PIPESTATUS[0]}
               echo "gem push exit code: $gemerr"
-              echo "push.out contents:"
-              cat push.out
               if [ "$gemerr" -ne 0 ]; then
-                sed 's/^/::error:: /' push.out
                 if ! grep -q "Repushing of gem" push.out; then
-                  exit $gemerr
+                  echo "::error::Failed to push $i (exit code: $gemerr)"
+                  final_exit=$gemerr
+                else
+                  echo "Gem already pushed, continuing..."
                 fi
               fi
             fi
           done
+          exit $final_exit
 
       - name: Create GitHub release
         uses: ncipollo/release-action@v1
