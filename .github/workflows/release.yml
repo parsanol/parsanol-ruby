@@ -227,15 +227,23 @@ jobs:
         env:
           GEM_HOST_API_KEY: ${{ secrets.PARSANOL_CI_RUBYGEMS_API_KEY }}
         run: |
+          echo "::debug:: Setting up gem credentials..."
           mkdir -p $HOME/.gem
           touch $HOME/.gem/credentials
           chmod 0600 $HOME/.gem/credentials
           printf -- "---\n:rubygems_api_key: ${GEM_HOST_API_KEY}\n" > $HOME/.gem/credentials
+          echo "::debug:: Credentials file created"
+          cat $HOME/.gem/credentials | head -1
+          echo "::debug:: Listing gems to push..."
           ls -l
           for i in *.gem; do
             if [ -f "$i" ]; then
+              echo "::debug:: Pushing $i..."
               gem push "$i" >push.out 2>&1
               gemerr=$?
+              echo "::debug:: gem push exit code: $gemerr"
+              echo "::debug:: push.out contents:"
+              cat push.out
               if [ "$gemerr" -ne 0 ]; then
                 sed 's/^/::error:: /' push.out
                 if ! grep -q "Repushing of gem" push.out; then
