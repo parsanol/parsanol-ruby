@@ -212,7 +212,7 @@ jobs:
 
       - name: Ensure version matches the tag
         run: |
-          GEM_VERSION=$(grep VERSION lib/parsanol/version.rb | head -n 1 | cut -d'"' -f2)
+          GEM_VERSION=$(grep "VERSION =" lib/parsanol/version.rb | head -n 1 | sed "s/.*'\([^']*\)'.*/\1/")
           if [ "v$GEM_VERSION" != "${{ github.ref_name }}" ]; then
             echo "Gem version does not match tag"
             echo "  v$GEM_VERSION != ${{ github.ref_name }}"
