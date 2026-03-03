@@ -225,7 +225,7 @@ jobs:
       - name: Push Gem
         working-directory: pkg/
         env:
-          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_KEY }}
+          GEM_HOST_API_KEY: ${{ secrets.PARSANOL_CI_RUBYGEMS_API_KEY }}
         run: |
           mkdir -p $HOME/.gem
           touch $HOME/.gem/credentials
