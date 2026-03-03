@@ -236,6 +236,32 @@ Parsanol offers multiple parsing modes with different performance characteristic
 | Native ZeroCopy + Slice | ~29x | Linters, IDEs | Zero-copy with positions
 |===
 
+=== Parsing Backends (Rust Core)
+
+Behind the scenes, the Rust implementation uses one of two parsing backends:
+
+[cols="2,2,3"]
+|===
+| Backend | Use Case | Characteristics
+
+| Packrat (default) | Complex grammars | O(n) guaranteed, higher memory
+| Bytecode VM | Simple patterns | Lower memory, faster for linear patterns
+| Auto | Variable workloads | Analyzes grammar, selects best backend
+|===
+
+The Ruby bindings automatically use the best backend for your grammar:
+
+* Uses `Backend::Auto` by default (same as parsanol-rs)
+* Detects nested repetitions, overlapping choices
+* Recommends Packrat for complex grammars
+* Falls back to Bytecode for simple patterns
+
+NOTE: The backend selection is transparent to Ruby users. The parser object automatically uses the optimal backend based on grammar analysis.
+
+For more details on backend selection and grammar analysis, see the https://parsanol.github.io/backends[Parsing Backends documentation].
+
+
+
 == Streaming Builder API
 <<<streaming-builder>>
 

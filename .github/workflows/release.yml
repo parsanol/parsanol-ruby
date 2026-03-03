@@ -222,11 +222,14 @@ jobs:
       - name: List built gems
         run: ls -la pkg/
 
+      - name: Configure RubyGems credentials for Trusted Publishing
+        uses: rubygems/configure-rubygems-credentials@v1
+
       - name: Push Gem
         working-directory: pkg/
         run: |
           set +e  # Disable exit on error so we can capture and show errors
-          echo "Using trusted publishing (no credentials needed)..."
+          echo "Using trusted publishing..."
           echo "Listing gems to push..."
           ls -l
           final_exit=0
