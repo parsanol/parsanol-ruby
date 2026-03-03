@@ -75,7 +75,7 @@ jobs:
       - name: Install and test gem
         run: |
           gem install pkg/parsanol-*.gem --verbose
-          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+          ruby .github/scripts/test_installed_gem.rb
 
   # Smoke test Linux ARM64 gem
   smoke-linux-arm:
@@ -97,7 +97,7 @@ jobs:
       - name: Install and test gem
         run: |
           gem install pkg/parsanol-*.gem --verbose
-          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+          ruby .github/scripts/test_installed_gem.rb
 
   # Smoke test macOS Apple Silicon gem
   smoke-macos-arm:
@@ -119,7 +119,7 @@ jobs:
       - name: Install and test gem
         run: |
           gem install pkg/parsanol-*.gem --verbose
-          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+          ruby .github/scripts/test_installed_gem.rb
 
   # Smoke test macOS Intel gem
   smoke-macos-intel:
@@ -141,7 +141,7 @@ jobs:
       - name: Install and test gem
         run: |
           gem install pkg/parsanol-*.gem --verbose
-          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+          ruby .github/scripts/test_installed_gem.rb
 
   # Smoke test Windows x64 gem
   smoke-windows:
@@ -163,7 +163,7 @@ jobs:
       - name: Install and test gem
         run: |
           gem install pkg/parsanol-*.gem --verbose
-          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+          ruby .github/scripts/test_installed_gem.rb
 
   # Smoke test Windows ARM64 gem
   smoke-windows-arm:
@@ -179,13 +179,13 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: cross-gem-arm64-mingw-ucrt
+          name: cross-gem-aarch64-mingw-ucrt
           path: pkg/
 
       - name: Install and test gem
         run: |
           gem install pkg/parsanol-*.gem --verbose
-          ruby -e "require 'parsanol'; puts 'Native available: ' + Parsanol::Native.available?.to_s"
+          ruby .github/scripts/test_installed_gem.rb
 
   release:
     name: Release
