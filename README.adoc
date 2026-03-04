@@ -55,9 +55,8 @@ gem install parsanol
 
 == Usage
 
+[[basic-parsing]]
 === Basic Parser
-<<<basic-parsing>>
-
 Define parsers by creating a class that inherits from `Parsanol::Parser` and declaring rules:
 
 [source,ruby]
@@ -74,9 +73,8 @@ parser = MyParser.new
 result = parser.parse('if(x)')
 ----
 
+[[error-reporting]]
 === Error Reporting
-<<<error-reporting>>
-
 Parsanol provides detailed error messages when parsing fails:
 
 [source,ruby]
@@ -89,9 +87,8 @@ rescue Parsanol::ParseFailed => e
 end
 ----
 
+[[transformation]]
 === Transformation
-<<<transformation>>
-
 Convert parse trees to AST using pattern-based transformations:
 
 [source,ruby]
@@ -104,9 +101,8 @@ end
 ast = MyTransform.new.apply(parse_tree)
 ----
 
+[[native-extension]]
 === Native Extension
-<<<native-extension>>
-
 For maximum performance, compile the Rust native extension:
 
 [source,shell]
@@ -118,21 +114,86 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 bundle exec rake compile
 ----
 
+[[slice-support]]
 === Slice Support
-<<<slice-support>>
 
-Parsanol preserves source positions for each parsed element:
+All parse results include source position information through `Parsanol::Slice` objects:
 
 [source,ruby]
 ----
-# Result includes position information
-[{"word" => "hello"@0}, " "@5, {"name" => "world"@6}]
+# Parse returns results with position info
+result = parser.parse("hello world", mode: :native)
+name = result[:name]
 
-# The @N notation shows the byte offset in the original input
-# Parsanol::Slice is fully compatible with Parslet::Slice
+# Access the value
+name.to_s     # => "hello"
+
+# Access position information
+name.offset   # => 0 (byte offset in original input)
+name.length   # => 5
+name.line_and_column  # => [1, 1] (1-indexed)
+
+# Compare with strings (Slice compares by content)
+name == "hello"  # => true
+
+# Extract from original source
+name.extract_from(input)  # => "hello"
 ----
 
-This is essential for linters, IDEs, and tools that need to map parsed elements back to source locations.
+==== JSON Output with Position Info
+
+When using JSON mode, position information is included inline with each value:
+
+[source,ruby]
+----
+result = parser.parse("hello", mode: :json)
+# => {
+#   "name": {
+#     "value": "hello",
+#     "offset": 0,
+#     "length": 5,
+#     "line": 1,
+#     "column": 1
+#   }
+# }
+----
+
+This format ensures position information is available for all downstream consumers including IDEs, linters, and error reporting tools.
+
+==== Slice API
+
+[source,ruby]
+----
+class Parsanol::Slice
+  # Core attributes
+  def content       # String content
+  def offset        # Byte offset in original input
+  def length        # Length of the slice
+  def line_and_column  # [line, column] tuple (requires line cache)
+
+  # String compatibility
+  def to_s          # Returns content
+  def to_str        # Implicit string conversion
+  def ==(other)     # Compares content with String or Slice
+
+  # JSON serialization
+  def to_json       # Returns { "value" => ..., "offset" => ..., ... }
+  def as_json       # Returns hash with position info
+
+  # Utility
+  def to_span(input)  # Returns SourceSpan object
+  def extract_from(input)  # Extracts content from original input
+end
+----
+
+This is essential for:
+
+* **Linters** - Map errors back to source locations
+* **IDEs** - Provide go-to-definition, hover info
+* **Comment attachment** - Attach remarks to AST nodes by position
+* **Source extraction** - Get original text for any parsed element
+
+NOTE: For Expressir users migrating from earlier Parsanol versions, see link:docs/MIGRATION_EXPRESSIR.md[Migration Guide for Expressir].
 
 == Migrating from Parslet
 
@@ -224,17 +285,18 @@ parser.parse('123')  # Works exactly the same
 
 === Performance Modes
 
-Parsanol offers multiple parsing modes with different performance characteristics:
+Parsanol offers multiple parsing modes. All modes return `Parsanol::Slice` objects with position information:
 
 [cols="4,2,2,3"]
 |===
 | Mode | Speed | Use Case | How It Works
 
-| Pure Ruby | 1x (baseline) | Compatibility, debugging | Ruby parsing engine
-| Native Batch | ~20x | Need Ruby objects | Rust parsing, AST via u64
-| Native ZeroCopy | ~25x | Maximum performance | Direct FFI construction
-| Native ZeroCopy + Slice | ~29x | Linters, IDEs | Zero-copy with positions
+| Ruby | 1x (baseline) | Debugging | Ruby parsing engine
+| Native | ~20x | Production (RECOMMENDED) | Rust parsing, Slice objects
+| JSON | ~20x | APIs, serialization | Rust parsing, JSON with positions
 |===
+
+All modes include position info (offset, length, line, column) by default.
 
 === Parsing Backends (Rust Core)
 
@@ -262,9 +324,8 @@ For more details on backend selection and grammar analysis, see the https://pars
 
 
 
+[[streaming-builder]]
 == Streaming Builder API
-<<<streaming-builder>>
-
 For maximum performance, use the streaming builder API which eliminates intermediate AST construction:
 
 [source,ruby]
@@ -315,9 +376,8 @@ result = Parsanol::Native.parse_with_builder(grammar, input, builder)
 | `finish` | Parsing complete | Returns nil
 |===
 
+[[parallel-parsing]]
 == Parallel Parsing
-<<<parallel-parsing>>
-
 Parse multiple inputs using all CPU cores:
 
 [source,ruby]
@@ -338,9 +398,8 @@ config = Parsanol::Parallel::Config.new
 results = Parsanol::Parallel.parse_batch(grammar, inputs, config: config)
 ----
 
+[[infix-expressions]]
 == Infix Expression Parsing
-<<<infix-expressions>>
-
 Built-in support for parsing infix expressions with operator precedence:
 
 [source,ruby]
@@ -362,9 +421,8 @@ class CalculatorParser < Parsanol::Parser
 end
 ----
 
+[[treetop-expressions]]
 == Treetop Expression Syntax
-<<<treetop-expressions>>
-
 Parsanol supports treetop-style expression strings for quick grammar definition:
 
 [source,ruby]
@@ -418,9 +476,8 @@ grammar = Parsanol::Native.serialize_grammar(atom)
 Parsanol::Native.parse_to_ruby_objects(grammar, 'aaa')
 ----
 
+[[security-features]]
 == Security Features
-<<<security-features>>
-
 For parsing untrusted input, use built-in limits:
 
 [source,ruby]
@@ -433,9 +490,8 @@ result = Parsanol::Native.parse_with_limits(
 )
 ----
 
+[[debug-tools]]
 == Debug Tools
-<<<debug-tools>>
-
 Enable tracing for debugging grammars:
 
 [source,ruby]

@@ -5,15 +5,15 @@ module Parsanol
     # Transforms native AST format to Parslet-compatible format
     #
     # Native format from Rust parser:
-    #   - Strings: "text"
+    #   - Slices: Parsanol::Slice objects (with position info)
     #   - Sequences: [":sequence", item1, item2, ...]
     #   - Repetitions: [":repetition", item1, item2, ...]
     #   - Named captures: {"name" => value}
     #
     # Parslet format:
-    #   - Strings: "text" (with Parsanol::Slice for position info)
+    #   - Slices: Preserved as Parsanol::Slice (with position info)
     #   - Sequences: merged hash {:key1 => val1, :key2 => val2, ...}
-    #   - Repetitions: array of items (or "" if empty string-like)
+    #   - Repetitions: array of items (or joined Slices if all are Slices)
     #   - Named wrapping Repetition: {:name => [{:name => item1}, {:name => item2}, ...]}
     #
     class AstTransformer
@@ -128,10 +128,17 @@ module Parsanol
         transformed = transform(value)
 
         # Special handling for arrays that look like character repetitions
-        # (arrays of single-character strings should be joined)
+        # (arrays of single-character Slices/strings should be joined)
         if transformed.is_a?(Array) && !transformed.empty? &&
-           transformed.all? { |item| item.is_a?(String) && item.length == 1 }
-          transformed = transformed.join
+           transformed.all? { |item| slice_or_string?(item) && item_length(item) == 1 }
+          # Join preserving position from first Slice
+          first_slice = transformed.find { |i| i.is_a?(::Parsanol::Slice) }
+          content = transformed.map { |i| slice_content(i) }.join
+          transformed = if first_slice
+                          ::Parsanol::Slice.new(first_slice.offset, content, first_slice.position_cache)
+                        else
+                          content
+                        end
         end
 
         # Check for UNTAGGED repetition pattern (native output):
@@ -151,9 +158,19 @@ module Parsanol
         elsif transformed.is_a?(Array)
           transform_array_value(sym_key, transformed)
         else
-          # Simple value (string, nil, etc.) - most common case
+          # Simple value (Slice, string, nil, etc.) - most common case
           { sym_key => transformed }
         end
+      end
+
+      # Get content from Slice or string
+      def self.slice_content(value)
+        value.is_a?(::Parsanol::Slice) ? value.content : value.to_s
+      end
+
+      # Get length of Slice or string
+      def self.item_length(value)
+        value.is_a?(::Parsanol::Slice) ? value.length : value.to_s.length
       end
 
       # Handle repetition values (named wrapping repetition)
@@ -169,7 +186,9 @@ module Parsanol
             # Wrap each item with the name
             { sym_key => transformed.map { |item| { sym_key => item } } }
           end
-        elsif transformed == EMPTY_STRING
+        elsif transformed.is_a?(::Parsanol::Slice) && transformed.empty?
+          { sym_key => EMPTY_ARRAY } # Empty repetition should be [], not empty Slice
+        elsif transformed.is_a?(String) && transformed == EMPTY_STRING
           { sym_key => EMPTY_ARRAY } # Empty repetition should be [], not ""
         else
           { sym_key => transformed }
@@ -180,10 +199,10 @@ module Parsanol
       def self.transform_array_value(sym_key, transformed)
         if transformed.empty?
           # For empty arrays, we need to determine if this is a repetition or sequence
-          # Repetitions should return [], sequences should return ""
-          # We can't tell from the value alone, so we return "" (sequence semantics)
+          # Repetitions should return [], sequences should return empty Slice
+          # We can't tell from the value alone, so we return empty Slice (sequence semantics)
           # The repetition detection in transform_single_key_hash will handle the other case
-          { sym_key => EMPTY_STRING }
+          { sym_key => ::Parsanol::Slice.new(0, EMPTY_STRING, nil) }
         elsif transformed.all? { |v| v.is_a?(Hash) && v.keys.length == 1 && v.key?(sym_key) }
           # Items already have the parent key (repetition pattern) - keep as-is
           { sym_key => transformed }
@@ -242,8 +261,8 @@ module Parsanol
 
       # Flatten sequence items according to Parslet semantics:
       # 1. If ALL items are hashes, return as array (this is a repetition result)
-      # 2. If there are named captures (hashes) among strings, return ONLY the merged hash (discard strings)
-      # 3. If only strings, join them (or return single string)
+      # 2. If there are named captures (hashes) among Slices/strings, return ONLY the merged hash (discard Slices/strings)
+      # 3. If only Slices/strings, join them preserving position from first Slice
       # 4. Return single value if only one item
       #
       # This matches Parslet's behavior where:
@@ -264,7 +283,7 @@ module Parsanol
 
         # Single pass: categorize items
         merged_hash = {}
-        string_parts = []
+        slice_or_string_parts = []
         hash_count = 0
         total_items = 0
         has_non_empty_array = false
@@ -275,8 +294,8 @@ module Parsanol
             merged_hash.merge!(item)
             hash_count += 1
             total_items += 1
-          when String
-            string_parts << item
+          when ::Parsanol::Slice, String
+            slice_or_string_parts << item
             total_items += 1
           when Array
             # Check if this is a non-empty array (repetition result with content)
@@ -292,8 +311,8 @@ module Parsanol
                 case sub_item
                 when Hash
                   hash_count += 1
-                when String
-                  string_parts << sub_item
+                when ::Parsanol::Slice, String
+                  slice_or_string_parts << sub_item
                 end
               end
             end
@@ -320,8 +339,8 @@ module Parsanol
               result << item
             when Array
               result.concat(item)
-            when String
-              # Skip unnamed strings when we have named captures
+            when ::Parsanol::Slice, String
+              # Skip unnamed Slices/strings when we have named captures
             end
           end
           return result.length == 1 ? result.first : result
@@ -382,12 +401,22 @@ module Parsanol
 
         # PARSLET SEQUENCE SEMANTICS:
         # If there are named captures (hashes) mixed with other things,
-        # return ONLY the merged hash (discard unnamed strings)
+        # return ONLY the merged hash (discard unnamed Slices/strings)
         return merged_hash unless merged_hash.empty?
 
-        # No named captures - handle strings and other items
-        if string_parts.any?
-          return string_parts.length == 1 ? string_parts.first : string_parts.join
+        # No named captures - handle Slices/strings and other items
+        if slice_or_string_parts.any?
+          # Join Slices/strings, preserving position from first Slice
+          first_slice = slice_or_string_parts.find { |i| i.is_a?(::Parsanol::Slice) }
+          content = slice_or_string_parts.map { |i| i.is_a?(::Parsanol::Slice) ? i.content : i }.join
+
+          if first_slice
+            # Create new Slice with combined content, preserving position from first
+            ::Parsanol::Slice.new(first_slice.offset, content, first_slice.position_cache)
+          else
+            # All plain strings (shouldn't happen with new decode_flat, but handle it)
+            slice_or_string_parts.length == 1 ? slice_or_string_parts.first : content
+          end
         end
 
         # Only other items (arrays, etc.)
@@ -398,35 +427,49 @@ module Parsanol
 
       # Parslet/Parsanol repetition semantics:
       # 1. Return [] for empty repetitions
-      # 2. If all items are strings, join them
+      # 2. If all items are Slices (or strings), join them preserving position
       # 3. Otherwise return array
       def self.flatten_repetition(items)
         return EMPTY_ARRAY if items.empty?
 
         # Single-pass flatten and check
         flat_items = []
-        all_strings = true
+        all_slices_or_strings = true
 
         items.each do |item|
           if item.is_a?(Array)
             item.each do |sub|
               flat_items << sub
-              all_strings = false unless sub.is_a?(String)
+              all_slices_or_strings = false unless slice_or_string?(sub)
             end
           else
             flat_items << item
-            all_strings = false unless item.is_a?(String)
+            all_slices_or_strings = false unless slice_or_string?(item)
           end
         end
 
         return EMPTY_ARRAY if flat_items.empty?
 
-        # If all strings, join them (string-like repetition)
-        if all_strings && flat_items.all?(String)
-          flat_items.join
+        # If all Slices or strings, join them preserving position from first Slice
+        if all_slices_or_strings
+          first_slice = flat_items.find { |i| i.is_a?(::Parsanol::Slice) }
+          content = flat_items.map { |i| i.is_a?(::Parsanol::Slice) ? i.content : i }.join
+
+          if first_slice
+            # Create new Slice with combined content, preserving position from first
+            ::Parsanol::Slice.new(first_slice.offset, content, first_slice.position_cache)
+          else
+            # All plain strings (shouldn't happen with new decode_flat, but handle it)
+            content
+          end
         else
           flat_items
         end
+      end
+
+      # Check if value is a Slice or String
+      def self.slice_or_string?(value)
+        value.is_a?(::Parsanol::Slice) || value.is_a?(String)
       end
     end
 

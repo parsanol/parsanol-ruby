@@ -13,6 +13,7 @@ module Parsanol
     #
     module Parser
       # Two-level grammar cache (module-level for proper initialization)
+      # These MUST be mutable for caching to work
       GRAMMAR_HASH_CACHE = Hash.new  # object_id => hash_key
       GRAMMAR_CACHE = Hash.new       # hash_key => grammar_json
 
@@ -35,42 +36,50 @@ module Parsanol
         # Parse using native engine
         # @param grammar_json [String] JSON-serialized grammar
         # @param input [String] Input string to parse
-        # @return Ruby AST from parsing
-        def parse(grammar_json, input)
+        # @param line_cache [Parsanol::Source::LineCache, nil] Optional line cache for position info
+        # @return Ruby AST from parsing with Slice objects for strings
+        def parse(grammar_json, input, line_cache = nil)
           raise LoadError, 'Native parser not available. Run `rake compile` to build.' unless available?
+
+          # Build line cache if not provided
+          line_cache ||= build_line_cache(input)
 
           # Call native parse_batch (returns flat u64 array)
           flat = Parsanol::Native.parse_batch(grammar_json, input)
-          # Decode flat array to Ruby AST
-          decode_flat(flat, input)
+          # Decode flat array to Ruby AST with Slice objects
+          decode_flat(flat, input, line_cache)
         end
 
         # Parse a grammar with automatic serialization and caching
         # @param root_atom [Parsanol::Atoms::Base] Root atom of the grammar
         # @param input [String] Input string to parse
-        # @return Ruby AST from parsing
-        def parse_with_grammar(root_atom, input)
+        # @param line_cache [Parsanol::Source::LineCache, nil] Optional line cache
+        # @return Ruby AST from parsing with Slice objects
+        def parse_with_grammar(root_atom, input, line_cache = nil)
           # Extract root atom if a Parser is passed
           root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
           grammar_json = serialize_grammar(root_atom)
-          parse(grammar_json, input)
+          parse(grammar_json, input, line_cache)
         end
 
         # Parse and transform to Parslet-compatible format
+        # NOTE: This method now returns Slice objects with position info by default.
+        # The name is kept for backward compatibility but it's now the primary parse method.
         # @param root_atom [Parsanol::Atoms::Base] Root atom of the grammar
         # @param input [String] Input string to parse
-        # @return Ruby AST in Parslet-compatible format
-        def parse_parslet_compatible(root_atom, input)
+        # @param line_cache [Parsanol::Source::LineCache, nil] Optional line cache
+        # @return Ruby AST in Parslet-compatible format with Slice objects
+        def parse_parslet_compatible(root_atom, input, line_cache = nil)
           # Extract root atom if a Parser is passed
           root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
-          raw_ast = parse_with_grammar(root_atom, input)
+          raw_ast = parse_with_grammar(root_atom, input, line_cache)
           AstTransformer.transform(raw_ast)
         end
 
         # Parse multiple inputs with the same grammar (more efficient)
         # @param root_atom [Parsanol::Atoms::Base] Root atom of the grammar
         # @param inputs [Array<String>] Array of input strings to parse
-        # @return [Array] Array of raw Ruby ASTs from parsing
+        # @return [Array] Array of Ruby ASTs with Slice objects
         def parse_batch_inputs(root_atom, inputs)
           # Extract root atom if a Parser is passed
           root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
@@ -81,7 +90,7 @@ module Parsanol
         # Parse multiple inputs with transformation
         # @param root_atom [Parsanol::Atoms::Base] Root atom of the grammar
         # @param inputs [Array<String>] Array of input strings to parse
-        # @return [Array] Array of transformed Ruby ASTs
+        # @return [Array] Array of transformed Ruby ASTs with Slice objects
         def parse_batch_with_transform(root_atom, inputs)
           # Extract root atom if a Parser is passed
           root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
@@ -95,11 +104,20 @@ module Parsanol
         # Parse without transformation (faster for raw AST access)
         # @param root_atom [Parsanol::Atoms::Base] Root atom of the grammar
         # @param input [String] Input string to parse
-        # @return Raw Ruby AST from parsing (native format)
+        # @return Raw Ruby AST from parsing with Slice objects
         def parse_raw(root_atom, input)
           # Extract root atom if a Parser is passed
           root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
           parse_with_grammar(root_atom, input)
+        end
+
+        # Build a line cache for an input string
+        # @param input [String] The input string
+        # @return [Parsanol::Source::LineCache] The line cache
+        def build_line_cache(input)
+          cache = ::Parsanol::Source::LineCache.new
+          cache.scan_for_line_endings(0, input)
+          cache
         end
 
         # Serialize a grammar to JSON, with two-level caching
@@ -471,13 +489,19 @@ module Parsanol
         #   0x01 = bool
         #   0x02 = int
         #   0x03 = float
-        #   0x04 = string_ref (offset, length)
+        #   0x04 = string_ref (offset, length) - creates Slice with position info
         #   0x05 = array_start
         #   0x06 = array_end
         #   0x07 = hash_start
         #   0x08 = hash_end
         #   0x09 = hash_key (tag, len, key_chunks..., value)
-        def decode_flat(flat, input)
+        #   0x0A = inline_string (interned string from arena)
+        #
+        # @param flat [Array<Integer>] Flat u64 array from native parser
+        # @param input [String] Original input string
+        # @param line_cache [Parsanol::Source::LineCache, nil] Line cache for position info
+        # @return Ruby AST with Slice objects for all string values
+        def decode_flat(flat, input, line_cache = nil)
           stack = []
           i = 0
 
@@ -500,10 +524,12 @@ module Parsanol
               float = [bits].pack('Q').unpack1('D')
               stack << float
               i += 2
-            when 0x04 # string_ref (from input)
+            when 0x04 # string_ref (from input) - create Slice with position info
               offset = flat[i + 1]
               length = flat[i + 2]
-              stack << input.byteslice(offset, length)
+              content = input.byteslice(offset, length)
+              # Create Slice with position info - this is the key change
+              stack << ::Parsanol::Slice.new(offset, content, line_cache)
               i += 3
             when 0x0A # inline_string (interned string from arena)
               # Format: tag, len, u64 chunks of string bytes
@@ -523,7 +549,9 @@ module Parsanol
               end
               i += chunks
 
-              stack << bytes.pack('C*').force_encoding('UTF-8')
+              # Inline strings don't have source position, use Slice with offset 0
+              content = bytes.pack('C*').force_encoding('UTF-8')
+              stack << ::Parsanol::Slice.new(0, content, nil)
             when 0x05 # array_start
               stack << :array_marker
               i += 1
