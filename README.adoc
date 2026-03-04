@@ -193,8 +193,6 @@ This is essential for:
 * **Comment attachment** - Attach remarks to AST nodes by position
 * **Source extraction** - Get original text for any parsed element
 
-NOTE: For Expressir users migrating from earlier Parsanol versions, see link:docs/MIGRATION_EXPRESSIR.md[Migration Guide for Expressir].
-
 == Migrating from Parslet
 
 Parsanol provides full Parslet API compatibility with two migration modes.
