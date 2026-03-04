@@ -82,21 +82,31 @@ module Parsanol
 
     # Unified parsing interface with mode selection support.
     #
+    # All parse modes return results with Slice objects that contain
+    # position information (offset, length, line, column). This enables
+    # source code extraction, error reporting, and remark attachment.
+    #
     # @param input [String] the string to parse
     # @param mode_or_opts [Symbol, Hash] parsing mode or options hash
     # @param kwargs [Hash] additional keyword options
     #
     # Modes:
-    # - :ruby - Pure Ruby parsing (default, always available)
+    # - :ruby - Pure Ruby parsing (always available, returns Slices with position)
     # - :native - Use Rust extension if available, fallback to Ruby
-    # - :json - Return JSON string representation of parse tree
+    # - :json - Return JSON string with position info for each value
     #
     # Options:
     # - :reporter - Custom error reporter instance
     # - :prefix - Allow partial matching (default: false)
     #
-    # @return [Hash, Array, String, Parsanol::Slice] parsed result
+    # @return [Hash, Array, Parsanol::Slice] parsed result with position info
     # @raise [Parsanol::ParseFailed] when parsing fails
+    #
+    # @example Parse and access position info
+    #   result = parser.parse("hello")
+    #   result[:name].offset         # => 0
+    #   result[:name].line_and_column # => [1, 1]
+    #   result[:name].to_s           # => "hello"
     #
     def parse(input, mode_or_opts = {}, **kwargs)
       if mode_or_opts.is_a?(Hash)
@@ -150,24 +160,31 @@ module Parsanol
     #
 
     # Native extension parsing with Ruby fallback.
+    # Returns results with Slice objects containing position info.
     #
     # @param input [String] input to parse
     # @param opts [Hash] parsing options
-    # @return [Object] parse result
+    # @return [Object] parse result with Slice objects for position info
     #
     def parse_native(input, opts)
       if Parsanol::Native.available?
-        Parsanol::Native.parse_parslet_compatible(root, input)
+        # Build line cache for position info
+        line_cache = Parsanol::Source::LineCache.new
+        line_cache.scan_for_line_endings(0, input)
+
+        # Parse with position info (now the default)
+        Parsanol::Native.parse_parslet_compatible(root, input, line_cache)
       else
         parse_ruby(input, opts)
       end
     end
 
-    # JSON output mode - returns JSON string representation.
+    # JSON output mode - returns JSON with position info.
+    # All Slice values are serialized with their position information.
     #
     # @param input [String] input to parse
     # @param opts [Hash] parsing options
-    # @return [String] JSON representation of parse tree
+    # @return [String] JSON representation with position info
     #
     def parse_json(input, opts)
       if Parsanol::Native.available?

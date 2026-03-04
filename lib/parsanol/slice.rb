@@ -142,5 +142,66 @@ module Parsanol
     def inspect
       "#{content.inspect}@#{offset}"
     end
+
+    # JSON serialization --------------------------------------------------------
+
+    # JSON serialization returns the full object with position info.
+    # This is the default behavior - position info is ALWAYS included.
+    #
+    # @return [String] JSON representation with value and position
+    def to_json(*)
+      as_json.to_json(*)
+    end
+
+    # Returns a hash with full position information for JSON serialization.
+    # Line and column are always included when a position cache is available.
+    #
+    # @return [Hash] hash with value, offset, length, and line/column
+    def as_json(_options = {})
+      result = {
+        'value' => content,
+        'offset' => offset,
+        'length' => length
+      }
+
+      if position_cache
+        line, column = line_and_column
+        result['line'] = line
+        result['column'] = column
+      end
+
+      result
+    end
+
+    # Returns a SourceSpan representing this slice's position
+    #
+    # @param input [String, nil] the original input (needed for line/column)
+    # @return [Parsanol::SourceSpan] span object
+    def to_span(_input = nil)
+      start_pos = if position_cache
+                    line, column = line_and_column
+                    SourcePosition.new(offset: offset, line: line, column: column)
+                  else
+                    SourcePosition.new(offset: offset, line: 1, column: 1)
+                  end
+
+      end_offset = offset + length
+      end_pos = if position_cache
+                  line, column = position_cache.line_and_column(end_offset)
+                  SourcePosition.new(offset: end_offset, line: line, column: column)
+                else
+                  SourcePosition.new(offset: end_offset, line: 1, column: 1)
+                end
+
+      SourceSpan.new(start_pos: start_pos, end_pos: end_pos)
+    end
+
+    # Extract this slice's content from the original input string
+    #
+    # @param input [String] the original input string
+    # @return [String] the slice content extracted from input
+    def extract_from(input)
+      input.byteslice(offset, length)
+    end
   end
 end

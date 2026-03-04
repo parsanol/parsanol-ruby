@@ -2,17 +2,34 @@
 
 This guide shows how to use Parsanol for high-performance parsing in Ruby applications.
 
-## The 5 Approaches
+## Key Architecture Change: Position Info is Now Default
 
-Parsanol offers 5 different approaches for parsing in Ruby, each representing a different trade-off between flexibility and performance:
+**All parse methods now return `Parsanol::Slice` objects with position information by default.**
+
+You no longer need to use a special "slice mode" - every parse result includes:
+- `offset` - byte position in original input
+- `length` - length of the matched text
+- `line` and `column` - 1-indexed position (when line cache is available)
+
+```ruby
+result = parser.parse("hello world", mode: :native)
+name = result[:name]
+
+name.to_s            # => "hello"
+name.offset          # => 7
+name.length          # => 5
+name.line_and_column # => [1, 8]
+```
+
+## The 3 Approaches
 
 | Approach | Description | Speed | Best For |
 |----------|-------------|-------|----------|
-| 1. parslet-ruby | Pure Ruby parsing (baseline) | 1x | Compatibility, debugging |
-| 2. parsanol-ruby | Parsanol Ruby backend | ~1x | Learning, prototyping |
-| 3. parsanol-native (Batch) | Rust parsing, AST via u64 | ~20x | Need Ruby objects, good performance |
-| 4. parsanol-native (ZeroCopy) | Direct FFI construction | ~25x | Maximum performance |
-| 5. parsanol-native (ZeroCopy + Slice) | Zero-copy + source positions | ~29x | Linters, IDEs, Expressir (BEST) |
+| 1. Ruby | Pure Ruby parsing | 1x (baseline) | Debugging, prototyping |
+| 2. Native | Rust parsing with Slice objects | ~20x | Production use (RECOMMENDED) |
+| 3. JSON | Rust parsing, JSON output | ~20x | APIs, serialization |
+
+All approaches return Slice objects with position info.
 
 ## Evidence-Based Benchmarks
 
@@ -20,66 +37,70 @@ These are **actual benchmark results** from Expressir parsing EXPRESS schemas (2
 
 | Mode | Time | Speedup | Notes |
 |------|------|---------|-------|
-| Ruby (Parslet) | 3036 ms | 1x (baseline) | Pure Ruby parsing |
-| Native Batch (u64) | 153 ms | 19.9x faster | AST via u64 array transfer |
-| Native ZeroCopy (Slice) | 106 ms | 28.7x faster | Zero-copy with source positions |
+| Ruby | 3036 ms | 1x (baseline) | Pure Ruby parsing |
+| Native | 153 ms | 19.9x faster | Rust parsing with Slice objects |
 
 **Run `bundle exec ruby benchmark/run_all.rb --quick` to verify on YOUR machine.**
 
-## Slice Support (New)
+## Slice Objects
 
-The ZeroCopy + Slice mode preserves source position information:
+All parse results contain `Parsanol::Slice` objects that preserve source position:
 
 ```ruby
-# Before (plain strings - no position info):
-[{"word"=>"hello"}, " ", {"name"=>"world"}]
+# Parse result
+result = parser.parse("SCHEMA test;", mode: :native)
+# => {:name => "test"@7}
 
-# After (Slice objects with position info):
-[{"word"=>"hello"@0}, " "@5, {"name"=>"world"@6}]
+# Access the slice
+slice = result[:name]
+slice.to_s     # => "test" (string content)
+slice.offset   # => 7 (byte position)
+slice.length   # => 4
+slice.line_and_column  # => [1, 8] (line, column - 1-indexed)
 
-# The @N notation shows the byte offset in the original input
-# Parsanol::Slice is compatible with Parslet::Slice
+# String comparison works
+slice == "test"  # => true
+
+# Extract from original source
+slice.extract_from(input)  # => "test"
 ```
 
-### Why Slice Support Matters
+### JSON Output Format
+
+When using JSON mode, position info is included inline:
+
+```ruby
+result = parser.parse("hello", mode: :json)
+# => {
+#   "name": {
+#     "value": "hello",
+#     "offset": 0,
+#     "length": 5,
+#     "line": 1,
+#     "column": 1
+#   }
+# }
+```
+
+### Why Position Info Matters
 
 For tools like linters, IDEs, and Expressir, source position tracking is essential:
 
 1. **Error Reporting**: Show precise error locations with line/column
 2. **Go-to-Definition**: Map parsed elements back to source locations
-3. **Code Generation**: Generate output with source mappings
-
-### Using Slice Mode
-
-```ruby
-require 'parsanol'
-
-class JsonParser < Parsanol::Parser
-  rule(:string) { str('"') >> (str('"').absent? >> any).repeat >> str('"') }
-  rule(:number) { match('[0-9]').repeat(1) }
-  rule(:value) { string | number }
-  root(:value)
-end
-
-parser = JsonParser.new
-
-# Enable ZeroCopy + Slice mode
-grammar_json = Parsanol::Native.serialize_grammar(parser.root)
-result = Parsanol::Native.parse_to_objects(grammar_json, '42', slice: true)
-
-# Result contains Slice objects with position info
-```
+3. **Comment Attachment**: Attach remarks to AST nodes by position
+4. **Source Extraction**: Get original text for any parsed element
 
 ## Approach Details
 
-### Approach 1: parslet-ruby (Baseline)
+### Approach 1: Ruby (Baseline)
 
-Pure Ruby parsing using the original Parslet gem. Use for maximum compatibility.
+Pure Ruby parsing. Use for debugging grammar issues.
 
 ```ruby
-require 'parslet'
+require 'parsanol'
 
-class JsonParser < Parslet::Parser
+class JsonParser < Parsanol::Parser
   rule(:string) { str('"') >> (str('"').absent? >> any).repeat >> str('"') }
   rule(:number) { match('[0-9]').repeat(1) }
   rule(:value) { string | number }
@@ -87,20 +108,19 @@ class JsonParser < Parslet::Parser
 end
 
 parser = JsonParser.new
-result = parser.parse('42')
+result = parser.parse('42', mode: :ruby)
 # Speed: 1x (baseline) - 3036ms for 22KB EXPRESS schema
+# Returns Slice objects with position info
 ```
 
-### Approach 2: parsanol-ruby
+### Approach 2: Native (RECOMMENDED)
 
-Same performance as Parslet, but with Parsanol's API. Good for learning the DSL.
+Rust parses, returns Slice objects. Best for production.
 
 ```ruby
 require 'parsanol'
 
 class JsonParser < Parsanol::Parser
-  use_ruby_backend!  # Force Ruby backend
-
   rule(:string) { str('"') >> (str('"').absent? >> any).repeat >> str('"') }
   rule(:number) { match('[0-9]').repeat(1) }
   rule(:value) { string | number }
@@ -108,35 +128,14 @@ class JsonParser < Parsanol::Parser
 end
 
 parser = JsonParser.new
-result = parser.parse('42')
-# Speed: ~1x (equivalent to Parslet)
-```
-
-### Approach 3: parsanol-native (Batch)
-
-Rust parses, AST transferred via u64 array, Ruby reconstructs objects. Good balance.
-
-```ruby
-require 'parsanol'
-
-class JsonParser < Parsanol::Parser
-  use_rust_backend!  # Use Rust for parsing
-
-  rule(:string) { str('"') >> (str('"').absent? >> any).repeat >> str('"') }
-  rule(:number) { match('[0-9]').repeat(1) }
-  rule(:value) { string | number }
-  root(:value)
-end
-
-parser = JsonParser.new
-result = parser.parse('42')
+result = parser.parse('42', mode: :native)
 # Speed: ~20x faster - 153ms for 22KB EXPRESS schema
-# AST transferred via u64 array, reconstructed in Ruby
+# Returns Slice objects with position info
 ```
 
-### Approach 5: parsanol-native (ZeroCopy + Slice) - RECOMMENDED
+### Approach 3: JSON
 
-Everything happens in Rust with zero-copy and source position tracking. Fastest mode.
+Rust parses, returns JSON with position info. Best for APIs.
 
 ```ruby
 require 'parsanol'
@@ -149,24 +148,18 @@ class JsonParser < Parsanol::Parser
 end
 
 parser = JsonParser.new
-
-# Serialize grammar and use ZeroCopy + Slice mode
-grammar_json = Parsanol::Native.serialize_grammar(parser.root)
-result = Parsanol::Native.parse_to_objects(grammar_json, '42', slice: true)
-
-# Speed: ~29x faster - 106ms for 22KB EXPRESS schema
-# Zero-copy with source position tracking
-# Slice objects are compatible with Parslet::Slice
+result = parser.parse('42', mode: :json)
+# Speed: ~20x faster
+# Returns JSON with position info inline
 ```
 
 ## When to Use Which Approach
 
 | Use This | When You Need |
 |----------|---------------|
-| parslet-ruby | Maximum Parslet compatibility, debugging grammar issues |
-| parsanol-ruby | Learning Parsanol DSL, prototyping |
-| parsanol-native (Batch) | Ruby objects with good performance, simple transformations |
-| ZeroCopy + Slice | Maximum performance + source positions (linters, IDEs, Expressir) |
+| Ruby | Debugging grammar issues, prototyping |
+| Native | Production use - best balance of speed and features |
+| JSON | APIs, serialization, cross-language interoperability |
 
 ## Running Benchmarks
 
@@ -188,42 +181,33 @@ Benchmark results are saved to `benchmark/reports/` as JSON files.
 
 ## Performance Tips
 
-### 1. Always use Rust backend for approaches 3-5
+### 1. Always use Native mode for production
 
 ```ruby
-class MyParser < Parsanol::Parser
-  use_rust_backend!  # 20-29x faster
-end
+# 20x faster than Ruby mode
+result = parser.parse(input, mode: :native)
 ```
 
-### 2. Use Slice mode when you need source positions
-
-```ruby
-# For linters, IDEs, Expressir - always use slice mode
-result = Parsanol::Native.parse_to_objects(grammar_json, input, slice: true)
-```
-
-### 3. Enable grammar optimization for complex grammars
-
-```ruby
-class MyParser < Parsanol::Parser
-  use_rust_backend!
-  optimize_rules!  # Simplifies quantifiers, sequences, choices
-end
-```
-
-### 4. Pre-compile grammar for repeated parsing
+### 2. Pre-compile grammar for repeated parsing
 
 ```ruby
 # Grammar compilation happens on first parse
-# For truly performance-critical code, pre-warm:
+# For performance-critical code, pre-warm:
 parser = MyParser.new
 parser.parse('')  # Warm up grammar caching
 
 # Now subsequent parses are even faster
 ```
 
-### 5. Use Parslet compatibility layer for migration
+### 3. Enable grammar optimization for complex grammars
+
+```ruby
+class MyParser < Parsanol::Parser
+  optimize_rules!  # Simplifies quantifiers, sequences, choices
+end
+```
+
+### 4. Use Parslet compatibility layer for migration
 
 ```ruby
 # Drop-in replacement for existing Parslet code
@@ -234,19 +218,42 @@ class ExistingParser < Parsanol::Parslet::Parser
   # ... existing rules ...
 end
 
-# Uses Rust backend automatically with Slice support
+# Uses Native mode automatically with Slice support
+```
+
+## Slice API Reference
+
+```ruby
+class Parsanol::Slice
+  # Core attributes
+  def content       # String content
+  def offset        # Byte offset in original input
+  def length        # Length of the slice
+  def line_and_column  # [line, column] tuple (requires line cache)
+
+  # String compatibility
+  def to_s          # Returns content
+  def to_str        # Implicit string conversion
+  def ==(other)     # Compares content with String or Slice
+
+  # JSON serialization
+  def to_json       # Returns { "value" => ..., "offset" => ..., ... }
+  def as_json       # Returns hash with position info
+
+  # Utility
+  def to_span(input)  # Returns SourceSpan object
+  def extract_from(input)  # Extracts content from original input
+end
 ```
 
 ## Architecture Patterns
 
 ### Pattern 1: Simple Parser
 
-For most parsing tasks, a single parser class with the Rust backend is sufficient:
+For most parsing tasks, a single parser class with native mode is sufficient:
 
 ```ruby
 class JsonParser < Parsanol::Parser
-  use_rust_backend!
-
   rule(:string) { str('"') >> (str('\\') >> any | str('"').absent? >> any).repeat >> str('"') }
   rule(:number) { match('[0-9]').repeat(1) >> (str('.') >> match('[0-9]').repeat(1)).maybe }
   rule(:value) { string.as(:string) | number.as(:number) | object | array }
@@ -256,11 +263,14 @@ class JsonParser < Parsanol::Parser
 
   root(:json) { object | array }
 end
+
+parser = JsonParser.new
+result = parser.parse(input, mode: :native)
 ```
 
-### Pattern 2: With Slice Support
+### Pattern 2: With Transform
 
-For tools that need source position tracking:
+For converting parse trees to AST:
 
 ```ruby
 class ExpressParser < Parsanol::Parser
@@ -269,14 +279,14 @@ class ExpressParser < Parsanol::Parser
   root(:schema)
 end
 
+class ExpressTransform < Parsanol::Transform
+  rule(name: simple(:n)) { SchemaNode.new(n.to_s, n.offset) }
+end
+
 parser = ExpressParser.new
-grammar_json = Parsanol::Native.serialize_grammar(parser.root)
-
-# Parse with slice support - preserves source positions
-result = Parsanol::Native.parse_to_objects(grammar_json, input, slice: true)
-
-# Access source positions
-result[:name]  # => "my_schema"@7  (offset 7 in input)
+result = parser.parse('SCHEMA my_schema;', mode: :native)
+ast = ExpressTransform.new.apply(result)
+# Position info preserved through transform
 ```
 
 ## Troubleshooting
@@ -284,8 +294,7 @@ result[:name]  # => "my_schema"@7  (offset 7 in input)
 ### Native extension not available
 
 ```
-LoadError: Rust backend requested but native extension not available.
-Run `rake compile` to build the extension.
+LoadError: Native parser not available. Run `rake compile` to build.
 ```
 
 Solution:
@@ -304,14 +313,12 @@ parser.parse('')  # Warm up
 # Now subsequent parses are fast
 ```
 
-### Slice objects not appearing
+### Line/column info not available
 
-Make sure you're using the `slice: true` option:
+Line and column require a line cache. The parser builds this automatically when using `mode: :native`. If using lower-level APIs:
 
 ```ruby
-# Wrong - returns plain strings
-result = Parsanol::Native.parse_to_objects(grammar_json, input)
-
-# Right - returns Slice objects
-result = Parsanol::Native.parse_to_objects(grammar_json, input, slice: true)
+line_cache = Parsanol::Source::LineCache.new
+line_cache.scan_for_line_endings(0, input)
+Parsanol::Native.parse(grammar_json, input, line_cache)
 ```
