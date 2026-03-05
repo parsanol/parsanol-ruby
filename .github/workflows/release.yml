@@ -26,7 +26,7 @@ on:
         description: "Create as draft release"
         required: false
         type: boolean
-        default: true
+        default: false
   push:
     tags: ["v*"]
 
@@ -46,6 +46,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
+      sha: ${{ steps.version.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -61,6 +62,10 @@ jobs:
       - name: Determine and bump version
         id: version
         run: |
+          # Configure git identity (required for gem bump to create commits)
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
           # Determine the version argument for gem-release
           if [ "${{ inputs.bump_type }}" = "custom" ]; then
             VERSION_ARG="${{ inputs.custom_version }}"
@@ -68,22 +73,21 @@ jobs:
             VERSION_ARG="${{ inputs.bump_type }}"
           fi
 
-          # Bump version using gem-release
-          # --no-commit: we'll commit manually to control the message
-          gem bump --version $VERSION_ARG --no-commit
+          # Bump version using gem-release (creates commit automatically)
+          gem bump --version $VERSION_ARG
 
           # Read the new version from the version file
           VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed "s/.*'\\([^']*\\)'.*/\\1/")
 
+          # Get the SHA of the commit gem-release just created
+          SHA=$(git rev-parse HEAD)
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
 
-      - name: Commit version bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add lib/parsanol/version.rb
-          git commit -m "chore(release): bump version to ${{ steps.version.outputs.version }}" || echo "No changes to commit"
+      - name: Push version bump commit
+        run: git push origin HEAD:${{ github.ref_name }}
 
   ci-data:
     runs-on: ubuntu-22.04
@@ -110,7 +114,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ needs.prepare-version.outputs.sha }}
 
       - uses: ruby/setup-ruby@v1
         with:
@@ -267,6 +271,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.prepare-version.outputs.sha }}
           fetch-depth: 0
 
       - name: Create tag
