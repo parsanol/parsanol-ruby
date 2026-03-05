@@ -6,7 +6,6 @@
 require 'parsanol'
 
 class ExpressParsanolParser < Parsanol::Parser
-  include Parsanol::RubyTransform
 
   # Whitespace and comments
   rule(:space) { match('[\s\n\r]').repeat(1) }

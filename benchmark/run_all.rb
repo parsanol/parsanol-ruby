@@ -313,13 +313,9 @@ class BenchmarkRunner
     when 'json'
       require_relative 'parsers/json_parsanol'
       parser = JsonParsanolParser.new
-      parser.class.use_ruby_backend!
-      ->(input) { parser.parse(input) }
+      ->(input) { parser.parse(input, mode: :ruby) }
     when 'expression'
       Class.new(Parsanol::Parser) {
-        include Parsanol::RubyTransform
-        use_ruby_backend!
-
         rule(:number) { match('[0-9]').repeat(1) }
         rule(:op) { match('[+\-*/]') }
         rule(:space) { match('\s').repeat(1) }
@@ -329,8 +325,7 @@ class BenchmarkRunner
     when 'express'
       require_relative 'parsers/express_parsanol'
       parser = ExpressParsanolParser.new
-      parser.class.use_ruby_backend!
-      ->(input) { parser.parse(input) }
+      ->(input) { parser.parse(input, mode: :ruby) }
     end
   end
 
@@ -341,13 +336,9 @@ class BenchmarkRunner
     when 'json'
       require_relative 'parsers/json_parsanol'
       parser = JsonParsanolParser.new
-      parser.class.use_rust_backend!
-      ->(input) { parser.parse(input) }
+      ->(input) { parser.parse(input, mode: :native) }
     when 'expression'
       Class.new(Parsanol::Parser) {
-        include Parsanol::RubyTransform
-        use_rust_backend!
-
         rule(:number) { match('[0-9]').repeat(1) }
         rule(:op) { match('[+\-*/]') }
         rule(:space) { match('\s').repeat(1) }
@@ -357,8 +348,7 @@ class BenchmarkRunner
     when 'express'
       require_relative 'parsers/express_parsanol'
       parser = ExpressParsanolParser.new
-      parser.class.use_rust_backend!
-      ->(input) { parser.parse(input) }
+      ->(input) { parser.parse(input, mode: :native) }
     end
   end
 

@@ -3,6 +3,30 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      bump_type:
+        description: "Version bump type"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - pre
+          - rc
+          - beta
+          - alpha
+          - custom
+        default: "patch"
+      custom_version:
+        description: "Custom version (only used when bump_type is 'custom', e.g., 1.1.0, 1.1.0.rc.1)"
+        required: false
+        type: string
+      draft:
+        description: "Create as draft release"
+        required: false
+        type: boolean
+        default: true
   push:
     tags: ["v*"]
 
@@ -15,8 +39,55 @@ permissions:
   id-token: write
 
 jobs:
+  # Version management job
+  prepare-version:
+    name: Prepare version
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - name: Install gem-release
+        run: gem install gem-release
+
+      - name: Determine and bump version
+        id: version
+        run: |
+          # Determine the version argument for gem-release
+          if [ "${{ inputs.bump_type }}" = "custom" ]; then
+            VERSION_ARG="${{ inputs.custom_version }}"
+          else
+            VERSION_ARG="${{ inputs.bump_type }}"
+          fi
+
+          # Bump version using gem-release
+          # --no-commit: we'll commit manually to control the message
+          gem bump --version $VERSION_ARG --no-commit
+
+          # Read the new version from the version file
+          VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed "s/.*'\\([^']*\\)'.*/\\1/")
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add lib/parsanol/version.rb
+          git commit -m "chore(release): bump version to ${{ steps.version.outputs.version }}" || echo "No changes to commit"
+
   ci-data:
     runs-on: ubuntu-22.04
+    needs: prepare-version
     outputs:
       result: ${{ steps.fetch.outputs.result }}
     steps:
@@ -30,7 +101,7 @@ jobs:
 
   build:
     name: Build native gems
-    needs: ci-data
+    needs: [prepare-version, ci-data]
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
@@ -38,6 +109,8 @@ jobs:
         ruby-platform: ${{ fromJSON(needs.ci-data.outputs.result).supported-ruby-platforms }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
 
       - uses: ruby/setup-ruby@v1
         with:
@@ -187,12 +260,30 @@ jobs:
           gem install pkg/parsanol-*.gem --verbose
           ruby .github/scripts/test_installed_gem.rb
 
-  release:
-    name: Release
-    needs: [build, smoke-linux, smoke-linux-arm, smoke-macos-arm, smoke-macos-intel, smoke-windows, smoke-windows-arm]
+  create-tag:
+    name: Create git tag
+    needs: [prepare-version, build, smoke-linux, smoke-linux-arm, smoke-macos-arm, smoke-macos-intel, smoke-windows, smoke-windows-arm]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a ${{ needs.prepare-version.outputs.tag }} -m "Release ${{ needs.prepare-version.outputs.version }}"
+          git push origin ${{ needs.prepare-version.outputs.tag }}
+
+  release:
+    name: Release
+    needs: [prepare-version, create-tag]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-version.outputs.tag }}
 
       - uses: oxidize-rb/actions/setup-ruby-and-rust@v1
         with:
@@ -209,15 +300,6 @@ jobs:
 
       - name: Package source gem
         run: bundle exec rake gem:native:any
-
-      - name: Ensure version matches the tag
-        run: |
-          GEM_VERSION=$(grep "VERSION =" lib/parsanol/version.rb | head -n 1 | sed "s/.*'\([^']*\)'.*/\1/")
-          if [ "v$GEM_VERSION" != "${{ github.ref_name }}" ]; then
-            echo "Gem version does not match tag"
-            echo "  v$GEM_VERSION != ${{ github.ref_name }}"
-            exit 1
-          fi
 
       - name: List built gems
         run: ls -la pkg/
@@ -254,10 +336,12 @@ jobs:
       - name: Create GitHub release
         uses: ncipollo/release-action@v1
         with:
+          tag: ${{ needs.prepare-version.outputs.tag }}
           allowUpdates: true
           generateReleaseNotes: true
-          draft: true
+          draft: ${{ inputs.draft == true || inputs.draft == 'true' }}
           omitBodyDuringUpdate: true
           omitNameDuringUpdate: true
           omitPrereleaseDuringUpdate: true
           skipIfReleaseExists: true
+          prerelease: ${{ contains(needs.prepare-version.outputs.version, 'rc') || contains(needs.prepare-version.outputs.version, 'pre') || contains(needs.prepare-version.outputs.version, 'beta') || contains(needs.prepare-version.outputs.version, 'alpha') }}
