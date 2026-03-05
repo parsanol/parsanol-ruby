@@ -223,7 +223,7 @@ jobs:
         run: ls -la pkg/
 
       - name: Configure RubyGems credentials for Trusted Publishing
-        uses: rubygems/configure-rubygems-credentials@v1
+        uses: rubygems/configure-rubygems-credentials@main
 
       - name: Push Gem
         working-directory: pkg/
