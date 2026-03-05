@@ -18,7 +18,7 @@ Metrics/BlockLength:
     - Rakefile
     - Steepfile
     - example/**/*
-    - parsanol-ruby.gemspec
+    - parsanol.gemspec
 
 Metrics/MethodLength:
   Max: 20
@@ -75,7 +75,7 @@ Layout/LineLength:
   Exclude:
     - spec/**/*
     - example/**/*
-    - parsanol-ruby.gemspec
+    - parsanol.gemspec
 
 # Documentation - not required for example or spec files
 Style/Documentation:
@@ -196,8 +196,8 @@ Security/Eval:
 # Gemspec
 Gemspec/DevelopmentDependencies:
   Exclude:
-    - parsanol-ruby.gemspec
+    - parsanol.gemspec
 
 Gemspec/RequiredRubyVersion:
   Exclude:
-    - parsanol-ruby.gemspec
+    - parsanol.gemspec

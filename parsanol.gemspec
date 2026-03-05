@@ -34,7 +34,7 @@ Gem::Specification.new do |spec|
     LICENSE
     Rakefile
     README.adoc
-    parsanol-ruby.gemspec
+    parsanol.gemspec
     Cargo.toml
     Cargo.lock
   ]

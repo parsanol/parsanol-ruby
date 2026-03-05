@@ -1,7 +1,13 @@
 # frozen_string_literal: true
 
 require 'bundler/gem_tasks'
-require 'rspec/core/rake_task'
+
+begin
+  require 'rspec/core/rake_task'
+rescue LoadError
+  # RSpec not available in this environment
+end
+
 require 'rdoc/task'
 require 'rubygems/package_task'
 
@@ -11,7 +17,7 @@ rescue LoadError, NoMethodError
   # Opal not available or incompatible with current Ruby version
 end
 
-GEMSPEC = Gem::Specification.load('parsanol-ruby.gemspec')
+GEMSPEC = Gem::Specification.load('parsanol.gemspec')
 
 # Load rake tasks from rakelib/
 Dir.glob('rakelib/*.rake').each { |r| load r }
@@ -60,7 +66,7 @@ namespace :gem do
 
   desc 'Define the gem task to build on any platform (compile on install)'
   task 'platform:any' do
-    spec = Gem::Specification.load('parsanol-ruby.gemspec').dup
+    spec = Gem::Specification.load('parsanol.gemspec').dup
     task = Gem::PackageTask.new(spec)
     task.define
   end

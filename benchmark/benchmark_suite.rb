@@ -4,7 +4,7 @@
 #
 # Compares parsing performance across:
 # - parslet: Original Parslet gem (pure Ruby)
-# - parsanol-ruby: Parsanol pure Ruby backend
+# - parsanol: Parsanol pure Ruby backend
 # - parsanol-native: Parsanol with Rust backend
 # - parsanol-zerocopy: Parsanol zero-copy mode (fastest)
 # - racc: RACC parser generator (compiled)
