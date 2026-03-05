@@ -6,8 +6,6 @@
 require 'parsanol'
 
 class JsonParsanolParser < Parsanol::Parser
-  include Parsanol::RubyTransform
-
   # Whitespace
   rule(:space) { match('\s').repeat(1) }
   rule(:space?) { space.maybe }

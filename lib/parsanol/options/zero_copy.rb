@@ -98,7 +98,7 @@ module Parsanol
         raise LoadError,
               "ZeroCopy mode requires native extension for direct FFI object construction. " \
               "Run `rake compile` to build the extension, or use " \
-              "Parsanol::RubyTransform for Ruby-only parsing."
+              "parser.parse(input, mode: :ruby) for pure Ruby parsing."
       end
 
       grammar_json = Parsanol::Native.serialize_grammar(root)

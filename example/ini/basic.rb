@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-# INI Parser Example - RubyTransform
+# INI Parser Example - Basic Parsing
 #
 # This example demonstrates parsing INI configuration files.
 # Shows section headers, key-value pairs, and comments.
 #
-# Run with: ruby -Ilib example/ini_ruby_transform.rb
+# Run with: ruby -Ilib example/ini/basic.rb
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
@@ -115,7 +115,7 @@ end
 # Example usage
 if __FILE__ == $PROGRAM_NAME
   puts '=' * 60
-  puts 'INI Parser - RubyTransform'
+  puts 'INI Parser - Basic Parsing'
   puts '=' * 60
   puts
 

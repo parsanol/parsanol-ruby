@@ -2,7 +2,8 @@
 #
 # Rust extension for parsanol-ruby that provides:
 # - Fast parsing with packrat memoization
-# - Three transform modes: RubyTransform, Serialized, ZeroCopy
+# - Three parse modes: ruby, native, json
+# - ZeroCopy interface for maximum performance
 # - Source location tracking
 # - Streaming parsing
 # - Incremental parsing for editor integration

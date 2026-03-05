@@ -281,20 +281,167 @@ parser.parse('123')  # Works exactly the same
                         └─────────────────────────────────────┘
 ----
 
-=== Performance Modes
+=== Parse Modes
 
-Parsanol offers multiple parsing modes. All modes return `Parsanol::Slice` objects with position information:
+Parsanol offers 3 parsing modes through the `parse` method. All modes return `Parsanol::Slice` objects with position information:
 
-[cols="4,2,2,3"]
+[source,ruby]
+----
+result = parser.parse(input, mode: :native)  # mode is optional, :native is default
+----
+
+[cols="1,1,1,2,2"]
 |===
-| Mode | Speed | Use Case | How It Works
+| Mode | Backend | Keys | Values | Best For
 
-| Ruby | 1x (baseline) | Debugging | Ruby parsing engine
-| Native | ~20x | Production (RECOMMENDED) | Rust parsing, Slice objects
-| JSON | ~20x | APIs, serialization | Rust parsing, JSON with positions
+| `:ruby` | Pure Ruby | Symbol | Slice | Debugging, fallback
+| `:native` | Rust FFI | Symbol | Slice | **Production (DEFAULT)**
+| `:json` | Rust FFI | String | Hash + position | APIs, serialization
 |===
 
 All modes include position info (offset, length, line, column) by default.
+
+==== Mode Details
+
+**Ruby Mode** (`:ruby`)::
+Pure Ruby parsing engine. Use for debugging grammar issues or when native extension is unavailable.
+
+**Native Mode** (`:native`)::
+Rust parser via FFI with automatic transformation to Ruby-friendly format (Symbol keys). ~20x faster than pure Ruby. This is the **default mode**.
+
+**JSON Mode** (`:json`)::
+Rust parser that returns JSON-serializable output with inline position information. Use for APIs and when you need JSON-compatible output.
+
+=== ZeroCopy Interface (Low-Level API)
+
+For maximum performance (~29x faster than pure Ruby), use the ZeroCopy interface which bypasses Ruby transformation:
+
+[source,ruby]
+----
+# Low-level API: Direct Rust access, String keys
+grammar = Parsanol::Native.serialize_grammar(parser.root)
+result = Parsanol::Native.parse_to_ruby_objects(grammar, input)
+# Returns: { "name" => Slice("hello", offset: 0, length: 5) }
+
+# High-level ZeroCopy: Include module for direct Ruby objects
+class FastParser < Parsanol::Parser
+  include Parsanol::ZeroCopy
+
+  rule(:number) { match('[0-9]').repeat(1) }
+  root(:number)
+
+  output_types(number: MyNumberClass)  # Map to Ruby classes
+end
+
+parser = FastParser.new
+expr = parser.parse("42")  # Returns MyNumberClass instance directly
+----
+
+[cols="1,2,2"]
+|===
+| Method | Keys | Use Case
+
+| `parse_to_ruby_objects` | String | Low-level, Slice objects directly from Rust
+| `Parsanol::ZeroCopy` module | Ruby objects | Maximum performance, direct object construction
+|===
+
+NOTE: ZeroCopy requires the native extension and type mapping definitions.
+
+==== When to Use Parse Modes vs ZeroCopy
+
+[cols="1,2,2"]
+|===
+| Your Need | Use This | Why
+
+| Building an API | JSON mode (`:json`) | Direct JSON serialization
+| Building a linter/IDE | Native mode (`:native`) | Position info for errors
+| Need position info | Parse Modes (not ZeroCopy) | ZeroCopy skips position tracking
+| High-throughput parsing | ZeroCopy | Maximum performance
+| Type-safe AST with methods | ZeroCopy | Direct typed object construction
+| Debugging grammar | Ruby mode (`:ruby`) | Pure Ruby, easier to trace
+|===
+
+==== ZeroCopy Example: Calculator with Direct Object Construction
+
+[source,ruby]
+----
+# 1. Define your AST classes with methods
+module Calculator
+  class Expr
+    def eval = raise NotImplementedError
+  end
+
+  class Number < Expr
+    attr_reader :value
+    def initialize(value) = @value = value
+    def eval = @value
+  end
+
+  class BinOp < Expr
+    attr_reader :left, :op, :right
+    def initialize(left:, op:, right:)
+      @left, @op, @right = left, op, right
+    end
+    def eval
+      case @op
+      when '+' then @left.eval + @right.eval
+      when '-' then @left.eval - @right.eval
+      when '*' then @left.eval * @right.eval
+      when '/' then @left.eval / @right.eval
+      end
+    end
+  end
+end
+
+# 2. Define parser with ZeroCopy and output_types
+class CalculatorParser < Parsanol::Parser
+  include Parsanol::ZeroCopy
+
+  rule(:number) { match('[0-9]').repeat(1).as(:int) }
+  rule(:expression) { (number.as(:left) >> add_op >> expression.as(:right)).as(:binop) | number }
+  root(:expression)
+
+  # Map rules to Ruby classes - Rust constructs these directly!
+  output_types(
+    number: Calculator::Number,
+    binop: Calculator::BinOp
+  )
+end
+
+# 3. Parse and evaluate - no transform needed!
+parser = CalculatorParser.new
+expr = parser.parse("2 + 3 * 4")  # Returns Calculator::BinOp directly
+puts expr.eval  # => 14 (with proper precedence)
+----
+
+==== Low-Level ZeroCopy: `parse_to_ruby_objects`
+
+When you don't need typed objects, use `parse_to_ruby_objects` for direct Slice access:
+
+[source,ruby]
+----
+# Direct FFI call - bypasses transformation, String keys
+grammar = Parsanol::Native.serialize_grammar(MyParser.new.root)
+result = Parsanol::Native.parse_to_ruby_objects(grammar, input)
+
+# Result structure (String keys, Slice values):
+# { "name" => Slice("hello", offset: 0, length: 5),
+#   "value" => Slice("42", offset: 10, length: 2) }
+
+# Access position info directly
+result["name"].offset    # => 0
+result["name"].to_s      # => "hello"
+----
+
+==== ZeroCopy Requirements
+
+The ZeroCopy module requires:
+
+1. **Native extension** - Run `bundle exec rake compile`
+2. **Type mapping** - Define `output_types` in your parser
+3. **Matching constructors** - Your Ruby classes must accept the parsed attributes
+
+For complex types, you may also need Rust-side type definitions with `#[derive(RubyObject)]` for full zero-copy FFI construction.
 
 === Parsing Backends (Rust Core)
 

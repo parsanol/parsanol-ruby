@@ -2,19 +2,20 @@
 
 # Parsanol Transform Mode Options
 #
-# This module provides three transformation modes for parsing:
+# This module provides the ZeroCopy transformation mode for maximum performance:
 #
-# 1. RubyTransform - Parse in Rust/Ruby, Transform in Ruby (default, most flexible)
-# 2. Serialized - Parse + Transform in Rust, JSON output (requires native extension)
-# 3. ZeroCopy - Direct FFI object construction (requires native extension, fastest)
+# ZeroCopy - Direct FFI object construction (requires native extension, fastest)
 #
 # Usage:
 #   class MyParser < Parsanol::Parser
-#     include Parsanol::RubyTransform  # or Serialized, or ZeroCopy
+#     include Parsanol::ZeroCopy
 #     rule(:number) { match('[0-9]').repeat(1).as(:int) }
 #     root(:number)
+#
+#     output_types(number: MyNumberClass)
 #   end
+#
+# For standard parsing, use the Parse Modes API instead:
+#   parser.parse(input, mode: :native)  # or :ruby, :json
 
-require 'parsanol/options/ruby_transform'
-require 'parsanol/options/serialized'
 require 'parsanol/options/zero_copy'

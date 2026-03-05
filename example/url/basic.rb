@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# URL Parser Example - RubyTransform: Ruby Transform
+# URL Parser Example - Basic Parsing
 #
 # This example demonstrates parsing URLs into their components.
 # Shows protocol, host, port, path, query string, and fragment parsing.
@@ -187,7 +187,7 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   puts '=' * 60
-  puts 'URL Parser - RubyTransform'
+  puts 'URL Parser - Basic Parsing'
   puts '=' * 60
   puts
 
