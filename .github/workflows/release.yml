@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       bump_type:
-        description: "Version bump type"
+        description: "Version bump type (use 'skip' to release existing version)"
         required: true
         type: choice
         options:
@@ -17,6 +17,7 @@ on:
           - beta
           - alpha
           - custom
+          - skip
         default: "patch"
       custom_version:
         description: "Custom version (only used when bump_type is 'custom', e.g., 1.1.0, 1.1.0.rc.1)"
@@ -66,28 +67,49 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Determine the version argument for gem-release
-          if [ "${{ inputs.bump_type }}" = "custom" ]; then
-            VERSION_ARG="${{ inputs.custom_version }}"
+          if [ "${{ inputs.bump_type }}" = "skip" ]; then
+            # Skip version bump - just read current version and create tag if needed
+            echo "Skipping version bump, using current version..."
+            VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed "s/.*'\\([^']*\\)'.*/\\1/")
+            SHA=$(git rev-parse HEAD)
+            TAG="v$VERSION"
+
+            # Check if tag already exists locally
+            if git tag -l | grep -q "^${TAG}$"; then
+              echo "Tag $TAG already exists locally"
+            else
+              echo "Creating tag $TAG..."
+              git tag -a "$TAG" -m "Release $VERSION"
+            fi
           else
-            VERSION_ARG="${{ inputs.bump_type }}"
+            # Determine the version argument for gem-release
+            if [ "${{ inputs.bump_type }}" = "custom" ]; then
+              VERSION_ARG="${{ inputs.custom_version }}"
+            else
+              VERSION_ARG="${{ inputs.bump_type }}"
+            fi
+
+            # Bump version using gem-release (creates commit and tag automatically)
+            gem bump --version $VERSION_ARG
+
+            # Read the new version from the version file
+            VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed "s/.*'\\([^']*\\)'.*/\\1/")
+
+            # Get the SHA of the commit gem-release just created
+            SHA=$(git rev-parse HEAD)
+            TAG="v$VERSION"
           fi
 
-          # Bump version using gem-release (creates commit automatically)
-          gem bump --version $VERSION_ARG
-
-          # Read the new version from the version file
-          VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed "s/.*'\\([^']*\\)'.*/\\1/")
-
-          # Get the SHA of the commit gem-release just created
-          SHA=$(git rev-parse HEAD)
-
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "sha=$SHA" >> $GITHUB_OUTPUT
 
-      - name: Push version bump commit
-        run: git push origin HEAD:${{ github.ref_name }}
+      - name: Push version bump commit and tag
+        run: |
+          if [ "${{ inputs.bump_type }}" != "skip" ]; then
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+          git push origin ${{ steps.version.outputs.tag }}
 
   ci-data:
     runs-on: ubuntu-22.04
@@ -264,8 +286,8 @@ jobs:
           gem install pkg/parsanol-*.gem --verbose
           ruby .github/scripts/test_installed_gem.rb
 
-  create-tag:
-    name: Create git tag
+  release:
+    name: Release
     needs: [prepare-version, build, smoke-linux, smoke-linux-arm, smoke-macos-arm, smoke-macos-intel, smoke-windows, smoke-windows-arm]
     runs-on: ubuntu-22.04
     steps:
@@ -273,22 +295,6 @@ jobs:
         with:
           ref: ${{ needs.prepare-version.outputs.sha }}
           fetch-depth: 0
-
-      - name: Create tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a ${{ needs.prepare-version.outputs.tag }} -m "Release ${{ needs.prepare-version.outputs.version }}"
-          git push origin ${{ needs.prepare-version.outputs.tag }}
-
-  release:
-    name: Release
-    needs: [prepare-version, create-tag]
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.prepare-version.outputs.tag }}
 
       - uses: oxidize-rb/actions/setup-ruby-and-rust@v1
         with:
