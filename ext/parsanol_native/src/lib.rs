@@ -11,7 +11,7 @@ use magnus::{Error, Ruby};
 /// functions from parsanol-rs.
 #[magnus::init]
 fn init(ruby: &Ruby) -> Result<(), Error> {
-    // Initialize the parsanol-rs ruby_ffi module
+    // Initialize the parsanol-rs ffi::ruby module
     // This sets up Parsanol::Native with all the functions
-    parsanol::ruby_ffi::init(ruby)
+    parsanol::ffi::ruby::init(ruby)
 }

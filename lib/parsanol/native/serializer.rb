@@ -199,38 +199,41 @@ module Parsanol
     end
 
     def serialize_capture(atom)
-      # Capture stores matched text for later use by Dynamic.
-      # Native parser doesn't support cross-atom captures,
-      # so we serialize the inner atom but the capture is a no-op.
-      # Grammars using capture+dynamic will need Ruby fallback.
-      serialize_atom(atom.parslet)
+      # Capture stores matched text for later reference by Dynamic atoms.
+      # Now properly serialized for native parser support (parsanol-rs 0.3.0+).
+      {
+        'Capture' => {
+          'name' => atom.capture_key.to_s,
+          'atom' => serialize_atom(atom.inner_atom)
+        }
+      }
     end
 
     def serialize_scope(atom)
-      # Scope creates a new capture scope.
-      # Native parser doesn't have scoped captures,
-      # so we just serialize the inner atom from the block.
+      # Scope creates an isolated capture context.
+      # Captures made within scope are discarded when scope exits.
       inner = begin
         atom.block.call
       rescue StandardError
         nil
       end
-      if inner
-        serialize_atom(inner)
-      else
-        serialize_unknown(atom)
-      end
+      return serialize_unknown(atom) unless inner
+
+      {
+        'Scope' => {
+          'atom' => serialize_atom(inner)
+        }
+      }
     end
 
-    def serialize_dynamic(_atom)
+    def serialize_dynamic(atom)
       # Dynamic evaluates a Ruby block at parse time.
-      # This cannot be serialized to JSON - the grammar
-      # requires Ruby fallback for this portion.
-      # We create a marker that will fail at parse time
-      # with a clear error message.
+      # Register the block and get a callback ID for FFI.
+      callback_id = Parsanol::Native::Dynamic.register(atom.block)
+
       {
-        'Str' => {
-          'pattern' => "\x00__DYNAMIC_NOT_SUPPORTED__"
+        'Dynamic' => {
+          'callback_id' => callback_id
         }
       }
     end

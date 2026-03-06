@@ -1,0 +1,56 @@
+{
+  "id": "streaming-captures",
+  "title": "Streaming Parser with Captures",
+  "description": "Extract named values from large files without loading them into memory.",
+  "category": "feature",
+  "tags": ["streaming", "captures", "memory", "large-files", "extraction"],
+  "difficulty": "advanced",
+  "concepts": ["streaming with captures", "bounded memory", "chunk-based extraction", "capture persistence"],
+
+  "motivation": {
+    "why": "Combine memory efficiency of streaming with convenience of named captures for GB-scale files.",
+    "useCases": [
+      "Log file analysis (extract IPs, status codes from 10GB+ logs)",
+      "CSV export processing (extract emails from 500MB+ files)",
+      "Real-time feed parsing (stock tickers, event streams)",
+      "Database dump processing (extract specific fields)"
+    ]
+  },
+
+  "inputFormat": {
+    "description": "Large files processed in fixed-size chunks.",
+    "examples": [
+      {"input": "192.168.1.1 - - [10/Oct/2000:13:55:36] \"GET /path\" 200 2326\n...", "description": "Apache access log (millions of lines)", "valid": true}
+    ]
+  },
+
+  "outputFormat": {
+    "description": "Captures available after streaming parse completes.",
+    "structure": {
+      "results": {
+        "description": "Array of parse results",
+        "items": {
+          "ast": {"description": "Parse tree"},
+          "bytes_processed": {"description": "Bytes read so far"},
+          "captures": {"description": "Hash of captured values"}
+        }
+      }
+    }
+  },
+
+  "backendCompatibility": {
+    "packrat": {"support": "n/a", "notes": "Use streaming instead"},
+    "bytecode": {"support": "n/a", "notes": "Use streaming instead"},
+    "streaming": {"support": "full", "notes": "Primary backend for this feature"}
+  },
+
+  "requirements": {
+    "nativeExtension": true,
+    "description": "Streaming parsing requires the native Rust extension"
+  },
+
+  "related": ["captures", "scopes", "streaming"],
+  "implementations": {
+    "ruby": {"basic": "basic.rb" }
+  }
+}

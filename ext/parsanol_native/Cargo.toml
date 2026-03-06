@@ -28,7 +28,8 @@ rb-sys = { version = "0.9.124", features = ["link-ruby", "global-allocator"] }
 magnus = "0.8"
 
 # parsanol parser library
-parsanol = { version = "0.1.6", features = ["ruby"] }
+# Using git reference until parsanol-rs 0.2.0 is published to crates.io
+parsanol = { git = "https://github.com/parsanol/parsanol-rs.git", branch = "feat/capture-scope-dynamic-atoms", features = ["ruby"] }
 
 # Logging
 log = "0.4"

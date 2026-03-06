@@ -1,38 +1,43 @@
 {
   "id": "scopes",
-  "title": "Scope DSL",
-  "description": "Demonstrate Parslet's scope DSL for managing variable bindings across grammar rules.",
-  "category": "conceptual",
-  "tags": ["scope", "binding", "parslet", "context"],
+  "title": "Scope Atoms",
+  "description": "Create isolated capture contexts with scope atoms. Captures inside scopes are discarded when the scope exits.",
+  "category": "feature",
+  "tags": ["scope", "isolation", "capture-cleanup", "memory-management"],
   "difficulty": "intermediate",
-  "concepts": ["scope", "variable binding", "context", "nested rules"],
+  "concepts": ["scope atoms", "capture isolation", "memory cleanup", "nested contexts"],
 
   "motivation": {
-    "why": "Scopes provide isolated variable binding contexts within grammar rules. This enables nested language constructs and parameterized rules.",
+    "why": "Prevent capture pollution from nested parsing. Each scope has its own capture state that's cleaned up on exit.",
     "useCases": [
-      "Nested language constructs",
-      "Parameterized rules",
-      "Context-sensitive parsing"
+      "Parse nested structures without accumulating captures",
+      "Process repeated items with isolated capture state",
+      "Memory-bounded parsing of large inputs"
     ]
   },
 
   "inputFormat": {
-    "description": "Expressions with scoped variable bindings.",
+    "description": "Nested structures with scoped parsing",
     "examples": [
-      { "input": "let x = 1", "description": "Variable declaration in scope", "valid": true }
+      {"input": "prefix inner suffix", "description": "Nested structure", "valid": true}
     ]
   },
 
   "outputFormat": {
-    "description": "Scoped variable bindings.",
+    "description": "Only outer captures visible, inner captures discarded",
     "structure": {
-      "scope": { "description": "The scope context with bound variables" }
+      "capture_state": {"description": "Only captures from outside scopes"}
     }
   },
 
-  "rubyOnly": true,
-  "parsletCompatible": true,
+  "backendCompatibility": {
+    "packrat": {"support": "full", "notes": "Native Packrat support"},
+    "bytecode": {"support": "full", "notes": "Works via Packrat"},
+    "streaming": {"support": "full", "notes": "Works with capture state"}
+  },
+
+  "related": ["capture", "dynamic"],
   "implementations": {
-    "ruby": { "basic": "basic.rb" }
+    "ruby": {"basic": "basic.rb" }
   }
 }
