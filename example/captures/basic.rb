@@ -17,7 +17,7 @@ require 'pp'
 
 include Parsanol::Parslet
 
-puts "Capture Atoms Example"
+puts 'Capture Atoms Example'
 puts "=====================\n"
 
 # ===========================================================================
@@ -28,7 +28,7 @@ puts "--- Example 1: Basic Capture ---\n"
 # Simple capture: match 'hello' and capture it
 parser = str('hello').capture(:greeting)
 
-input = "hello"
+input = 'hello'
 result = parser.parse(input)
 puts "  Input: #{input.inspect}"
 puts "  Result: #{result.inspect} (a Slice)"
@@ -40,14 +40,14 @@ puts "\n--- Example 2: Multiple Captures in Sequence ---\n"
 
 # Parse key=value pairs
 kv_parser = match('[a-z]+').capture(:key) >>
-              str('=') >>
-              match('[a-zA-Z0-9]+').capture(:value)
-input = "name=Alice"
+            str('=') >>
+            match('[a-zA-Z0-9]+').capture(:value)
+input = 'name=Alice'
 result = kv_parser.parse(input)
 puts "  Input: #{input.inspect}"
 puts "  Result: #{result.inspect}"
-puts "  Key: #{result[:key].to_s}"
-puts "  Value: #{result[:value].to_s}"
+puts "  Key: #{result[:key]}"
+puts "  Value: #{result[:value]}"
 # ===========================================================================
 # Example 3: Captures with Dynamic
 # ===========================================================================
@@ -56,6 +56,7 @@ puts "\n--- Example 3: Captures with Dynamic ---\n"
 # Use captured value in dynamic block
 class TypeParser < Parsanol::Parser
   include Parsanol::Parslet
+
   root :declaration
   rule(:type) { match('[a-z]+').capture(:type) }
   rule(:value) do
@@ -66,7 +67,7 @@ class TypeParser < Parsanol::Parser
       when 'int' then match('\d+')
       when 'str' then match('[a-z]+')
       when 'bool' then str('true') | str('false')
-      else match('[a-z]+')  # fallback
+      else match('[a-z]+') # fallback
       end.capture(:value)
     end
   end
@@ -78,28 +79,28 @@ test_cases = [
   ['bool:enabled=true', 'bool']
 ]
 puts "\nTesting type-driven parsing:"
-test_cases.each do |input, expected_type|
+test_cases.each_key do |input|
   puts "  Input: #{input.inspect}"
   parser = TypeParser.new
   result = parser.parse(input)
-  puts "  ✓ Parsed successfully"
-  puts "    type: #{result[:type].to_s}"
-  puts "    name: #{result[:name].to_s}"
-  puts "    value: #{result[:value].to_s}"
+  puts '  ✓ Parsed successfully'
+  puts "    type: #{result[:type]}"
+  puts "    name: #{result[:name]}"
+  puts "    value: #{result[:value]}"
 end
 # ===========================================================================
 # Summary
 # ===========================================================================
 puts "\n--- Benefits of Capture Atoms ---"
-puts "* Zero-copy: captures store offsets, not strings"
-puts "* Works across all backends (Packrat, Streaming)"
-puts "* Clean API: capture(name) method on atoms"
-puts "* No AST construction needed for simple extraction"
+puts '* Zero-copy: captures store offsets, not strings'
+puts '* Works across all backends (Packrat, Streaming)'
+puts '* Clean API: capture(name) method on atoms'
+puts '* No AST construction needed for simple extraction'
 puts "\n--- Performance Notes ---"
-puts "* Captures add minimal overhead (~5% for heavy use)"
-puts "* Capture lookup is O(n) where n = number of captures"
+puts '* Captures add minimal overhead (~5% for heavy use)'
+puts '* Capture lookup is O(n) where n = number of captures'
 puts "\n--- API Summary ---"
-puts "  atom.capture(:name)     -> captures match result"
-puts "  result[:name]           -> retrieves captured value (Slice or Hash)"
-puts "  result[:name].to_s      -> converts Slice to String"
-puts "  context.captures[:name] -> in dynamic blocks"
+puts '  atom.capture(:name)     -> captures match result'
+puts '  result[:name]           -> retrieves captured value (Slice or Hash)'
+puts '  result[:name].to_s      -> converts Slice to String'
+puts '  context.captures[:name] -> in dynamic blocks'
