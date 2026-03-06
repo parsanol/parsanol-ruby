@@ -1,0 +1,44 @@
+{
+  "id": "captures",
+  "title": "Capture Atoms",
+  "description": "Extract named values from parsed input using capture atoms. Works like named groups in regex.",
+  "category": "feature",
+  "tags": ["capture", "extraction", "named-groups", "zero-copy"],
+  "difficulty": "beginner",
+  "concepts": ["capture atoms", "named captures", "capture extraction", "capture state"],
+
+  "motivation": {
+    "why": "Extract specific parts of input without building full AST. Like regex named groups.",
+    "useCases": [
+      "Extract email components (local@domain)",
+      "Parse configuration files (key=value)",
+      "Extract log fields"
+    ]
+  },
+
+  "inputFormat": {
+    "description": "Structured text with parts to capture",
+    "examples": [
+      {"input": "hello", "description": "Simple greeting", "valid": true},
+      {"input": "user@example.com", "description": "Email address", "valid": true}
+    ]
+  },
+
+  "outputFormat": {
+    "description": "Captures accessible via capture_state",
+    "structure": {
+      "capture_state": {"description": "Hash of captured values"}
+    }
+  },
+
+  "backendCompatibility": {
+    "packrat": {"support": "full", "notes": "Native Packrat support"},
+    "bytecode": {"support": "full", "notes": "Works via Packrat"},
+    "streaming": {"support": "full", "notes": "Works with capture state"}
+  },
+
+  "related": ["capture", "scopes", "dynamic"],
+  "implementations": {
+    "ruby": {"basic": "basic.rb" }
+  }
+}

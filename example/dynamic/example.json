@@ -1,0 +1,45 @@
+{
+  "id": "dynamic",
+  "title": "Dynamic Atoms",
+  "description": "Runtime-determined parsing via callbacks. Grammar can change based on context, position, or captured values.",
+  "category": "feature",
+  "tags": ["dynamic", "callback", "context-sensitive", "runtime"],
+  "difficulty": "advanced",
+  "concepts": ["dynamic atoms", "callbacks", "context-sensitive parsing", "capture-aware"],
+
+  "motivation": {
+    "why": "Allow grammar to change at parse time based on position, input, or previously captured values.",
+    "useCases": [
+      "Context-sensitive keywords",
+      "Parser switching based on captures",
+      "Conditional parsing logic",
+      "Configuration-driven grammars"
+    ]
+  },
+
+  "inputFormat": {
+    "description": "Any input - grammar determined at runtime",
+    "examples": [
+      {"input": "ruby def method", "description": "Ruby-style", "valid": true},
+      {"input": "python lambda x", "description": "Python-style", "valid": true}
+    ]
+  },
+
+  "outputFormat": {
+    "description": "Parsed based on dynamic callback result",
+    "structure": {
+      "ast": {"description": "Parse tree from dynamically selected parser"}
+    }
+  },
+
+  "backendCompatibility": {
+    "packrat": {"support": "full", "notes": "Native Packrat support via FFI"},
+    "bytecode": {"support": "partial", "notes": "Uses Packrat fallback"},
+    "streaming": {"support": "partial", "notes": "Uses Packrat fallback"}
+  },
+
+  "related": ["capture", "scope"],
+  "implementations": {
+    "ruby": {"basic": "basic.rb" }
+  }
+}

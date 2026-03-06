@@ -1,3 +1,53 @@
+== Parsanol 1.2.0 (2026-03-07)
+
+New features for advanced parsing scenarios:
+
+=== Capture Atoms
+
+Extract named values from parsed input without building full AST:
+
+* `atom.capture(:name)` - Capture matched text by name
+* Zero-copy extraction using offset/length
+* Works across all backends (Packrat, Bytecode, Streaming)
+
+=== Scope Atoms
+
+Create isolated capture contexts for nested parsing:
+
+* `scope { inner }` - Discards inner captures on exit
+* Prevents capture pollution in recursive structures
+* Memory-bounded parsing for repeated patterns
+
+=== Dynamic Atoms
+
+Runtime-determined parsing via FFI callbacks:
+
+* `dynamic { |ctx| parser }` - Context-sensitive parsing
+* Access captures, position, and input in callback
+* Full Packrat backend support
+
+=== Native Extension Updates
+
+* Updated to parsanol-rs 0.2.0
+* New backend abstraction (Packrat, Bytecode, Auto)
+* Streaming parser with capture extraction
+* Performance improvements
+
+== Parsanol 1.1.0 (2025-03-15)
+
+Position information is now returned by default:
+
+* All parse methods return `Parsanol::Slice` objects
+* `Slice#offset`, `#length`, `#line_and_column` methods
+* Zero-copy extraction via `Slice#extract_from(input)`
+* JSON output format includes position inline
+
+Performance improvements:
+
+* Native extension ~20x faster than pure Ruby
+* ZeroCopy API for direct FFI object construction
+* Parallel batch parsing with `Parsanol::Parallel`
+
 == Parsanol 1.0.0 (2025-03-02)
 
 Initial release of Parsanol, a high-performance PEG parser library for Ruby.

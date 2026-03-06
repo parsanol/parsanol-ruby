@@ -247,7 +247,12 @@ parser.parse('123')  # Works exactly the same
 | `sequence(:x)` | ✅ | Match array of values
 | `subtree(:x)` | ✅ | Match any subtree
 | `Parslet::Slice` | ✅ | Parsanol::Slice compatible
+| `.capture(:name)` | ✅ | Named capture extraction (NEW in 1.1.0)
+| `scope { }` | ✅ | Isolated capture context (NEW in 1.1.0)
+| `dynamic { \|ctx\| }` | ✅ | Runtime-determined parsing (NEW in 1.1.0)
 |===
+
+NOTE: The new capture, scope, and dynamic atoms provide powerful extraction and context-sensitive parsing capabilities. See the <<captures,Captures>> section for details.
 
 == Architecture
 
@@ -467,7 +472,99 @@ NOTE: The backend selection is transparent to Ruby users. The parser object auto
 
 For more details on backend selection and grammar analysis, see the https://parsanol.github.io/backends[Parsing Backends documentation].
 
+[[captures]]
+== Captures, Scopes, and Dynamic Atoms
 
+Parsanol 1.1.0 introduces powerful new features for extracting and managing parsed data.
+
+[[capture-atoms]]
+=== Capture Atoms
+
+Extract named values from parsed input, similar to named groups in regular expressions:
+
+[source,ruby]
+----
+require 'parsanol/parslet'
+
+include Parsanol::Parslet
+
+# Basic capture
+parser = str('hello').capture(:greeting)
+result = parser.parse("hello")
+puts result[:greeting].to_s  # => "hello"
+
+# Multiple captures - parse key=value pairs
+kv_parser = match('[a-z]+').capture(:key) >>
+              str('=') >>
+              match('[a-zA-Z0-9]+').capture(:value)
+
+result = kv_parser.parse("name=Alice")
+puts result[:key].to_s    # => "name"
+puts result[:value].to_s  # => "Alice"
+----
+
+[[scope-atoms]]
+=== Scope Atoms
+
+Create isolated capture contexts. Captures inside a scope are discarded when the scope exits:
+
+[source,ruby]
+----
+# Without scope: inner captures leak out
+parser = str('a').capture(:temp) >> str('b') >> str('c').capture(:temp)
+
+# With scope: inner captures are discarded
+parser = str('prefix').capture(:outer) >>
+         scope { str('inner').capture(:inner) } >>
+         str('suffix').capture(:outer_end)
+
+result = parser.parse("prefix inner suffix")
+puts result[:inner]  # => nil (discarded)
+puts result[:outer]  # => "prefix"
+----
+
+Scopes are essential for:
+- Parsing nested structures without capture pollution
+- Recursive parsing with isolated capture state
+- Memory-bounded parsing of repeated structures
+
+[[dynamic-atoms]]
+=== Dynamic Atoms
+
+Runtime-determined parsing via callbacks. The grammar can change based on context:
+
+[source,ruby]
+----
+# Type-driven value parsing
+class TypeParser < Parsanol::Parser
+  include Parsanol::Parslet
+
+  rule(:type) { match('[a-z]+').capture(:type) }
+  rule(:value) do
+    dynamic do |ctx|
+      case ctx[:type].to_s
+      when 'int' then match('\d+')
+      when 'str' then match('[a-z]+')
+      when 'bool' then str('true') | str('false')
+      else match('[a-z]+')
+      end.capture(:value)
+    end
+  end
+  rule(:declaration) { type >> str(':') >> match('[a-z]+').capture(:name) >> str('=') >> value }
+  root :declaration
+end
+
+parser = TypeParser.new
+result = parser.parse("int:count=42")
+puts result[:type].to_s   # => "int"
+puts result[:value].to_s  # => "42"
+----
+
+The `DynamicContext` provides:
+- `ctx[:name]` - Access captured values
+- `ctx.remaining` - Remaining input from current position
+- `ctx.pos` - Current byte position
+- `ctx.input` - Full input string
 
 [[streaming-builder]]
 == Streaming Builder API

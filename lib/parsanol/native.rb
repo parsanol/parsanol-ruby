@@ -9,6 +9,8 @@ require 'parsanol/native/types'
 require 'parsanol/native/parser'
 require 'parsanol/native/transformer'
 require 'parsanol/native/serializer'
+require 'parsanol/native/dynamic'
+require 'parsanol/native/dynamic'
 
 module Parsanol
   module Native
