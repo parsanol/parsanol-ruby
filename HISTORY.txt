@@ -1,3 +1,9 @@
+== Parsanol 1.2.1 (2026-03-07)
+
+Bug fix:
+
+* Fix native extension loading for precompiled gems (rb_sys version-specific paths)
+
 == Parsanol 1.2.0 (2026-03-07)
 
 New features for advanced parsing scenarios:

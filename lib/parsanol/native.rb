@@ -212,8 +212,16 @@ module Parsanol
 end
 
 # Attempt to load native extension
+# rb_sys puts native extensions in version-specific directories (e.g., parsanol/3.2/parsanol_native)
 begin
-  require 'parsanol/parsanol_native'
+  # Try version-specific path first (for precompiled gems)
+  ruby_version = RUBY_VERSION.split('.').take(2).join('.')
+  require "parsanol/#{ruby_version}/parsanol_native"
 rescue LoadError
-  # Native extension not built yet
+  begin
+    # Fall back to generic path (for locally compiled extensions)
+    require 'parsanol/parsanol_native'
+  rescue LoadError
+    # Native extension not built yet
+  end
 end
