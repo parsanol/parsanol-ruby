@@ -47,7 +47,7 @@ Runtime-determined parsing via FFI callbacks:
 * Streaming parser with capture extraction
 * Performance improvements
 
-== Parsanol 1.1.0 (2025-03-15)
+== Parsanol 1.1.0 (2026-03-05)
 
 Position information is now returned by default:
 
@@ -62,7 +62,7 @@ Performance improvements:
 * ZeroCopy API for direct FFI object construction
 * Parallel batch parsing with `Parsanol::Parallel`
 
-== Parsanol 1.0.0 (2025-03-02)
+== Parsanol 1.0.0 (2026-03-03)
 
 Initial release of Parsanol, a high-performance PEG parser library for Ruby.
 
