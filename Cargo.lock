@@ -313,8 +313,9 @@ checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
 name = "parsanol"
-version = "0.2.0"
-source = "git+https://github.com/parsanol/parsanol-rs.git?branch=feat/capture-scope-dynamic-atoms#6adc48cffe36fc3b0e2aa69aa0c39fab1332a138"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40e84f8cdc9f85960871f57d5fff33cf9e03deae0fd7f87b1f9655f35451fdf7"
 dependencies = [
  "ahash",
  "getrandom 0.4.2",
@@ -330,8 +331,9 @@ dependencies = [
 
 [[package]]
 name = "parsanol-derive"
-version = "0.1.0"
-source = "git+https://github.com/parsanol/parsanol-rs.git?branch=feat/capture-scope-dynamic-atoms#6adc48cffe36fc3b0e2aa69aa0c39fab1332a138"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbd12999fd4452b4713c3d32ca200de0894da2636a215ed54e83c42a553c1aae"
 dependencies = [
  "proc-macro2",
  "quote",
