@@ -247,9 +247,9 @@ parser.parse('123')  # Works exactly the same
 | `sequence(:x)` | ✅ | Match array of values
 | `subtree(:x)` | ✅ | Match any subtree
 | `Parslet::Slice` | ✅ | Parsanol::Slice compatible
-| `.capture(:name)` | ✅ | Named capture extraction (NEW in 1.1.0)
-| `scope { }` | ✅ | Isolated capture context (NEW in 1.1.0)
-| `dynamic { \|ctx\| }` | ✅ | Runtime-determined parsing (NEW in 1.1.0)
+| `.capture(:name)` | ✅ | Named capture extraction (NEW in 1.2.0)
+| `scope { }` | ✅ | Isolated capture context (NEW in 1.2.0)
+| `dynamic { \|ctx\| }` | ✅ | Runtime-determined parsing (NEW in 1.2.0)
 |===
 
 NOTE: The new capture, scope, and dynamic atoms provide powerful extraction and context-sensitive parsing capabilities. See the <<captures,Captures>> section for details.
@@ -475,7 +475,7 @@ For more details on backend selection and grammar analysis, see the https://pars
 [[captures]]
 == Captures, Scopes, and Dynamic Atoms
 
-Parsanol 1.1.0 introduces powerful new features for extracting and managing parsed data.
+Parsanol 1.2.0 introduces powerful new features for extracting and managing parsed data.
 
 [[capture-atoms]]
 === Capture Atoms

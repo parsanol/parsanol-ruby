@@ -1,3 +1,11 @@
+== Parsanol 1.2.2 (2026-03-07)
+
+Syncs with parsanol-rs 0.3.0:
+
+* Full FFI support for capture, scope, and dynamic atoms
+* Native extension performance for all new features
+* BuilderCallbacks module for streaming parsing
+
 == Parsanol 1.2.1 (2026-03-07)
 
 Bug fix:
@@ -34,7 +42,7 @@ Runtime-determined parsing via FFI callbacks:
 
 === Native Extension Updates
 
-* Updated to parsanol-rs 0.2.0
+* Updated to parsanol-rs 0.3.0
 * New backend abstraction (Packrat, Bytecode, Auto)
 * Streaming parser with capture extraction
 * Performance improvements
