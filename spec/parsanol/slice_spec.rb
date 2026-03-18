@@ -3,11 +3,11 @@
 require 'spec_helper'
 
 describe Parsanol::Slice do
-  def cslice(string, bytepos, cache = nil)
+  def cslice(string, bytepos, input = nil)
     described_class.new(
       bytepos,
       string,
-      cache
+      input
     )
   end
 
@@ -62,18 +62,51 @@ describe Parsanol::Slice do
         slice.offset.should == 40
       end
 
-      it 'fails to return a line and column' do
+      it 'fails to return a line and column without input string' do
         lambda {
           slice.line_and_column
-        }.should raise_error(ArgumentError)
+        }.should raise_error(ArgumentError, /requires input/)
       end
 
-      context 'when constructed with a source' do
-        let(:cache) { double(:cache, line_and_column: [13, 14]) }
-        let(:slice) { cslice('foobar', 40, cache) }
+      context 'when constructed with an input string' do
+        let(:input) { "first\nsecond\nthird" }
+        let(:slice) { cslice('second', 6, input) }
 
-        it 'returns proper line and column' do
-          slice.line_and_column.should == [13, 14]
+        it 'computes line and column lazily' do
+          slice.line_and_column.should == [2, 1]
+        end
+
+        it 'caches the result' do
+          # First call computes and caches
+          slice.line_and_column
+          # Verify it's cached
+          slice.instance_variable_get(:@line_and_column).should == [2, 1]
+          # Second call uses cache
+          slice.line_and_column.should == [2, 1]
+        end
+      end
+
+      context 'with multi-line input' do
+        let(:input) { "first\nsecond\nthird" }
+
+        it 'computes correct line/column for first line' do
+          s = cslice('first', 0, input)
+          s.line_and_column.should == [1, 1]
+        end
+
+        it 'computes correct line/column for second line' do
+          s = cslice('second', 6, input)
+          s.line_and_column.should == [2, 1]
+        end
+
+        it 'computes correct line/column for third line' do
+          s = cslice('third', 13, input)
+          s.line_and_column.should == [3, 1]
+        end
+
+        it 'computes correct column within a line' do
+          s = cslice('cond', 8, input)
+          s.line_and_column.should == [2, 3]
         end
       end
     end
@@ -186,8 +219,8 @@ describe Parsanol::Slice do
         Marshal.dump(slice)
       end
 
-      context 'when storing a line cache' do
-        let(:slice) { cslice('foobar', 40, Parsanol::Source::LineCache.new) }
+      context 'when storing an input string' do
+        let(:slice) { cslice('foobar', 40, 'some input string') }
 
         it 'serializes' do
           Marshal.dump(slice)
@@ -225,11 +258,11 @@ describe Parsanol::Slice do
       expect(slice.offset).to eq(5)
     end
 
-    it 'preserves line cache' do
-      cache = double(:cache, line_and_column: [10, 15])
+    it 'preserves input string for line/column computation' do
+      input = "first\nsecond"
       rope = Parsanol::Rope.new.append('test')
-      slice = described_class.from_rope(rope, 0, cache)
-      expect(slice.line_and_column).to eq([10, 15])
+      slice = described_class.from_rope(rope, 6, input)
+      expect(slice.line_and_column).to eq([2, 1])
     end
 
     it 'handles rope with Slice segments' do

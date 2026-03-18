@@ -64,12 +64,13 @@ describe Parsanol::Pools::SlicePool do
       expect(slice.to_s).to eq('hello')
     end
 
-    it 'accepts optional line cache' do
+    it 'accepts optional input string for lazy line/column' do
       pool = described_class.new(size: 10, preallocate: false)
-      line_cache = double('line_cache')
-      slice = pool.acquire_with(0, 'test', line_cache)
+      input = "hello\nworld"
+      slice = pool.acquire_with(0, 'hello', input)
 
-      expect(slice.line_cache).to eq(line_cache)
+      expect(slice).to be_a(Parsanol::Slice)
+      expect(slice.line_and_column).to eq([1, 1])
     end
 
     it 'reuses slices with new values' do
@@ -92,13 +93,13 @@ describe Parsanol::Pools::SlicePool do
 
     it 'properly initializes all slice attributes' do
       pool = described_class.new(size: 10, preallocate: false)
-      line_cache = double('line_cache')
+      input = 'test content here'
 
-      slice = pool.acquire_with(123, 'content', line_cache)
+      slice = pool.acquire_with(5, 'content', input)
 
-      expect(slice.offset).to eq(123)
+      expect(slice.offset).to eq(5)
       expect(slice.to_s).to eq('content')
-      expect(slice.line_cache).to eq(line_cache)
+      expect(slice.line_and_column).to eq([1, 6]) # Line 1, column 6 (offset 5 + 1)
     end
   end
 
@@ -122,7 +123,7 @@ describe Parsanol::Pools::SlicePool do
       # Slice should be reset to defaults
       expect(slice.offset).to eq(0)
       expect(slice.to_s).to eq('')
-      expect(slice.line_cache).to be_nil
+      expect(slice.input).to be_nil
     end
 
     it 'discards slices when pool is full' do

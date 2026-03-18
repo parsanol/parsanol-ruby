@@ -176,25 +176,25 @@ describe Parsanol::ZeroCopy do
       end
 
       it 'returns Slice object for simple string match' do
-        result = Parsanol::Native.parse_to_ruby_objects(string_grammar, 'hello')
+        result = Parsanol::Native.parse(string_grammar, 'hello')
         expect(result).to be_a(Parsanol::Slice)
         expect(result.to_s).to eq('hello')
         expect(result.offset).to eq(0)
       end
 
       it 'returns Hash with Slice values for named captures' do
-        result = Parsanol::Native.parse_to_ruby_objects(named_grammar, 'hello')
+        result = Parsanol::Native.parse(named_grammar, 'hello')
         expect(result).to be_a(Hash)
-        expect(result.keys).to eq(['greeting'])
+        expect(result.keys).to eq([:greeting])
 
-        greeting = result['greeting']
+        greeting = result[:greeting]
         expect(greeting).to be_a(Parsanol::Slice)
         expect(greeting.to_s).to eq('hello')
         expect(greeting.offset).to eq(0)
       end
 
       it 'returns Array of Slice objects for sequences' do
-        result = Parsanol::Native.parse_to_ruby_objects(sequence_grammar, 'hello world')
+        result = Parsanol::Native.parse(sequence_grammar, 'hello world')
         expect(result).to be_a(Array)
         expect(result.length).to eq(3)
 
@@ -221,7 +221,7 @@ describe Parsanol::ZeroCopy do
           root: 0
         }.to_json
 
-        result = Parsanol::Native.parse_to_ruby_objects(utf8_grammar, '日本語')
+        result = Parsanol::Native.parse(utf8_grammar, '日本語')
         expect(result).to be_a(Parsanol::Slice)
         expect(result.to_s).to eq('日本語')
         expect(result.offset).to eq(0)

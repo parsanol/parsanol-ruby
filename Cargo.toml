@@ -4,6 +4,14 @@ members = ["ext/parsanol_native"]
 
 [profile.release]
 opt-level = 3
-lto = "thin"
+lto = "off"
 codegen-units = 1
 debug = true  # Enable debug info for better stack traces
+
+# Patch to use git version of magnus (0.9.0 not yet on crates.io)
+[patch.crates-io]
+magnus = { git = "https://github.com/matsadler/magnus", rev = "4e46772" }
+magnus-macros = { git = "https://github.com/matsadler/magnus", rev = "4e46772" }
+rb-sys = { path = "/Users/mulgogi/src/external/rb-sys/crates/rb-sys" }
+rb-sys-build = { path = "/Users/mulgogi/src/external/rb-sys/crates/rb-sys-build" }
+rb-sys-env = { path = "/Users/mulgogi/src/external/rb-sys/crates/rb-sys-env" }

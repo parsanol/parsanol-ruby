@@ -79,12 +79,10 @@ describe 'Rope + StringView Integration' do
       expect(slice.str).to eq('hello world')
     end
 
-    it 'preserves line cache when converting rope to slice' do
-      line_cache = double('line_cache')
-      allow(line_cache).to receive(:line_and_column).with(0).and_return([1, 1])
-
-      rope = Parsanol::Rope.new.append('test')
-      slice = Parsanol::Slice.from_rope(rope, 0, line_cache)
+    it 'computes line/column from input string when converting rope to slice' do
+      input = "hello\nworld"
+      rope = Parsanol::Rope.new.append('hello')
+      slice = Parsanol::Slice.from_rope(rope, 0, input)
 
       expect(slice.line_and_column).to eq([1, 1])
     end

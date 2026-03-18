@@ -4,121 +4,83 @@
 # Preserves both the string value and its byte offset in the original input,
 # enabling precise error reporting and source mapping.
 #
-# Inspired by string slicing concepts in text editors and IDEs.
+# Line/column is computed LAZILY on first access — zero overhead
+# for users who don't need position info.
 module Parsanol
   class Slice
     include Parsanol::Resettable
 
-    attr_reader :content, :position_cache
+    attr_reader :content, :input
 
-    # Creates a slice with position tracking.
-    #
-    # @param byte_offset [Integer] position in original input
-    # @param string_content [String] the slice content
-    # @param cache [Object] optional cache for line/column lookup
-    def initialize(byte_offset = 0, string_content = '', cache = nil)
+    def initialize(byte_offset = 0, string_content = '', input = nil)
       @byte_position = byte_offset
       @content = string_content
-      @position_cache = cache
+      @input = input
+      @line_and_column = nil
     end
 
-    # Resets slice state for object pool reuse.
-    #
-    # @param new_offset [Integer] new byte position
-    # @param new_content [String] new content
-    # @param new_cache [Object] new line cache
-    # @return [self] for method chaining
-    def reset!(new_offset = 0, new_content = '', new_cache = nil)
+    def reset!(new_offset = 0, new_content = '', new_input = nil)
       @byte_position = new_offset
       @content = new_content
-      @position_cache = new_cache
+      @input = new_input
+      @line_and_column = nil
       self
     end
 
-    # Creates a Slice from a Rope concatenation.
-    #
-    # @param rope [Parsanol::Rope] rope to convert
-    # @param offset [Integer] byte position
-    # @param cache [Object] optional cache
-    # @return [Parsanol::Slice] new slice
-    def self.from_rope(rope, offset, cache = nil)
-      new(offset, rope.to_s, cache)
+    def self.from_rope(rope, offset, input = nil)
+      new(offset, rope.to_s, input)
     end
 
-    # @return [Integer] byte offset in original input
+    # Position
     def offset
       @byte_position
     end
 
     alias bytepos offset
     alias charpos offset
-    alias str content # backward compatibility
-    alias line_cache position_cache # backward compatibility
+    alias str content
 
-    # Compares slices or strings for equality.
-    #
-    # @param other [Object] object to compare
-    # @return [Boolean] true if equal
+    # Equality
     def ==(other)
       return content == other if other.is_a?(String)
       return content == other.content if other.is_a?(Parsanol::Slice)
-
       content == other
     end
 
-    # Type-strict equality check.
-    #
-    # @param other [Object] object to compare
-    # @return [Boolean] true if same type and content
     def eql?(other)
       other.is_a?(Parsanol::Slice) && content.eql?(other.content)
     end
 
-    # Hash for use as hash keys.
-    #
-    # @return [Integer] hash combining content and position
     def hash
       [content, offset].hash
     end
 
-    # Matches regular expression against content.
-    #
-    # @param pattern [Regexp] pattern to match
-    # @return [MatchData, nil] match result
+    # Delegated methods
     def match(pattern)
       content.match(pattern)
     end
 
-    # @return [Integer] length of slice content
     def size
       content.size
     end
 
     alias length size
 
-    # Concatenates slices assuming second continues from first's end.
-    #
-    # @param other [Slice, String] slice to append
-    # @return [Parsanol::Slice] combined slice
     def +(other)
-      self.class.new(@byte_position, content + other.to_s, position_cache)
+      self.class.new(@byte_position, content + other.to_s, @input)
     end
 
-    # Returns [line, column] tuple for this position.
-    #
-    # @return [Array<Integer, Integer>] line and column (1-indexed)
-    # @raise [ArgumentError] if no line cache available
+    # Lazy line/column — computed once and cached.
     def line_and_column
-      raise ArgumentError, 'Line/column info requires a line cache. Pass one during parsing.' unless position_cache
-
-      position_cache.line_and_column(@byte_position)
+      raise ArgumentError, 'Line/column requires input' unless @input
+      @line_and_column ||= compute_line_and_column
     end
 
-    # String conversions ---------------------------------------------------------
-
+    # Conversions
     def to_str
-      content.is_a?(String) ? content : content.to_s
+      content.to_s
     end
+
     alias to_s to_str
 
     def to_slice
@@ -137,71 +99,55 @@ module Parsanol
       content.to_f
     end
 
-    # Inspection ---------------------------------------------------------
-
     def inspect
       "#{content.inspect}@#{offset}"
     end
 
-    # JSON serialization --------------------------------------------------------
-
-    # JSON serialization returns the full object with position info.
-    # This is the default behavior - position info is ALWAYS included.
-    #
-    # @return [String] JSON representation with value and position
+    # JSON
     def to_json(*)
       as_json.to_json(*)
     end
 
-    # Returns a hash with full position information for JSON serialization.
-    # Line and column are always included when a position cache is available.
-    #
-    # @return [Hash] hash with value, offset, length, and line/column
     def as_json(_options = {})
-      result = {
-        'value' => content,
-        'offset' => offset,
-        'length' => length
-      }
-
-      if position_cache
+      result = { 'value' => content, 'offset' => offset, 'length' => length }
+      if @input
         line, column = line_and_column
         result['line'] = line
         result['column'] = column
       end
-
       result
     end
 
-    # Returns a SourceSpan representing this slice's position
-    #
-    # @param input [String, nil] the original input (needed for line/column)
-    # @return [Parsanol::SourceSpan] span object
+    # Source span
     def to_span(_input = nil)
-      start_pos = if position_cache
-                    line, column = line_and_column
-                    SourcePosition.new(offset: offset, line: line, column: column)
-                  else
-                    SourcePosition.new(offset: offset, line: 1, column: 1)
-                  end
-
-      end_offset = offset + length
-      end_pos = if position_cache
-                  line, column = position_cache.line_and_column(end_offset)
-                  SourcePosition.new(offset: end_offset, line: line, column: column)
-                else
-                  SourcePosition.new(offset: end_offset, line: 1, column: 1)
-                end
-
+      line, column = line_and_column
+      end_line, end_column = line_and_column_at(offset + length)
+      start_pos = SourcePosition.new(offset: offset, line: line, column: column)
+      end_pos = SourcePosition.new(offset: offset + length, line: end_line, column: end_column)
       SourceSpan.new(start_pos: start_pos, end_pos: end_pos)
     end
 
-    # Extract this slice's content from the original input string
-    #
-    # @param input [String] the original input string
-    # @return [String] the slice content extracted from input
-    def extract_from(input)
-      input.byteslice(offset, length)
+    private
+
+    def compute_line_and_column
+      line_and_column_at(@byte_position)
+    end
+
+    # Unified line/column computation:
+    # - String input: compute from input string
+    # - LineCache: delegate to cache
+    def line_and_column_at(pos)
+      if @input.respond_to?(:line_and_column)
+        # LineCache or duck-typed object
+        @input.line_and_column(pos)
+      else
+        # String input
+        prefix = @input.byteslice(0, pos) || ''
+        line = 1 + prefix.count("\n")
+        last_nl = prefix.rindex("\n")
+        column = last_nl ? pos - last_nl : pos + 1
+        [line, column]
+      end
     end
   end
 end
