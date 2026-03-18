@@ -114,9 +114,10 @@ describe 'StringView Integration' do
   end
 
   describe 'line and column tracking' do
-    it 'tracks position correctly' do
-      parser = str('hello')
-      result = parser.parse('hello')
+    it 'tracks position correctly when input is provided' do
+      parser = str('hello world')
+      input = 'hello world'
+      result = parser.parse(input)
 
       expect(result.line_and_column).to eq([1, 1])
       expect(result.offset).to eq(0)

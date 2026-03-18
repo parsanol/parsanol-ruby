@@ -135,7 +135,7 @@ module Parsanol
           first_slice = transformed.find { |i| i.is_a?(::Parsanol::Slice) }
           content = transformed.map { |i| slice_content(i) }.join
           transformed = if first_slice
-                          ::Parsanol::Slice.new(first_slice.offset, content, first_slice.position_cache)
+                          ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input)
                         else
                           content
                         end
@@ -412,7 +412,7 @@ module Parsanol
 
           if first_slice
             # Create new Slice with combined content, preserving position from first
-            ::Parsanol::Slice.new(first_slice.offset, content, first_slice.position_cache)
+            ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input)
           else
             # All plain strings (shouldn't happen with new decode_flat, but handle it)
             slice_or_string_parts.length == 1 ? slice_or_string_parts.first : content
@@ -457,7 +457,7 @@ module Parsanol
 
           if first_slice
             # Create new Slice with combined content, preserving position from first
-            ::Parsanol::Slice.new(first_slice.offset, content, first_slice.position_cache)
+            ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input)
           else
             # All plain strings (shouldn't happen with new decode_flat, but handle it)
             content
