@@ -314,7 +314,6 @@ dependencies = [
  "magnus",
  "memchr",
  "parsanol-derive",
- "rb-sys",
  "regex",
  "serde",
  "serde_json",
@@ -382,6 +381,7 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 [[package]]
 name = "rb-sys"
 version = "0.9.124"
+source = "git+https://github.com/oxidize-rb/rb-sys.git?rev=b42b5fba0424fcc6778fed9a01e05215eaa53f85#b42b5fba0424fcc6778fed9a01e05215eaa53f85"
 dependencies = [
  "rb-sys-build",
 ]
@@ -389,6 +389,7 @@ dependencies = [
 [[package]]
 name = "rb-sys-build"
 version = "0.9.124"
+source = "git+https://github.com/oxidize-rb/rb-sys.git?rev=b42b5fba0424fcc6778fed9a01e05215eaa53f85#b42b5fba0424fcc6778fed9a01e05215eaa53f85"
 dependencies = [
  "bindgen",
  "lazy_static",
@@ -402,6 +403,8 @@ dependencies = [
 [[package]]
 name = "rb-sys-env"
 version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cca7ad6a7e21e72151d56fe2495a259b5670e204c3adac41ee7ef676ea08117a"
 
 [[package]]
 name = "regex"
