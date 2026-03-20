@@ -39,7 +39,7 @@ has_profiling = Parsanol::Native.respond_to?(:profile_reset)
 Parsanol::Native.profile_reset if has_profiling
 
 start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-Parsanol::Native.parse_parslet_compatible(parser, test_input)
+Parsanol::Native::Parser.parse(parser, test_input)
 cold_time = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
 
 if has_profiling
@@ -58,7 +58,7 @@ puts '-' * 70
 times = []
 20.times do
   start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-  Parsanol::Native.parse_parslet_compatible(parser, test_input)
+  Parsanol::Native::Parser.parse(parser, test_input)
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
   times << elapsed
 end
@@ -80,7 +80,7 @@ inputs = (0...50).map { |i| "#{words[i % 10]}, #{words[(i + 1) % 10]}, #{words[(
 # Individual
 Parsanol::Native.clear_cache
 individual_start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-inputs.each { |i| Parsanol::Native.parse_parslet_compatible(parser, i) }
+inputs.each { |i| Parsanol::Native::Parser.parse(parser, i) }
 individual_time = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - individual_start
 
 # Batch with transform

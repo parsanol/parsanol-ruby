@@ -39,7 +39,7 @@ puts 'Test 1: parse_parslet_compatible (NO caching)'
 puts '-' * 60
 
 Parsanol::Native.profile_reset
-100.times { Parsanol::Native.parse_parslet_compatible(parser, test_input) }
+100.times { Parsanol::Native::Parser.parse(parser, test_input) }
 profile_no_cache = Parsanol::Native.profile_stats
 
 puts "\nTiming (microseconds):"

@@ -67,7 +67,7 @@ puts 'Test 1: Simple Parser (first parse, cold cache)'
 puts '-' * 60
 
 Parsanol::Native.profile_reset
-result1 = Parsanol::Native.parse_parslet_compatible(parser, simple_input)
+result1 = Parsanol::Native::Parser.parse(parser, simple_input)
 profile1 = Parsanol::Native.profile_stats
 
 puts "Result: #{result1.inspect}"
@@ -86,7 +86,7 @@ Parsanol::Native.clear_cache
 times = []
 100.times do
   start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-  Parsanol::Native.parse_parslet_compatible(parser, simple_input)
+  Parsanol::Native::Parser.parse(parser, simple_input)
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
   times << elapsed
 end
@@ -112,7 +112,7 @@ Parsanol::Native.clear_cache
 times = []
 100.times do
   start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-  Parsanol::Native.parse_parslet_compatible(expr_parser, complex_input)
+  Parsanol::Native::Parser.parse(expr_parser, complex_input)
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
   times << elapsed
 end
@@ -138,7 +138,7 @@ Parsanol::Native.clear_cache
 times = []
 20.times do
   start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-  Parsanol::Native.parse_parslet_compatible(parser, large_input)
+  Parsanol::Native::Parser.parse(parser, large_input)
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
   times << elapsed
 end

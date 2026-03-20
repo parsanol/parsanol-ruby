@@ -168,12 +168,8 @@ module Parsanol
     #
     def parse_native(input, opts)
       if Parsanol::Native.available?
-        # Build line cache for position info
-        line_cache = Parsanol::Source::LineCache.new
-        line_cache.scan_for_line_endings(0, input)
-
-        # Parse with position info (now the default)
-        Parsanol::Native.parse_parslet_compatible(root, input, line_cache)
+        # Parse with lazy line/column support
+        Parsanol::Native.parse(root, input)
       else
         parse_ruby(input, opts)
       end

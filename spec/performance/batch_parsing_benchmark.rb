@@ -46,7 +46,7 @@ Parsanol::Native.clear_cache
 individual_times = []
 inputs.each do |input|
   start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-  Parsanol::Native.parse_parslet_compatible(parser, input)
+  Parsanol::Native::Parser.parse(parser, input)
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
   individual_times << elapsed
 end
