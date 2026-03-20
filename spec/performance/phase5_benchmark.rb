@@ -60,7 +60,7 @@ puts '-' * 70
 Parsanol::Native.clear_cache
 
 start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-result = Parsanol::Native.parse_parslet_compatible(parser, test_input)
+result = Parsanol::Native::Parser.parse(parser, test_input)
 cold_time = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
 
 puts "Time: #{cold_time} μs"
@@ -74,7 +74,7 @@ puts '-' * 70
 times = []
 50.times do
   start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-  result = Parsanol::Native.parse_parslet_compatible(parser, test_input)
+  result = Parsanol::Native::Parser.parse(parser, test_input)
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
   times << elapsed
 end
@@ -100,12 +100,12 @@ Parsanol::Native.clear_cache
 
 # First parse (cold)
 start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-inputs.each { |i| Parsanol::Native.parse_parslet_compatible(parser, i) }
+inputs.each { |i| Parsanol::Native::Parser.parse(parser, i) }
 first_batch = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
 
 # Second batch (warm)
 start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-inputs.each { |i| Parsanol::Native.parse_parslet_compatible(parser, i) }
+inputs.each { |i| Parsanol::Native::Parser.parse(parser, i) }
 second_batch = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
 
 puts "First batch (cold): #{first_batch} μs"

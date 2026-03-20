@@ -110,6 +110,9 @@ module Parsanol
         value = hash[key]
         sym_key = cached_symbol(key)
 
+        # Transform the value
+        transformed = transform(value)
+
         # Check if value is a tagged repetition from native parser
         is_tagged_repetition = value.is_a?(Array) && !value.empty? &&
                                value.first.is_a?(String) && value.first == REPETITION_TAG
@@ -123,9 +126,6 @@ module Parsanol
         # Empty array from native parser is a repetition result (not a sequence)
         # Sequences produce arrays of arrays like [[], []], not empty arrays
         is_empty_repetition = value.is_a?(Array) && value.empty?
-
-        # Transform the value
-        transformed = transform(value)
 
         # Special handling for arrays that look like character repetitions
         # (arrays of single-character Slices/strings should be joined)
@@ -303,20 +303,33 @@ module Parsanol
             # the WHOLE sequence should be kept as array, not merged.
             if item.empty?
               # Empty repetition - skip (sequence semantics: merge rest)
+              # Don't increment total_items for empty arrays
             else
-              # Non-empty repetition - mark that we should keep as array
-              has_non_empty_array = true
-              # Still collect items for potential array result
-              item.each do |sub_item|
-                case sub_item
-                when Hash
-                  hash_count += 1
-                when ::Parsanol::Slice, String
-                  slice_or_string_parts << sub_item
+              # Check if array contains only hashes (repetition wrapper pattern)
+              # In this case, merge the inner hashes into merged_hash
+              non_hash_items = item.reject { |sub| sub.is_a?(Hash) }
+              all_items_are_hashes = non_hash_items.empty?
+
+              if all_items_are_hashes
+                # Merge all inner hashes into merged_hash
+                item.each do |sub_item|
+                  merged_hash.merge!(sub_item) if sub_item.is_a?(Hash)
                 end
+              else
+                # Non-empty repetition with non-hash items - mark that we should keep as array
+                has_non_empty_array = true
+                # Still collect items for potential array result
+                item.each do |sub_item|
+                  case sub_item
+                  when Hash
+                    hash_count += 1
+                  when ::Parsanol::Slice, String
+                    slice_or_string_parts << sub_item
+                  end
+                end
+                total_items += 1
               end
             end
-            total_items += 1
           when nil
             # Skip nil values (from lookahead or optional that didn't match)
           else
@@ -359,9 +372,9 @@ module Parsanol
         #    Result: [{:letter => "a"}, {:letter => "b"}, {:letter => "c"}]
         #
         # 3. MIXED KEYS: Hashes have DIFFERENT keys
-        #    => Keep as array
-        #    Example: [{:a => 1}, {:b => 2}]
-        #    Result: [{:a => 1}, {:b => 2}]
+        #    => Merge into single hash
+        #    Example: [{:explicitAttr => {...}}, {:whereClause => {...}}]
+        #    Result: {:explicitAttr => {...}, :whereClause => {...}}
         if hash_count == total_items && hash_count > 1
           # Check if all hashes have the same single key
           first_item = items.first
@@ -381,13 +394,25 @@ module Parsanol
 
               return items unless all_values_are_hashes
 
-              # Wrapper pattern: merge the inner hashes
-              merged_inner = {}
-              items.each do |item|
-                inner_value = item[wrapper_key]
-                merged_inner.merge!(inner_value)
+              # Check if inner hashes have the same keys or different keys
+              # REPETITION pattern (same keys like entity_decl): keep as array
+              # WRAPPER pattern (different keys like spaces vs schemaDecl): merge
+              first_inner_keys = items.first[wrapper_key].keys.to_set
+              all_same_keys = items.all? { |item| item[wrapper_key].keys.to_set == first_inner_keys }
+
+              if all_same_keys
+                # REPETITION pattern: keep as array of hashes
+                # (each hash has same structure, just different values)
+                return items
+              else
+                # WRAPPER pattern: merge inner hashes with different keys
+                merged_inner = {}
+                items.each do |item|
+                  inner_value = item[wrapper_key]
+                  merged_inner.merge!(inner_value)
+                end
+                return { wrapper_key => merged_inner }
               end
-              return { wrapper_key => merged_inner }
 
               # Repetition pattern: keep as array
 

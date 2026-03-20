@@ -117,7 +117,7 @@ RSpec.describe 'Native vs Ruby Performance Benchmarks', :performance do
     # Ruby flattens sequences, Native returns structured output
     # Both produce valid parse trees, just structured differently
     it 'native parser successfully parses calculator expressions' do
-      result = Parsanol::Native.parse_parslet_compatible(calc_parser.new, input)
+      result = Parsanol::Native.parse(calc_parser.new, input)
       expect(result).not_to be_nil
       # Result can be Array or Hash depending on grammar structure
       expect(result).to be_a(Array).or be_a(Hash)
@@ -150,7 +150,7 @@ RSpec.describe 'Native vs Ruby Performance Benchmarks', :performance do
     # NOTE: AST structure differs between Ruby and Native parsers
     # Both produce valid parse trees, just structured differently
     it 'native parser successfully parses simple JSON' do
-      result = Parsanol::Native.parse_parslet_compatible(json_parser.new, simple_json)
+      result = Parsanol::Native.parse(json_parser.new, simple_json)
       expect(result).not_to be_nil
     end
 
@@ -184,7 +184,7 @@ RSpec.describe 'Native vs Ruby Performance Benchmarks', :performance do
     # NOTE: Native returns char array, Ruby returns joined string
     # Both are valid representations
     it 'native parser successfully parses identifier patterns' do
-      result = Parsanol::Native.parse_parslet_compatible(identifier_parser.new, input)
+      result = Parsanol::Native::Parser.parse(identifier_parser.new, input)
       expect(result).not_to be_nil
       expect(result).to have_key(:id)
     end

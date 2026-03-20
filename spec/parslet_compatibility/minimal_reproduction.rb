@@ -60,7 +60,7 @@ end
 # Get Parsanol output (actual)
 begin
   Parsanol::Native.serialize_grammar(parser1.root)
-  parsanol_result = Parsanol::Native.parse_parslet_compatible(parser1.root, input1)
+  parsanol_result = Parsanol::Native::Parser.parse(parser1.root, input1)
   puts "\n--- PARSANOL OUTPUT (Actual) ---"
   puts JSON.pretty_generate(parsanol_result)
 rescue StandardError => e
@@ -110,7 +110,7 @@ end
 
 begin
   Parsanol::Native.serialize_grammar(parser2.root)
-  parsanol_result2 = Parsanol::Native.parse_parslet_compatible(parser2.root, input2)
+  parsanol_result2 = Parsanol::Native::Parser.parse(parser2.root, input2)
   puts "\n--- PARSANOL OUTPUT (Actual) ---"
   puts JSON.pretty_generate(parsanol_result2)
   puts "\n  :rhs class: #{parsanol_result2[:rhs].class if parsanol_result2[:rhs]}"
@@ -161,7 +161,7 @@ end
 
 begin
   Parsanol::Native.serialize_grammar(parser3.root)
-  parsanol_result3 = Parsanol::Native.parse_parslet_compatible(parser3.root, input3)
+  parsanol_result3 = Parsanol::Native::Parser.parse(parser3.root, input3)
   puts "\n--- PARSANOL OUTPUT (Actual) ---"
   puts JSON.pretty_generate(parsanol_result3)
   puts "\n  :x occurrences: #{parsanol_result3[:x].inspect if parsanol_result3[:x]}"

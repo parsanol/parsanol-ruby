@@ -233,7 +233,7 @@ RSpec.describe 'Parslet API Compatibility' do
 
         input = 'SCHEMA test;'
         ruby_ast = parser.parse(input)
-        native_ast = Parsanol::Native.parse_parslet_compatible(parser, input)
+        native_ast = Parsanol::Native::Parser.parse(parser, input)
 
         # Both should produce same structure (ignoring Slice position info)
         expect(ruby_ast.keys).to eq(native_ast.keys)
@@ -249,7 +249,7 @@ RSpec.describe 'Parslet API Compatibility' do
 
         input = '(a,b)'
         ruby_ast = parser.parse(input)
-        native_ast = Parsanol::Native.parse_parslet_compatible(parser, input)
+        native_ast = Parsanol::Native::Parser.parse(parser, input)
 
         expect(native_ast).to eq({ first: 'a', second: 'b' })
         expect(native_ast.keys).to eq(ruby_ast.keys)
@@ -261,7 +261,7 @@ RSpec.describe 'Parslet API Compatibility' do
         input = 'hello'
 
         ruby_ast = parser.parse(input)
-        native_ast = Parsanol::Native.parse_parslet_compatible(parser, input)
+        native_ast = Parsanol::Native::Parser.parse(parser, input)
 
         expect(native_ast).to eq({ word: 'hello' })
         expect(native_ast.keys).to eq(ruby_ast.keys)
@@ -273,7 +273,7 @@ RSpec.describe 'Parslet API Compatibility' do
         input = 'abc'
 
         ruby_ast = parser.parse(input)
-        native_ast = Parsanol::Native.parse_parslet_compatible(parser, input)
+        native_ast = Parsanol::Native::Parser.parse(parser, input)
 
         # Ruby produces array of hashes with Slice
         expect(ruby_ast).to be_an(Array)
@@ -293,7 +293,7 @@ RSpec.describe 'Parslet API Compatibility' do
         input = 'abc'
 
         ruby_ast = parser.parse(input)
-        native_ast = Parsanol::Native.parse_parslet_compatible(parser, input)
+        native_ast = Parsanol::Native::Parser.parse(parser, input)
 
         expect(native_ast).to eq({ letters: 'abc' })
         expect(native_ast).to eq(ruby_ast)
@@ -321,7 +321,7 @@ RSpec.describe 'Parslet API Compatibility' do
 
         input = 'abc 123'
         ruby_ast = parser.parse(input)
-        native_ast = Parsanol::Native.parse_parslet_compatible(parser, input)
+        native_ast = Parsanol::Native::Parser.parse(parser, input)
 
         # Both should produce the same result (Ruby overwrites duplicates)
         expect(native_ast).to be_a(Hash)
@@ -341,7 +341,7 @@ RSpec.describe 'Parslet API Compatibility' do
 
         # Repetition: should produce array of hashes
         repetition_parser = match('[a-z]').as(:letter).repeat(2)
-        repetition_result = Parsanol::Native.parse_parslet_compatible(repetition_parser, 'ab')
+        repetition_result = Parsanol::Native::Parser.parse(repetition_parser, 'ab')
         expect(repetition_result).to be_an(Array)
         expect(repetition_result.length).to eq(2)
         expect(repetition_result).to eq([{ letter: 'a' }, { letter: 'b' }])
@@ -351,7 +351,7 @@ RSpec.describe 'Parslet API Compatibility' do
           match('[a-z]').as(:char).as(:group) >>
           match('[0-9]').as(:digit).as(:group)
         )
-        wrapper_result = Parsanol::Native.parse_parslet_compatible(wrapper_parser, 'a5')
+        wrapper_result = Parsanol::Native::Parser.parse(wrapper_parser, 'a5')
         expect(wrapper_result).to be_a(Hash)
         expect(wrapper_result.keys).to eq([:group])
         expect(wrapper_result[:group]).to eq({ char: 'a', digit: '5' })
@@ -379,7 +379,7 @@ RSpec.describe 'Parslet API Compatibility' do
           root(:list)
         end.new
 
-        result = Parsanol::Native.parse_parslet_compatible(parser.root, 'a,b,c')
+        result = Parsanol::Native::Parser.parse(parser.root, 'a,b,c')
 
         expect(result).to be_a(Hash)
         expect(result[:first]).to eq({ name: 'a' })

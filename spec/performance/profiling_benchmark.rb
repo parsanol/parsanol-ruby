@@ -36,7 +36,7 @@ Parsanol::Native.profile_reset
 
 # Run parsing multiple times using NATIVE parser
 puts "\nRunning 100 native parses..."
-100.times { Parsanol::Native.parse_parslet_compatible(parser, test_input) }
+100.times { Parsanol::Native::Parser.parse(parser, test_input) }
 
 # Get profile
 profile = Parsanol::Native.profile_stats
@@ -116,7 +116,7 @@ puts "Large Input Test (#{large_input.length} chars)"
 puts '-' * 60
 
 Parsanol::Native.profile_reset
-20.times { Parsanol::Native.parse_parslet_compatible(parser, large_input) }
+20.times { Parsanol::Native::Parser.parse(parser, large_input) }
 profile_large = Parsanol::Native.profile_stats
 
 puts "\nTiming:"
