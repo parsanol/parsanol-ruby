@@ -27,8 +27,8 @@ rb-sys = { version = "0.9.124", features = ["global-allocator"] }
 # magnus for Ruby bindings (from crates.io, patched locally for Ruby 4.0 support)
 magnus = { version = "0.9" }
 
-# parsanol parser library
-parsanol = { path = "/Users/mulgogi/src/parsanol/parsanol-rs/parsanol", features = ["ruby"] }
+# parsanol parser library (from git for latest features)
+parsanol = { git = "https://github.com/parsanol/parsanol-rs", branch = "rt-slice-transform", features = ["ruby"] }
 
 # Logging
 log = "0.4"
