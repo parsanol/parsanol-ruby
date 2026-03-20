@@ -410,8 +410,13 @@ module Parsanol
                 return items
               else
                 # DUPLICATE KEYS: Same outer key with different inner keys
-                # This is still a REPETITION pattern - keep as array
-                # The Ruby parser returns an array for .repeat() patterns
+                # This could be either:
+                # 1. REPETITION with different inner keys - keep as array
+                # 2. SEQUENCE with duplicate labels - should keep last value
+                #
+                # Without grammar context, we cannot distinguish these cases.
+                # The batch format doesn't preserve :repetition tags.
+                # Keep as array to preserve all data - callers can merge if needed.
                 return items
               end
 
