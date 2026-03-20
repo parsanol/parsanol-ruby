@@ -1,3 +1,25 @@
+== Parsanol 1.3.0 (unreleased)
+
+Breaking changes:
+
+* Simplified API: Single `parse()` method with lazy line/column
+* Removed deprecated methods: `parse_parslet`, `parse_parslet_with_positions`,
+  `parse_with_transform`, `parse_to_objects`, `parse_raw`
+
+New features:
+
+* Lazy line/column computation in `Slice#line_and_column` - computed only when accessed
+* `BatchDecoder` module for efficient batch AST processing
+* Grammar accepts Ruby atoms directly - no JSON serialization step needed
+
+Bug fixes:
+
+* Fixed grammar cache cycle detection to prevent stack overflow on recursive grammars
+* Fixed wrapper vs repetition pattern detection in `AstTransformer`:
+  - Same inner keys → Repetition pattern (keep as array)
+  - Different inner keys → Wrapper pattern (merge inner hashes)
+* Correct entity extraction for grammars with multiple declarations
+
 == Parsanol 1.2.2 (2026-03-07)
 
 Syncs with parsanol-rs 0.3.0:
