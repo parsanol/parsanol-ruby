@@ -28,11 +28,8 @@ module Parsanol
         # @param grammar [Parsanol::Atoms::Base] Ruby grammar or JSON string
         # @param input [String] Input string to parse
         def parse(grammar, input)
-          raise LoadError, "Native parser not available. Run `rake compile` to build." unless available?
-
-          grammar_json = grammar.is_a?(String) ? grammar : serialize_grammar(grammar)
-          # Call the raw native method (named _parse_raw to avoid overwriting this wrapper)
-          Parsanol::Native._parse_raw(grammar_json, input)
+          # Delegate to Parsanol::Native.parse for consistency
+          Parsanol::Native.parse(grammar, input)
         end
 
         # Serialize a Ruby grammar to JSON (cached).

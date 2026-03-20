@@ -306,7 +306,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 [[package]]
 name = "parsanol"
 version = "0.4.1"
-source = "git+https://github.com/parsanol/parsanol-rs?branch=rt-slice-transform#12a51eae24d184231ce676cb9f6c7784ff7fb7a0"
+source = "git+https://github.com/parsanol/parsanol-rs?branch=rt-slice-transform#7a9ee507f1a22f5156114adf9eea625bad54b436"
 dependencies = [
  "ahash",
  "getrandom 0.3.4",
@@ -323,7 +323,7 @@ dependencies = [
 [[package]]
 name = "parsanol-derive"
 version = "0.4.1"
-source = "git+https://github.com/parsanol/parsanol-rs?branch=rt-slice-transform#12a51eae24d184231ce676cb9f6c7784ff7fb7a0"
+source = "git+https://github.com/parsanol/parsanol-rs?branch=rt-slice-transform#7a9ee507f1a22f5156114adf9eea625bad54b436"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -51,22 +51,15 @@ module Parsanol
         # @param data [Array<Integer>] Flat u64 array from batch parser
         # @param input [String] Original input string (for Slice references)
         # @param slice_class [Class] The Slice class to use
-        # @param grammar_atom [Parsanol::Atoms::Base] The grammar atom (for flatten)
+        # @param grammar_atom [Parsanol::Atoms::Base] The grammar atom (unused, kept for API compat)
         # @return [Object] Transformed Ruby AST
         def decode_and_flatten(data, input, slice_class, grammar_atom)
           raw_ast = decode(data, input, slice_class)
 
           # Apply AstTransformer to convert native AST format to Parslet-compatible format
           # This handles sequence merging, repetition flattening, etc.
-          transformed = AstTransformer.transform(raw_ast)
-
-          # Join consecutive slices (optimization for string literals)
-          joined = join_consecutive_slices(transformed, slice_class, input)
-
-          # Apply grammar's flatten transformation if available
-          return joined unless grammar_atom&.respond_to?(:flatten)
-
-          grammar_atom.flatten(joined)
+          # The transformer produces final format, so no additional flatten is needed.
+          AstTransformer.transform(raw_ast)
         end
 
         # Join consecutive Slice objects in arrays into single Slices
