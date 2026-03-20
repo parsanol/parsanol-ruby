@@ -346,7 +346,7 @@ RSpec.describe 'Parslet API Compatibility' do
         expect(repetition_result.length).to eq(2)
         expect(repetition_result).to eq([{ letter: 'a' }, { letter: 'b' }])
 
-        # Wrapper: should merge into single hash
+        # Wrapper: duplicate keys - Ruby keeps LAST value (not merge)
         wrapper_parser = (
           match('[a-z]').as(:char).as(:group) >>
           match('[0-9]').as(:digit).as(:group)
@@ -354,7 +354,8 @@ RSpec.describe 'Parslet API Compatibility' do
         wrapper_result = Parsanol::Native::Parser.parse(wrapper_parser, 'a5')
         expect(wrapper_result).to be_a(Hash)
         expect(wrapper_result.keys).to eq([:group])
-        expect(wrapper_result[:group]).to eq({ char: 'a', digit: '5' })
+        # Ruby parser keeps LAST value when duplicate keys
+        expect(wrapper_result[:group]).to eq({ digit: '5' })
       end
 
       it 'handles repetition with separator pattern correctly' do

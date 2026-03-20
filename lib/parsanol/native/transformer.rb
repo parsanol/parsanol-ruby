@@ -52,40 +52,44 @@ module Parsanol
         @@symbol_cache[key] ||= key.to_sym
       end
 
+      # Symbol tags from native parser
+      SEQUENCE_SYM = :sequence
+      REPETITION_SYM = :repetition
+
       def self.transform_array(arr)
         return EMPTY_ARRAY if arr.empty? # Match Parsanol Ruby mode behavior
 
         # Check if this is a tagged array from native parser
+        # Native parser produces Symbol tags: [:sequence, item1, item2, ...]
         first = arr.first
-        if first.is_a?(String) && first.start_with?(':')
-          if first == SEQUENCE_TAG
-            # Optimized: transform items starting from index 1
-            # Avoid creating arr[1..] slice
-            len = arr.length
-            return EMPTY_ARRAY if len == 1
+        if first == SEQUENCE_SYM || first == SEQUENCE_TAG
+          # Optimized: transform items starting from index 1
+          # Avoid creating arr[1..] slice
+          len = arr.length
+          return EMPTY_ARRAY if len == 1
 
-            items = Array.new(len - 1)
-            i = 0
-            while i < len - 1
-              items[i] = transform(arr[i + 1])
-              i += 1
-            end
-            flatten_sequence(items)
-          elsif first == REPETITION_TAG
-            # Optimized: transform items starting from index 1
-            len = arr.length
-            return EMPTY_ARRAY if len == 1
-
-            items = Array.new(len - 1)
-            i = 0
-            while i < len - 1
-              items[i] = transform(arr[i + 1])
-              i += 1
-            end
-            flatten_repetition(items)
-          else
-            arr.map { |item| transform(item) }
+          items = Array.new(len - 1)
+          i = 0
+          while i < len - 1
+            items[i] = transform(arr[i + 1])
+            i += 1
           end
+          flatten_sequence(items)
+        elsif first == REPETITION_SYM || first == REPETITION_TAG
+          # Optimized: transform items starting from index 1
+          len = arr.length
+          return EMPTY_ARRAY if len == 1
+
+          items = Array.new(len - 1)
+          i = 0
+          while i < len - 1
+            items[i] = transform(arr[i + 1])
+            i += 1
+          end
+          flatten_repetition(items)
+        elsif first.is_a?(Symbol) || (first.is_a?(String) && first.start_with?(':'))
+          # Other tagged arrays - pass through
+          arr.map { |item| transform(item) }
         else
           # Untagged arrays from native parser are SEQUENCES
           # Apply flatten_sequence to get Parslet-compatible output
@@ -405,13 +409,10 @@ module Parsanol
                 # (each hash has same structure, just different values)
                 return items
               else
-                # WRAPPER pattern: merge inner hashes with different keys
-                merged_inner = {}
-                items.each do |item|
-                  inner_value = item[wrapper_key]
-                  merged_inner.merge!(inner_value)
-                end
-                return { wrapper_key => merged_inner }
+                # DUPLICATE KEYS: Same outer key with different inner keys
+                # This is still a REPETITION pattern - keep as array
+                # The Ruby parser returns an array for .repeat() patterns
+                return items
               end
 
               # Repetition pattern: keep as array

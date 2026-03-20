@@ -79,10 +79,10 @@ RSpec.describe Parsanol::Native::Parser do
         expect(result[1]).to be_a(Hash)
       end
 
-      it 'merges wrapper pattern into hash' do
+      it 'keeps wrapper pattern as array (matches Ruby parser)' do
         # Grammar that produces: [{:x => {:a => A}}, {:x => {:b => B}}, {:x => {:c => C}}}]
         # Outer key is "x", inner keys are :a, :b, :c (all different)
-        # This is a WRAPPER pattern - should merge into single hash
+        # This is a REPETITION pattern - keeps array of hashes (matches Ruby parser)
         g = Class.new(Parsanol::Parser) do
           rule(:part_a) { str('A').as(:a) }
           rule(:part_b) { str('B').as(:b) }
@@ -94,13 +94,28 @@ RSpec.describe Parsanol::Native::Parser do
           root(:list)
         end.new
 
+        ruby_result = g.parse('ABC')
         result = described_class.parse(g, 'ABC')
-        # Should be a hash with merged outer keys
-        expect(result).to be_a(Hash)
-        expect(result[:x]).to be_a(Hash)
-        expect(result[:x]).to have_key(:a)
-        expect(result[:x]).to have_key(:b)
-        expect(result[:x]).to have_key(:c)
+
+        # Should match Ruby parser behavior (returns array of hashes)
+        expect(result).to be_an(Array)
+        expect(result.length).to eq(3)
+
+        # Each item should be a hash with :x key containing a hash with the letter
+        expect(result[0]).to have_key(:x)
+        expect(result[0][:x]).to have_key(:a)
+        expect(result[0][:x][:a].to_s).to eq('A')
+
+        expect(result[1]).to have_key(:x)
+        expect(result[1][:x]).to have_key(:b)
+        expect(result[1][:x][:b].to_s).to eq('B')
+
+        expect(result[2]).to have_key(:x)
+        expect(result[2][:x]).to have_key(:c)
+        expect(result[2][:x][:c].to_s).to eq('C')
+
+        # Native should match Ruby parser structure
+        expect(result.length).to eq(ruby_result.length)
       end
     end
   end
