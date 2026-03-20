@@ -410,14 +410,11 @@ module Parsanol
                 return items
               else
                 # DUPLICATE KEYS: Same outer key with different inner keys
-                # This could be either:
-                # 1. REPETITION with different inner keys - keep as array
-                # 2. SEQUENCE with duplicate labels - should keep last value
-                #
-                # Without grammar context, we cannot distinguish these cases.
-                # The batch format doesn't preserve :repetition tags.
-                # Keep as array to preserve all data - callers can merge if needed.
-                return items
+                # This is a SEQUENCE with duplicate labels (e.g., .as(:group) used twice)
+                # Ruby semantics: "last wins" - merge and keep the last value
+                merged_inner = {}
+                items.each { |item| merged_inner.merge!(item[wrapper_key]) }
+                { wrapper_key => merged_inner }
               end
 
               # Repetition pattern: keep as array

@@ -28,6 +28,7 @@ module Parsanol
       TAG_HASH_END = 0x08
       TAG_HASH_KEY = 0x09
       TAG_INLINE_STRING = 0x0A
+      TAG_SYMBOL = 0x0B
 
       class << self
         # Decode a flat u64 array into Ruby AST with Slice objects
@@ -153,6 +154,12 @@ module Parsanol
             length = @data[@pos + 1]
             @pos += 2
             create_slice(offset, length)
+          when TAG_SYMBOL
+            # Symbol is encoded like inline string: len, then u64 chunks
+            len = @data[@pos]
+            @pos += 1
+            str = decode_inline_string_bytes(len)
+            str.to_sym
           when TAG_ARRAY_START
             decode_array
           when TAG_HASH_START
@@ -198,7 +205,13 @@ module Parsanol
         def decode_inline_string
           len = @data[@pos]
           @pos += 1
+          decode_inline_string_bytes(len)
+        end
 
+        # Decode inline string bytes given the length
+        # @param len [Integer] Length of the string in bytes
+        # @return [String] Decoded string
+        def decode_inline_string_bytes(len)
           # Read u64 chunks
           chunks = (len + 7) / 8
           bytes = String.new(encoding: 'ASCII-8BIT', capacity: len)
