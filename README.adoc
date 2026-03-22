@@ -21,7 +21,7 @@ While maintaining full API compatibility with Parslet, Parsanol features a compl
 
 * <<basic-parsing,PEG-based Parser Construction>> - Declarative grammar definition
 * <<error-reporting,Detailed Error Reporting>> - Precise failure location and context
-* <<native-extension,Rust Native Extension>> - Up to 29x faster parsing
+* <<native-extension,Rust Native Extension>> - **Up to 1300x faster parsing**
 * <<slice-support,Slice Support>> - Source position preservation for linters and IDEs
 * <<transformation,Tree Transformation>> - Pattern-based AST construction
 * <<streaming-builder,Streaming Builder API>> - Single-pass parsing with callbacks
@@ -29,6 +29,7 @@ While maintaining full API compatibility with Parslet, Parsanol features a compl
 * <<infix-expressions,Infix Expression Parsing>> - Built-in operator precedence support
 * <<security-features,Security Features>> - Input size and recursion limits
 * <<debug-tools,Debug Tools>> - Tracing and grammar visualization
+* <<benchmarking,Benchmarking>> - Built-in performance testing tools
 
 == Installation
 
@@ -51,6 +52,23 @@ Or install it yourself as:
 [source,shell]
 ----
 gem install parsanol
+----
+
+== Examples
+
+The repository includes several example files demonstrating different use cases:
+
+* link:examples/benchmark_examples.rb[] - Basic performance benchmarks
+* link:examples/benchmark_full.rb[] - Comprehensive benchmark suite
+* link:examples/parsing_modes.rb[] - Demonstrates all parsing modes
+* link:examples/parslet_migration.rb[] - Migration guide from Parslet
+
+[source,ruby]
+----
+# Run examples
+bundle exec ruby examples/benchmark_examples.rb
+bundle exec ruby examples/parsing_modes.rb
+bundle exec ruby examples/parslet_migration.rb
 ----
 
 == Usage
@@ -103,6 +121,23 @@ ast = MyTransform.new.apply(parse_tree)
 
 [[native-extension]]
 === Native Extension
+
+The Rust native extension provides significant performance improvements over pure Ruby parsing:
+
+[cols="2,1,1,1"]
+|===
+| Pattern Type | Ruby (i/s) | Native (i/s) | Speedup
+
+| Simple string match | ~575 | ~775,000 | **1,340x**
+| Sequence (3 parts) | ~580 | ~530,000 | **910x**
+| Named capture | ~575 | ~510,000 | **880x**
+| Repetition (10x digits) | ~560 | ~740,000 | **1,310x**
+| Alternative (3 options) | ~575 | ~720,000 | **1,250x**
+| Calculator expression | ~570 | ~180,000 | **315x**
+| Repetition with name | ~575 | ~125,000 | **220x**
+| Repetition (20x) | ~560 | ~720,000 | **1,280x**
+|===
+
 For maximum performance, compile the Rust native extension:
 
 [source,shell]
@@ -112,6 +147,13 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Compile the extension
 bundle exec rake compile
+----
+
+Run your own benchmarks with:
+
+[source,ruby]
+----
+bundle exec ruby examples/benchmark_examples.rb
 ----
 
 [[slice-support]]
@@ -789,12 +831,64 @@ ruby -I lib -e "require 'parsanol'; puts Parsanol::Native.available?"
 
 [source,shell]
 ----
-# Quick benchmarks
-bundle exec rake benchmark
+# Quick benchmarks (examples provided in the repository)
+bundle exec ruby examples/benchmark_examples.rb
 
-# Comprehensive benchmark suite
-bundle exec rake benchmark:all
+# Full benchmark suite
+bundle exec ruby examples/benchmark_full.rb
+
+# Compare parsing modes
+bundle exec ruby examples/parsing_modes.rb
+
+# Parslet migration examples
+bundle exec ruby examples/parslet_migration.rb
 ----
+
+[[benchmarking]]
+== Benchmarking Your Own Code
+
+Parsanol includes built-in benchmarking tools to measure performance:
+
+[source,ruby]
+----
+require 'parsanol'
+require 'benchmark/ips'
+
+# Your grammar
+grammar = Parsanol.str("hello").as(:greeting)
+json = Parsanol::Native.serialize_grammar(grammar)
+
+# Benchmark
+Benchmark.ips do |x|
+  x.config(warmup: 5, time: 3)
+
+  x.report("Ruby mode") { grammar.parse("hello", mode: :ruby) }
+  x.report("Native mode") { Parsanol::Native.parse(json, "hello") }
+
+  x.compare!
+end
+----
+
+=== Performance Factors
+
+The actual speedup depends on several factors:
+
+1. **Grammar complexity** - More complex grammars have more transformation overhead
+2. **Named captures** - More named captures mean more hash construction
+3. **Repetition patterns** - Named repetitions have more overhead than unnamed
+4. **Input size** - Larger inputs benefit more from native parsing
+
+[cols="1,2,2"]
+|===
+| Pattern | Speedup | Reason for Difference
+
+| Simple strings | ~1,300x | Minimal transformation
+| Sequences | ~900x | String joining overhead
+| Alternatives | ~1,250x | Fast path in Rust
+| Repetitions (unnamed) | ~1,300x | Minimal transformation
+| Repetitions (named) | ~220x | Array of hashes construction
+| Complex expressions | ~315x | More grammar elements
+|===
 
 == License
 
