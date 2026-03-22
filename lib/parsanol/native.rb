@@ -21,7 +21,9 @@ module Parsanol
       # Parse input with a Ruby grammar, returning clean AST with lazy line/column.
       #
       # Uses batch FFI format for maximum performance (3-5x faster than object-by-object).
-      # The transformation happens in pure Ruby after batch decoding to avoid FFI overhead.
+      # The Rust-side transformation (to_parslet_compatible) produces Parslet-compatible
+      # output that can be consumed directly by Builder.build without additional
+      # Ruby-side transformation.
       #
       # @param grammar [Parsanol::Atoms::Base] Ruby grammar definition
       # @param input [String] Input string to parse
@@ -47,15 +49,45 @@ module Parsanol
           grammar_atom = grammar
         end
 
-        # Use batch format for maximum performance
-        # 1. Rust parses and returns flat u64 array (minimal FFI overhead)
-        # 2. Ruby decodes batch format (pure Ruby, no FFI)
-        # 3. Ruby joins consecutive slices (pure Ruby, no FFI)
-        # 4. Ruby applies flatten transformation (pure Ruby, no FFI)
+        # Use _parse_raw which returns properly tagged Ruby arrays via transform_ast.
+        # The batch format doesn't preserve :repetition/:sequence tags, so we use
+        # the direct FFI path. Apply the Ruby transformer to handle tags correctly.
+        raw_ast = _parse_raw(grammar_json, input)
+        BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice, grammar_atom)
+      end
+
+      # Parse and return RAW AST without transformation.
+      #
+      # This returns the raw Parslet intermediate format before any transformation.
+      # Use this only if you need the raw AST for custom processing.
+      #
+      # For most use cases (including Expressir), use parse() instead which
+      # returns properly transformed AST.
+      #
+      # @param grammar [Parsanol::Atoms::Base] Ruby grammar definition
+      # @param input [String] Input string to parse
+      # @return [Hash, Array] Raw untransformed AST
+      #
+      # @example Raw parsing
+      #   result = Parsanol::Native.parse_raw(str('hello').as(:greeting), 'hello')
+      #   # => {:syntax => [{:spaces => ...}, {:greeting => "hello"@0}, {:spaces => ...}]}
+      #
+      def parse_raw(grammar, input)
+        raise LoadError, "Native parser not available" unless available?
+
+        # Handle both grammar atoms and pre-serialized JSON strings
+        if grammar.is_a?(String)
+          grammar_json = grammar
+        else
+          grammar_json = Parser.serialize_grammar(grammar)
+        end
+
+        # Use batch_raw format for raw AST (no transformation)
         slice_class = Parsanol::Slice
         batch_data = _parse_batch_raw(grammar_json, input)
 
-        BatchDecoder.decode_and_flatten(batch_data, input, slice_class, grammar_atom)
+        # Decode without transformation - raw AST format
+        BatchDecoder.decode(batch_data, input, slice_class)
       end
 
       # Fast batch parsing - uses u64 array format to minimize FFI overhead.
@@ -64,10 +96,13 @@ module Parsanol
       # The batch format passes a flat u64 array across FFI, then decodes
       # in pure Ruby, avoiding expensive per-node FFI calls.
       #
+      # Returns RAW AST without transformation. For Expressir use case,
+      # use parse() instead which returns properly transformed AST.
+      #
       # @param grammar_json [String] Pre-serialized grammar JSON
       # @param input [String] Input string to parse
       # @param slice_class [Class] The Slice class to use for string refs
-      # @return [Hash, Array, Slice] Raw AST (not flattened)
+      # @return [Hash, Array, Slice] Raw AST (not transformed)
       def parse_batch(grammar_json, input, slice_class)
         raise LoadError, "Native parser not available" unless available?
 

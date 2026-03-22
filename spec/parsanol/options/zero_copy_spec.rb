@@ -193,25 +193,13 @@ describe Parsanol::ZeroCopy do
         expect(greeting.offset).to eq(0)
       end
 
-      it 'returns Array of Slice objects for sequences' do
+      it 'returns joined Slice for sequences (matches Ruby parser)' do
         result = Parsanol::Native.parse(sequence_grammar, 'hello world')
-        expect(result).to be_a(Array)
-        expect(result.length).to eq(3)
 
-        # First slice: "hello"
-        expect(result[0]).to be_a(Parsanol::Slice)
-        expect(result[0].to_s).to eq('hello')
-        expect(result[0].offset).to eq(0)
-
-        # Second slice: " "
-        expect(result[1]).to be_a(Parsanol::Slice)
-        expect(result[1].to_s).to eq(' ')
-        expect(result[1].offset).to eq(5)
-
-        # Third slice: "world"
-        expect(result[2]).to be_a(Parsanol::Slice)
-        expect(result[2].to_s).to eq('world')
-        expect(result[2].offset).to eq(6)
+        # Both Ruby and Native parsers join consecutive strings into a single Slice
+        expect(result).to be_a(Parsanol::Slice)
+        expect(result.to_s).to eq('hello world')
+        expect(result.offset).to eq(0)
       end
 
       it 'preserves correct byte offsets for multi-byte characters' do

@@ -29,6 +29,8 @@ module Parsanol
       TAG_HASH_KEY = 0x09
       TAG_INLINE_STRING = 0x0A
       TAG_SYMBOL = 0x0B
+      TAG_REPETITION = 0x0C
+      TAG_SEQUENCE = 0x0D
 
       class << self
         # Decode a flat u64 array into Ruby AST with Slice objects
@@ -46,21 +48,27 @@ module Parsanol
           decode_value
         end
 
-        # Decode and flatten - transforms raw AST to match Ruby parser output
-        # This is the fast path that avoids FFI transformation overhead
+        # Decode batch format to Ruby AST and apply transformation.
         #
-        # @param data [Array<Integer>] Flat u64 array from batch parser
+        # The Rust parser produces raw AST that needs transformation to match
+        # Ruby parser behavior (merging duplicate keys, etc.)
+        #
+        # @param data [Array<Integer>|Object] Either flat u64 array from batch parser OR
+        #   pre-decoded Ruby value from _parse_raw
         # @param input [String] Original input string (for Slice references)
         # @param slice_class [Class] The Slice class to use
         # @param grammar_atom [Parsanol::Atoms::Base] The grammar atom (unused, kept for API compat)
         # @return [Object] Transformed Ruby AST
         def decode_and_flatten(data, input, slice_class, grammar_atom)
-          raw_ast = decode(data, input, slice_class)
-
-          # Apply AstTransformer to convert native AST format to Parslet-compatible format
-          # This handles sequence merging, repetition flattening, etc.
-          # The transformer produces final format, so no additional flatten is needed.
-          AstTransformer.transform(raw_ast)
+          # Check if data is batch data (flat u64 array) or already a Ruby value
+          if data.is_a?(Integer) || (data.is_a?(Array) && data.first.is_a?(Integer))
+            # Batch data (flat u64 array) - decode first, then transform
+            raw_ast = decode(data, input, slice_class)
+            AstTransformer.transform(raw_ast)
+          else
+            # Already decoded Ruby value from _parse_raw - apply transformer directly
+            AstTransformer.transform(data)
+          end
         end
 
         # Join consecutive Slice objects in arrays into single Slices
@@ -160,6 +168,12 @@ module Parsanol
             @pos += 1
             str = decode_inline_string_bytes(len)
             str.to_sym
+          when TAG_REPETITION
+            inner = decode_value
+            [:repetition, inner].compact
+          when TAG_SEQUENCE
+            inner = decode_value
+            [:sequence, inner].compact
           when TAG_ARRAY_START
             decode_array
           when TAG_HASH_START

@@ -280,10 +280,7 @@ module Parsanol
       # Optimized: Single-pass with direct result building
       def self.flatten_sequence(items)
         return EMPTY_ARRAY if items.empty? # Match Parsanol Ruby mode
-
-        # DON'T unwrap single items - let the caller handle this
-        # This preserves repetition results like [{:x => 1}]
-        return items if items.length == 1
+        return items.first if items.length == 1
 
         # Single pass: categorize items
         merged_hash = {}
@@ -404,18 +401,60 @@ module Parsanol
               first_inner_keys = items.first[wrapper_key].keys.to_set
               all_same_keys = items.all? { |item| item[wrapper_key].keys.to_set == first_inner_keys }
 
-              if all_same_keys
-                # REPETITION pattern: keep as array of hashes
-                # (each hash has same structure, just different values)
+              # Check if items have single keys or multiple keys
+              # - Single key items with repeated outer key = true repetition (keep array)
+              # - Multiple key items with repeated outer key = duplicate labels in sequence (merge)
+              max_keys_per_item = items.map { |item| item.is_a?(Hash) ? item.keys.length : 0 }.max || 0
+
+              # Check if inner values are hashes with different keys
+              # This distinguishes:
+              # - True repetition: [{letter: 'a'}, {letter: 'b'}] - inner is string
+              # - Duplicate labels: [{group: {char: 'a'}}, {group: {digit: '5'}}] - inner is hash with different keys
+              inner_keys_all_same = true
+              first_inner_keys = nil
+              if items.all? { |item| item.is_a?(Hash) && item[wrapper_key].is_a?(Hash) }
+                first_inner_keys = items.first[wrapper_key].keys.to_set
+                inner_keys_all_same = items.all? { |item| item[wrapper_key].keys.to_set == first_inner_keys }
+              end
+
+              # DUPLICATE LABELS IN SEQUENCE: multiple keys per item with repeated outer key
+              # OR inner hashes with different keys
+              # Example: [{group: {char: 'a'}}, {group: {digit: '5'}}]
+              # Ruby semantics: merge with last value wins for the outer key
+              # This is different from true repetition where each item has exactly one key
+              has_duplicate_labels = max_keys_per_item > 1 || (first_inner_keys && !inner_keys_all_same)
+
+              # Check if inner hashes have the same keys or different keys
+              first_inner_keys ||= items.first[wrapper_key].keys.to_set
+              all_same_keys = items.all? { |item| item[wrapper_key].keys.to_set == first_inner_keys }
+
+              if has_duplicate_labels
+                # DUPLICATE LABELS PATTERN: items have multiple keys with repeated outer key
+                # OR inner hashes have different keys
+                # This is a SEQUENCE with duplicate .as() labels
+                # Ruby semantics: merge and keep last value for the outer key
+                merged = {}
+                items.each do |item|
+                  item.each do |k, v|
+                    merged[k] = v  # Last value wins
+                  end
+                end
+                # Return only the wrapper key with its last value
+                return { wrapper_key => merged[wrapper_key] }
+              elsif all_same_keys
+                # TRUE REPETITION: each item has exactly one key
+                # Keep as array of hashes
+                # Example: [{letter: 'a'}, {letter: 'b'}] or [{schemaDecl: ...}, {schemaDecl: ...}]
                 return items
               else
-                # DUPLICATE KEYS: Same outer key with different inner keys
-                # This is a SEQUENCE with duplicate labels (e.g., .as(:group) used twice)
-                # Ruby semantics: "last wins" - merge and keep the last value
-                merged_inner = {}
-                items.each { |item| merged_inner.merge!(item[wrapper_key]) }
-                { wrapper_key => merged_inner }
+                # DIFFERENT INNER KEYS with single keys: Same outer key with different inner keys
+                # This is a WRAPPER pattern - keep all items as array
+                # Example: [{:syntax => {:entityDecl => ...}}, {:syntax => {:typeDecl => ...}}]
+                # Should NOT merge or drop items - keep all declarations
+                return items
               end
+
+              return items unless all_values_are_hashes
 
               # Repetition pattern: keep as array
 
@@ -440,10 +479,10 @@ module Parsanol
 
           if first_slice
             # Create new Slice with combined content, preserving position from first
-            ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input)
+            return ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input)
           else
             # All plain strings (shouldn't happen with new decode_flat, but handle it)
-            slice_or_string_parts.length == 1 ? slice_or_string_parts.first : content
+            return slice_or_string_parts.length == 1 ? slice_or_string_parts.first : content
           end
         end
 
