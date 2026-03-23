@@ -294,6 +294,7 @@ jobs:
         with:
           ref: ${{ needs.prepare-version.outputs.sha }}
           fetch-depth: 0
+          fetch-tags: true
 
       - uses: oxidize-rb/actions/setup-ruby-and-rust@v1
         with:
