@@ -83,17 +83,11 @@ module Parsanol
                 "Run `rake compile` to build the extension."
         end
 
-        # Try to use native parallel parsing
-        if respond_to?(:_parse_batch_parallel, true)
-          Parsanol::Native.parse_batch_parallel(
-            grammar_json,
-            inputs,
-            num_threads: config.num_threads
-          )
-        else
-          # Fallback to sequential if parallel not available
-          inputs.map { |input| Parsanol::Native.parse(grammar_json, input) }
-        end
+        Parsanol::Native.parse_batch_parallel(
+          grammar_json,
+          inputs,
+          num_threads: config.num_threads
+        )
       end
 
       # Parse multiple inputs in parallel with transformation.

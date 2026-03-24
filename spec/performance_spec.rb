@@ -252,27 +252,25 @@ RSpec.describe 'Performance Regression Tests', :performance do
     end
 
     describe 'cache efficiency' do
-      it 'maintains reasonable cache hit rate with repetition' do
+      it 'caches compiled grammar after repeated parsing' do
+        raise LoadError, "Native parser not available - cache efficiency tests require native extension" unless Parsanol::Native.available?
+
         parser = Class.new(Parsanol::Parser) do
           optimize_rules!
           rule(:digits) { match('[0-9]').repeat(3) }
           root :digits
         end.new
 
-        # Parse multiple times to warm cache
-        10.times { parser.parse('123') }
+        # Clear cache to ensure clean state
+        parser.clear_grammar_cache
 
-        # Get cache stats if available
-        if parser.respond_to?(:cache_stats)
-          stats = parser.cache_stats
-          hit_rate = stats[:hits].to_f / (stats[:hits] + stats[:misses])
+        # Parse to warm the grammar cache (native mode required to populate Rust cache)
+        10.times { parser.parse('123', mode: :native) }
 
-          expect(hit_rate).to be >= 0.05,
-                              "Expected cache hit rate ≥5%, got #{(hit_rate * 100).round(2)}%"
-        else
-          # Skip if cache stats not available
-          skip 'Cache stats not available in this parser'
-        end
+        stats = parser.cache_stats
+
+        expect(stats[:grammar_cache_size]).to be > 0,
+                              "Expected grammar to be cached (grammar_cache_size > 0), got #{stats[:grammar_cache_size]}"
       end
 
       it 'keeps allocations under threshold for medium inputs' do
