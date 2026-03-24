@@ -146,7 +146,10 @@ module Parsanol
     #
     def slice(start, len)
       # Handle edge cases
-      return self.class.new(@string, offset: @offset, length: 0) if len <= 0 || start >= @length
+      if len <= 0 || start >= @length
+        return self.class.new(@string, offset: @offset,
+                                       length: 0)
+      end
 
       # Clamp start to valid range [0, @length)
       clamped_start = [[start, 0].max, @length].min

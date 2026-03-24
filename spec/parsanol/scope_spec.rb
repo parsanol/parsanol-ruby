@@ -1,45 +1,54 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require "spec_helper"
 
 describe Parsanol::Scope do
   let(:scope) { described_class.new }
 
-  describe 'simple store/retrieve' do
-    before(:each) { scope[:foo] = :bar }
-    it 'allows storing objects' do
+  describe "simple store/retrieve" do
+    before { scope[:foo] = :bar }
+
+    it "allows storing objects" do
       scope[:obj] = 42
     end
-    it 'raises on access of empty slots' do
+
+    it "raises on access of empty slots" do
       expect do
         scope[:empty]
       end.to raise_error(Parsanol::Scope::NotFound)
     end
-    it 'allows retrieval of stored values' do
+
+    it "allows retrieval of stored values" do
       scope[:foo].should == :bar
     end
   end
 
-  describe 'scoping' do
-    before(:each) { scope[:depth] = 1 }
-    before(:each) { scope.push }
-
-    let(:depth) { scope[:depth] }
+  describe "scoping" do
     subject { depth }
 
-    it { should == 1 }
-    describe 'after a push' do
-      before(:each) { scope.push }
-      it { should == 1 }
+    before do
+      scope[:depth] = 1
+      scope.push
+    end
 
-      describe 'and reassign' do
-        before(:each) { scope[:depth] = 2 }
+    let(:depth) { scope[:depth] }
 
-        it { should == 2 }
+    it { is_expected.to eq(1) }
 
-        describe 'and a pop' do
-          before(:each) { scope.pop }
-          it { should == 1 }
+    describe "after a push" do
+      before { scope.push }
+
+      it { is_expected.to eq(1) }
+
+      describe "and reassign" do
+        before { scope[:depth] = 2 }
+
+        it { is_expected.to eq(2) }
+
+        describe "and a pop" do
+          before { scope.pop }
+
+          it { is_expected.to eq(1) }
         end
       end
     end
