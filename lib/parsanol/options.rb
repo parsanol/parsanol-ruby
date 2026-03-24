@@ -18,4 +18,4 @@
 # For standard parsing, use the Parse Modes API instead:
 #   parser.parse(input, mode: :native)  # or :ruby, :json
 
-require 'parsanol/options/zero_copy'
+require "parsanol/options/zero_copy"

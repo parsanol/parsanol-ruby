@@ -8,18 +8,20 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol/parslet'
+require "parsanol/parslet"
 
 # YAML parser (subset)
 class YamlParser < Parsanol::Parser
   root :document
 
   # Document is a sequence of mappings or list items
-  rule(:document) { (mapping | list_item | comment | blank_line).repeat(1).as(:document) }
+  rule(:document) do
+    (mapping | list_item | comment | blank_line).repeat(1).as(:document)
+  end
 
   # Comment: # to end of line
   rule(:comment) do
-    (space? >> str('#') >> (newline.absent? >> any).repeat).as(:comment) >> newline
+    (space? >> str("#") >> (newline.absent? >> any).repeat).as(:comment) >> newline
   end
 
   # Blank line
@@ -33,10 +35,10 @@ class YamlParser < Parsanol::Parser
   end
 
   rule(:key) do
-    (match('[a-zA-Z_]') >> match('[a-zA-Z0-9_]').repeat).as(:key)
+    (match("[a-zA-Z_]") >> match("[a-zA-Z0-9_]").repeat).as(:key)
   end
 
-  rule(:colon) { str(':') >> space }
+  rule(:colon) { str(":") >> space }
 
   # Inline value: on same line as key
   rule(:inline_value) do
@@ -54,7 +56,7 @@ class YamlParser < Parsanol::Parser
 
   # List item: - value
   rule(:list_item) do
-    (str('-') >> space >>
+    (str("-") >> space >>
      (inline_list_value | indented_value)).as(:list_item)
   end
 
@@ -69,7 +71,7 @@ class YamlParser < Parsanol::Parser
 
   rule(:quoted_string) do
     (str('"') >>
-     ((str('\\').ignore >> any) | (str('"').absent? >> any)).repeat.as(:string) >>
+     ((str("\\").ignore >> any) | (str('"').absent? >> any)).repeat.as(:string) >>
      str('"')) |
       (str("'") >>
        (str("'").absent? >> any).repeat.as(:string) >>
@@ -77,34 +79,34 @@ class YamlParser < Parsanol::Parser
   end
 
   rule(:plain_string) do
-    (newline.absent? >> str(':').absent? >> any).repeat(1).as(:string)
+    (newline.absent? >> str(":").absent? >> any).repeat(1).as(:string)
   end
 
   rule(:integer) do
-    (str('+') | str('-')).maybe >>
-      match('[0-9]').repeat(1)
+    (str("+") | str("-")).maybe >>
+      match("[0-9]").repeat(1)
   end
 
   rule(:float) do
-    (str('+') | str('-')).maybe >>
-      match('[0-9]').repeat(1) >>
-      str('.') >>
-      match('[0-9]').repeat(1)
+    (str("+") | str("-")).maybe >>
+      match("[0-9]").repeat(1) >>
+      str(".") >>
+      match("[0-9]").repeat(1)
   end
 
   rule(:boolean) do
-    str('true') | str('false')
+    str("true") | str("false")
   end
 
   rule(:null) do
-    str('null') | str('~')
+    str("null") | str("~")
   end
 
   # Helpers
   rule(:space) { match('\s').repeat(1) }
   rule(:space?) { match('\s').repeat }
   rule(:newline) { match('\n') | match('\r\n') }
-  rule(:indent) { str('  ') | str("\t") }
+  rule(:indent) { str("  ") | str("\t") }
 end
 
 # YAML result classes
@@ -176,8 +178,8 @@ end
 
 # Main demo
 if __FILE__ == $PROGRAM_NAME
-  puts 'YAML Parser'
-  puts '=' * 50
+  puts "YAML Parser"
+  puts "=" * 50
   puts
 
   yaml = <<~YAML
@@ -198,19 +200,19 @@ if __FILE__ == $PROGRAM_NAME
       - gamma
   YAML
 
-  puts 'Input:'
-  puts '-' * 50
+  puts "Input:"
+  puts "-" * 50
   puts yaml
-  puts '-' * 50
+  puts "-" * 50
   puts
 
   result = parse_yaml(yaml)
 
   if result
-    puts 'Parsed AST:'
+    puts "Parsed AST:"
     pp result
     puts
-    puts 'Hash Output:'
+    puts "Hash Output:"
     pp result.to_h
   end
 end

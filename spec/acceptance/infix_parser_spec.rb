@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require "spec_helper"
 
-describe 'Infix expression parsing' do
+describe "Infix expression parsing" do
   class InfixExpressionParser < Parsanol::Parser
     rule(:space) { match['\s'] }
 
@@ -14,9 +14,9 @@ describe 'Infix expression parsing' do
       Infix.new(*args)
     end
 
-    rule(:mul_op) { match['*/'] >> str(' ').maybe }
-    rule(:add_op) { match['+-'] >> str(' ').maybe }
-    rule(:digit) { match['0-9'] }
+    rule(:mul_op) { match["*/"] >> str(" ").maybe }
+    rule(:add_op) { match["+-"] >> str(" ").maybe }
+    rule(:digit) { match["0-9"] }
     rule(:integer) { cts digit.repeat(1) }
 
     rule(:expression) do
@@ -28,87 +28,87 @@ describe 'Infix expression parsing' do
 
   let(:p) { InfixExpressionParser.new }
 
-  describe '#integer' do
+  describe "#integer" do
     let(:i) { p.integer }
 
-    it 'parses integers' do
-      i.should parse('1')
-      i.should parse('123')
+    it "parses integers" do
+      i.should parse("1")
+      i.should parse("123")
     end
 
-    it 'consumes trailing white space' do
-      i.should parse('1   ')
-      i.should parse('134   ')
+    it "consumes trailing white space" do
+      i.should parse("1   ")
+      i.should parse("134   ")
     end
 
     it "doesn't parse floats" do
-      i.should_not parse('1.3')
+      i.should_not parse("1.3")
     end
   end
 
-  describe '#multiplication' do
+  describe "#multiplication" do
     let(:m) { p.expression }
 
-    it 'parses simple multiplication' do
-      m.should parse('1*2').as(left: '1', op: '*', right: '2')
+    it "parses simple multiplication" do
+      m.should parse("1*2").as(left: "1", op: "*", right: "2")
     end
 
-    it 'parses simple multiplication with spaces' do
-      m.should parse('1 * 2').as(left: '1 ', op: '* ', right: '2')
+    it "parses simple multiplication with spaces" do
+      m.should parse("1 * 2").as(left: "1 ", op: "* ", right: "2")
     end
 
-    it 'parses division' do
-      m.should parse('1/2')
+    it "parses division" do
+      m.should parse("1/2")
     end
   end
 
-  describe '#addition' do
+  describe "#addition" do
     let(:a) { p.expression }
 
-    it 'parses simple addition' do
-      a.should parse('1+2')
+    it "parses simple addition" do
+      a.should parse("1+2")
     end
 
-    it 'parses complex addition' do
-      a.should parse('1+2+3-4')
+    it "parses complex addition" do
+      a.should parse("1+2+3-4")
     end
 
-    it 'parses a single element' do
-      a.should parse('1')
+    it "parses a single element" do
+      a.should parse("1")
     end
   end
 
-  describe 'mixed operations' do
+  describe "mixed operations" do
     let(:mo) { p.expression }
 
-    describe 'inspection' do
-      it 'produces useful expressions' do
+    describe "inspection" do
+      it "produces useful expressions" do
         p.expression.parslet.inspect.should ==
-          'infix_expression(INTEGER, [MUL_OP, ADD_OP])'
+          "infix_expression(INTEGER, [MUL_OP, ADD_OP])"
       end
     end
 
-    describe 'right associativity' do
-      it 'produces trees that lean right' do
-        mo.should parse('1+2+3').as(
-          left: '1', op: '+', right: { left: '2', op: '+', right: '3' }
+    describe "right associativity" do
+      it "produces trees that lean right" do
+        mo.should parse("1+2+3").as(
+          left: "1", op: "+", right: { left: "2", op: "+", right: "3" },
         )
       end
     end
 
-    describe 'left associativity' do
-      it 'produces trees that lean left' do
-        mo.should parse('1*2*3').as(
-          left: { left: '1', op: '*', right: '2' }, op: '*', right: '3'
+    describe "left associativity" do
+      it "produces trees that lean left" do
+        mo.should parse("1*2*3").as(
+          left: { left: "1", op: "*", right: "2" }, op: "*", right: "3",
         )
       end
     end
 
-    describe 'error handling' do
-      describe 'incomplete expression' do
-        it 'produces the right error' do
+    describe "error handling" do
+      describe "incomplete expression" do
+        it "produces the right error" do
           cause = catch_failed_parse do
-            mo.parse('1+')
+            mo.parse("1+")
           end
 
           cause.ascii_tree.to_s.should == <<~ERROR
@@ -120,10 +120,10 @@ describe 'Infix expression parsing' do
         end
       end
 
-      describe 'invalid operator' do
-        it 'produces the right error' do
+      describe "invalid operator" do
+        it "produces the right error" do
           cause = catch_failed_parse do
-            mo.parse('1%')
+            mo.parse("1%")
           end
 
           cause.ascii_tree.to_s.should == <<~ERROR
@@ -134,14 +134,19 @@ describe 'Infix expression parsing' do
     end
   end
 
-  describe 'providing a reducer block' do
+  describe "providing a reducer block" do
     class InfixExpressionReducerParser < Parsanol::Parser
-      rule(:top) { infix_expression(str('a'), [str('-'), 1, :right]) { |l, _o, r| { and: [l, r] } } }
+      rule(:top) do
+        infix_expression(str("a"),
+                         [str("-"), 1, :right]) do |l, _o, r|
+          { and: [l, r] }
+        end
+      end
     end
 
-    it 'applies the reducer' do
-      result = InfixExpressionReducerParser.new.top.parse('a-a-a')
-      strip_positions(result).should == { and: ['a', { and: %w[a a] }] }
+    it "applies the reducer" do
+      result = InfixExpressionReducerParser.new.top.parse("a-a-a")
+      strip_positions(result).should == { and: ["a", { and: %w[a a] }] }
     end
   end
 end

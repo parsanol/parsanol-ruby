@@ -5,9 +5,9 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'pp'
-require 'parsanol/parslet'
-require 'parsanol/convenience'
+require "pp"
+require "parsanol/parslet"
+require "parsanol/convenience"
 
 class ALanguage < Parsanol::Parser
   root(:lines)
@@ -16,13 +16,17 @@ class ALanguage < Parsanol::Parser
   rule(:line) { spaces >> expression.repeat >> newline }
   rule(:newline) { str("\n") >> str("\r").maybe }
 
-  rule(:expression) { (str('a').as(:a) >> spaces).as(:exp) }
+  rule(:expression) { (str("a").as(:a) >> spaces).as(:exp) }
 
   rule(:spaces) { space.repeat }
-  rule(:space) { multiline_comment | line_comment | str(' ') }
+  rule(:space) { multiline_comment | line_comment | str(" ") }
 
-  rule(:line_comment) { (str('//') >> (newline.absent? >> any).repeat).as(:line) }
-  rule(:multiline_comment) { (str('/*') >> (str('*/').absent? >> any).repeat >> str('*/')).as(:multi) }
+  rule(:line_comment) do
+    (str("//") >> (newline.absent? >> any).repeat).as(:line)
+  end
+  rule(:multiline_comment) do
+    (str("/*") >> (str("*/").absent? >> any).repeat >> str("*/")).as(:multi)
+  end
 end
 
 code = '

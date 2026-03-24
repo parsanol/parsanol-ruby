@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require "spec_helper"
 
 describe Parsanol::Parser do
   include Parsanol
 
   class FooParser < Parsanol::Parser
-    rule(:foo) { str('foo') }
+    rule(:foo) { str("foo") }
     root(:foo)
   end
 
-  describe '<- .root' do
+  describe "<- .root" do
     parser = Class.new(Parsanol::Parser) do
       def root_parslet
         :answer
@@ -25,15 +25,15 @@ describe Parsanol::Parser do
   end
 
   it "parses 'foo'" do
-    FooParser.new.parse('foo').should == 'foo'
+    FooParser.new.parse("foo").should == "foo"
   end
 
-  context 'composition' do
+  context "composition" do
     let(:parser) { FooParser.new }
 
-    it 'allows concatenation' do
-      composite = parser >> str('bar')
-      composite.should parse('foobar')
+    it "allows concatenation" do
+      composite = parser >> str("bar")
+      composite.should parse("foobar")
     end
   end
 end

@@ -86,10 +86,10 @@ module Parsanol
     #   enum = stream.each  # Returns Enumerator
     #   enum.next           # Get next node
     #
-    def each(&block)
+    def each(&)
       return enum_for(:each) unless block_given?
 
-      traverse(@tree, &block)
+      traverse(@tree, &)
       self
     end
 
@@ -206,7 +206,10 @@ module Parsanol
     # @return [Enumerator]
     #
     def depth_traverse(node, current_depth, target_depth, &block)
-      return enum_for(:depth_traverse, node, current_depth, target_depth) unless block_given?
+      unless block
+        return enum_for(:depth_traverse, node, current_depth,
+                        target_depth)
+      end
 
       # Check if we're at target depth
       return [node].to_enum if current_depth == target_depth && yield(node)
@@ -217,13 +220,15 @@ module Parsanol
         case node
         when Array
           node.each do |item|
-            depth_traverse(item, current_depth + 1, target_depth, &block).each do |result|
+            depth_traverse(item, current_depth + 1, target_depth,
+                           &block).each do |result|
               results << result
             end
           end
         when Hash
           node.each_value do |value|
-            depth_traverse(value, current_depth + 1, target_depth, &block).each do |result|
+            depth_traverse(value, current_depth + 1, target_depth,
+                           &block).each do |result|
               results << result
             end
           end

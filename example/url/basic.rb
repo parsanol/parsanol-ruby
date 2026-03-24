@@ -9,7 +9,7 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol'
+require "parsanol"
 
 # Step 1: Define the URL grammar
 class UrlParser < Parsanol::Parser
@@ -17,7 +17,7 @@ class UrlParser < Parsanol::Parser
 
   rule(:url) do
     protocol.as(:protocol) >>
-      str('://') >>
+      str("://") >>
       host.as(:host) >>
       port.maybe.as(:port) >>
       path.maybe.as(:path) >>
@@ -25,50 +25,52 @@ class UrlParser < Parsanol::Parser
       fragment.maybe.as(:fragment)
   end
 
-  rule(:protocol) { str('http') | str('https') | str('ftp') | str('ws') | str('wss') }
+  rule(:protocol) do
+    str("http") | str("https") | str("ftp") | str("ws") | str("wss")
+  end
 
   rule(:host) do
     (domain | ip_address).as(:address)
   end
 
   rule(:domain) do
-    label >> (str('.') >> label).repeat
+    label >> (str(".") >> label).repeat
   end
 
   rule(:label) do
-    match('[a-zA-Z0-9]').repeat(1)
+    match("[a-zA-Z0-9]").repeat(1)
   end
 
   rule(:ip_address) do
-    octet >> str('.') >> octet >> str('.') >> octet >> str('.') >> octet
+    octet >> str(".") >> octet >> str(".") >> octet >> str(".") >> octet
   end
 
   rule(:octet) do
-    match('[0-9]').repeat(1, 3)
+    match("[0-9]").repeat(1, 3)
   end
 
   rule(:port) do
-    str(':') >> match('[0-9]').repeat(1).as(:number)
+    str(":") >> match("[0-9]").repeat(1).as(:number)
   end
 
   rule(:path) do
-    str('/') >> path_segment.repeat(1).as(:segments)
+    str("/") >> path_segment.repeat(1).as(:segments)
   end
 
   rule(:path_segment) do
-    match('[^/?#]').repeat(1) >> str('/').maybe
+    match("[^/?#]").repeat(1) >> str("/").maybe
   end
 
   rule(:query) do
-    str('?') >> query_string.as(:string)
+    str("?") >> query_string.as(:string)
   end
 
   rule(:query_string) do
-    match('[^#]').repeat
+    match("[^#]").repeat
   end
 
   rule(:fragment) do
-    str('#') >> match('.').repeat.as(:value)
+    str("#") >> match(".").repeat.as(:value)
   end
 end
 
@@ -76,7 +78,8 @@ end
 class ParsedURL
   attr_reader :protocol, :host, :port, :path, :query, :fragment
 
-  def initialize(protocol:, host:, port: nil, path: nil, query: nil, fragment: nil)
+  def initialize(protocol:, host:, port: nil, path: nil, query: nil,
+fragment: nil)
     @protocol = protocol
     @host = host
     @port = port
@@ -95,15 +98,15 @@ class ParsedURL
   end
 
   def path_segments
-    @path ? @path.split('/').reject(&:empty?) : []
+    @path ? @path.split("/").reject(&:empty?) : []
   end
 
   def query_params
     return {} unless @query
 
-    @query.split('&').each_with_object({}) do |pair, hash|
-      key, value = pair.split('=', 2)
-      hash[key] = value || ''
+    @query.split("&").each_with_object({}) do |pair, hash|
+      key, value = pair.split("=", 2)
+      hash[key] = value || ""
     end
   end
 end
@@ -116,7 +119,7 @@ class UrlTransform < Parsanol::Transform
     port: simple(:port),
     path: simple(:path),
     query: simple(:q),
-    fragment: simple(:f)
+    fragment: simple(:f),
   ) do
     port_num = port&.dig(:number)&.to_i
     ParsedURL.new(
@@ -125,7 +128,7 @@ class UrlTransform < Parsanol::Transform
       port: port_num,
       path: path&.dig(:segments)&.to_s,
       query: q&.dig(:string)&.to_s,
-      fragment: f.to_s
+      fragment: f.to_s,
     )
   end
 
@@ -134,7 +137,7 @@ class UrlTransform < Parsanol::Transform
     host: simple(:h),
     port: simple(:port),
     path: simple(:path),
-    query: simple(:q)
+    query: simple(:q),
   ) do
     port_num = port&.dig(:number)&.to_i
     ParsedURL.new(
@@ -142,7 +145,7 @@ class UrlTransform < Parsanol::Transform
       host: h[:address].to_s,
       port: port_num,
       path: path&.dig(:segments)&.to_s,
-      query: q&.dig(:string)&.to_s
+      query: q&.dig(:string)&.to_s,
     )
   end
 
@@ -150,14 +153,14 @@ class UrlTransform < Parsanol::Transform
     protocol: simple(:p),
     host: simple(:h),
     port: simple(:port),
-    path: simple(:path)
+    path: simple(:path),
   ) do
     port_num = port&.dig(:number)&.to_i
     ParsedURL.new(
       protocol: p.to_s,
       host: h[:address].to_s,
       port: port_num,
-      path: path&.dig(:segments)&.to_s
+      path: path&.dig(:segments)&.to_s,
     )
   end
 
@@ -165,7 +168,7 @@ class UrlTransform < Parsanol::Transform
     ParsedURL.new(
       protocol: p.to_s,
       host: h[:address].to_s,
-      port: port&.dig(:number)&.to_i
+      port: port&.dig(:number)&.to_i,
     )
   end
 
@@ -186,24 +189,24 @@ rescue Parsanol::ParseFailed => e
 end
 
 if __FILE__ == $PROGRAM_NAME
-  puts '=' * 60
-  puts 'URL Parser - Basic Parsing'
-  puts '=' * 60
+  puts "=" * 60
+  puts "URL Parser - Basic Parsing"
+  puts "=" * 60
   puts
 
   test_urls = [
-    'http://example.com',
-    'https://example.com:8080',
-    'https://example.com/path/to/resource',
-    'https://example.com/search?q=ruby&limit=10',
-    'https://example.com/page#section',
-    'https://api.example.com:443/v1/users?id=123#results',
-    'http://192.168.1.1:3000/admin',
-    'ws://websocket.example.com/socket'
+    "http://example.com",
+    "https://example.com:8080",
+    "https://example.com/path/to/resource",
+    "https://example.com/search?q=ruby&limit=10",
+    "https://example.com/page#section",
+    "https://api.example.com:443/v1/users?id=123#results",
+    "http://192.168.1.1:3000/admin",
+    "ws://websocket.example.com/socket",
   ]
 
   test_urls.each do |url_str|
-    puts '-' * 40
+    puts "-" * 40
     puts "Input: #{url_str}"
     url = parse_url(url_str)
     if url

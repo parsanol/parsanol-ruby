@@ -38,7 +38,8 @@ module Parsanol
         return finalize_result(value) if success
 
         # Reparse with error reporting for diagnostics
-        report_detailed_error(input, must_consume_all, options[:reporter], value)
+        report_detailed_error(input, must_consume_all, options[:reporter],
+                              value)
       end
 
       # Creates a new parsing context and executes the atom.
@@ -49,7 +50,8 @@ module Parsanol
       # @return [Array(Boolean, Object)] outcome tuple
       def run_with_context(input, reporter, consume_all)
         parser_class = detect_parser_class
-        context = Parsanol::Atoms::Context.new(reporter, parser_class: parser_class)
+        context = Parsanol::Atoms::Context.new(reporter,
+                                               parser_class: parser_class)
         apply(input, context, consume_all)
       end
 
@@ -69,7 +71,10 @@ module Parsanol
         context.succ(input)
 
         # Verify full consumption when required
-        return unconsumed_error(input, context, position_before) if consume_all && input.chars_left.positive?
+        if consume_all && input.chars_left.positive?
+          return unconsumed_error(input, context,
+                                  position_before)
+        end
 
         outcome
       end
@@ -83,7 +88,7 @@ module Parsanol
       # @raise [NotImplementedError] if not overridden
       def try(input, context, consume_all)
         raise NotImplementedError,
-              'Atom must implement #try(source, context, consume_all)'
+              "Atom must implement #try(source, context, consume_all)"
       end
 
       # Whether packrat caching benefits this atom.
@@ -178,7 +183,8 @@ module Parsanol
         excess_pos = input.bytepos
         preview = input.consume(10)
         input.bytepos = saved_pos
-        context.err_at(self, input, UNCONSUMED_INPUT_MSG + preview.to_s.inspect, excess_pos)
+        context.err_at(self, input,
+                       UNCONSUMED_INPUT_MSG + preview.to_s.inspect, excess_pos)
       end
 
       # Reports detailed error by reparsing with reporter.
@@ -188,7 +194,7 @@ module Parsanol
         success, cause = run_with_context(input, error_reporter, consume_all)
 
         # Second parse should also fail
-        raise 'Invariant violation: parse succeeded during error reporting' if success
+        raise "Invariant violation: parse succeeded during error reporting" if success
 
         cause.raise
       end

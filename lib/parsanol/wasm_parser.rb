@@ -218,7 +218,7 @@ module Parsanol
             end
           end
           i += chunks
-          key = key_bytes.pack('C*').force_encoding('UTF-8')
+          key = key_bytes.pack("C*").force_encoding("UTF-8")
           stack << key
         else
           raise "Unknown tag: #{tag} at index #{i}"

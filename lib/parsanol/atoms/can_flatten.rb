@@ -39,7 +39,7 @@ module Parsanol
           when :sequence
             return flattened
           when :maybe
-            return named ? flattened : (flattened || '')
+            return named ? flattened : (flattened || "")
           when :repetition
             return flatten_repetition([flattened], named)
           end
@@ -57,7 +57,7 @@ module Parsanol
         when :sequence
           return flatten_sequence(result)
         when :maybe
-          return named ? result.first : result.first || ''
+          return named ? result.first : result.first || ""
         when :repetition
           return flatten_repetition(result, named)
         end
@@ -68,15 +68,15 @@ module Parsanol
       # Lisp style fold left where the first element builds the basis for
       # an inject. Optimized with early return and reduced method calls.
       #
-      def foldl(list, &block)
+      def foldl(list)
         len = list.size
-        return '' if len.zero?
+        return "" if len.zero?
         return list[0] if len == 1 # Fast path for single element
 
         result = list[0]
         i = 1
         while i < len
-          result = block.call(result, list[i])
+          result = yield(result, list[i])
           i += 1
         end
         result
@@ -120,7 +120,7 @@ module Parsanol
           return r if r_is_slice
           return l if l_is_slice
 
-          raise 'NOTREACHED: What other stringlike classes are there?'
+          raise "NOTREACHED: What other stringlike classes are there?"
         end
 
         # special case: If one of them is a string/slice, the other is more important
@@ -168,8 +168,8 @@ module Parsanol
           # If any arrays are nested in this array, flatten all arrays to this
           # level.
           return list
-                 .select { |e| e.instance_of?(Array) }
-                 .flatten(1)
+              .select { |e| e.instance_of?(Array) }
+              .flatten(1)
         end
 
         # Consistent handling of empty lists, when we act on a named result

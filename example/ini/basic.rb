@@ -9,7 +9,7 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol'
+require "parsanol"
 
 # Step 1: Define the INI file grammar
 class IniParser < Parsanol::Parser
@@ -21,7 +21,7 @@ class IniParser < Parsanol::Parser
 
   # Section header: [section_name]
   rule(:section) do
-    (space? >> str('[') >> section_name.as(:name) >> str(']') >> space? >> str("\n").maybe).as(:section)
+    (space? >> str("[") >> section_name.as(:name) >> str("]") >> space? >> str("\n").maybe).as(:section)
   end
 
   rule(:section_name) do
@@ -30,7 +30,7 @@ class IniParser < Parsanol::Parser
 
   # Key-Value pair: key = value
   rule(:key_value) do
-    (space? >> key.as(:key) >> space? >> str('=') >> space? >> value.as(:value) >> space? >> str("\n").maybe).as(:kv)
+    (space? >> key.as(:key) >> space? >> str("=") >> space? >> value.as(:value) >> space? >> str("\n").maybe).as(:kv)
   end
 
   rule(:key) do
@@ -43,7 +43,7 @@ class IniParser < Parsanol::Parser
 
   # Comment: # or ; at start of line
   rule(:comment) do
-    (space? >> (str('#') | str(';')) >> match('[^\n]').repeat >> str("\n").maybe).as(:comment)
+    (space? >> (str("#") | str(";")) >> match('[^\n]').repeat >> str("\n").maybe).as(:comment)
   end
 
   rule(:space?) { match('\s').repeat }
@@ -114,9 +114,9 @@ end
 
 # Example usage
 if __FILE__ == $PROGRAM_NAME
-  puts '=' * 60
-  puts 'INI Parser - Basic Parsing'
-  puts '=' * 60
+  puts "=" * 60
+  puts "INI Parser - Basic Parsing"
+  puts "=" * 60
   puts
 
   ini_content = <<~INI
@@ -137,19 +137,19 @@ if __FILE__ == $PROGRAM_NAME
     ttl = 3600
   INI
 
-  puts 'Input:'
-  puts '-' * 40
+  puts "Input:"
+  puts "-" * 40
   puts ini_content
   puts
-  puts 'Parsed:'
-  puts '-' * 40
+  puts "Parsed:"
+  puts "-" * 40
 
   ini = parse_ini(ini_content)
 
   puts
-  puts '=' * 60
-  puts 'Accessing parsed data:'
-  puts '=' * 60
+  puts "=" * 60
+  puts "Accessing parsed data:"
+  puts "=" * 60
   puts "database.host: #{ini.get('database', 'host')}"
   puts "database.port: #{ini.get('database', 'port')}"
   puts "server.debug: #{ini.get('server', 'debug')}"

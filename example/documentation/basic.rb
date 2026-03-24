@@ -5,16 +5,16 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'pp'
-require 'parsanol/parslet'
+require "pp"
+require "parsanol/parslet"
 
 class MyParser < Parsanol::Parser
-  rule(:a) { str('a').repeat }
+  rule(:a) { str("a").repeat }
 
   def parse(str)
     a.parse(str)
   end
 end
 
-pp MyParser.new.parse('aaaa')
-pp MyParser.new.parse('bbbb')
+pp MyParser.new.parse("aaaa")
+pp MyParser.new.parse("bbbb")

@@ -21,11 +21,11 @@ module Parsanol
       # Per-parser cache size thresholds based on profiling different grammar types
       # Different grammars benefit from caching at different input sizes
       PARSER_CACHE_LIMITS = {
-        'JsonParser' => 10_000,      # JSON needs large inputs to benefit
-        'ErbParser' => 800,          # ERB benefits earlier
-        'CalcParser' => 2000,        # Calculator has low repetition
-        'SentenceParser' => 5000,    # Linear grammar, minimal benefit
-        :default => 1000
+        "JsonParser" => 10_000,      # JSON needs large inputs to benefit
+        "ErbParser" => 800,          # ERB benefits earlier
+        "CalcParser" => 2000,        # Calculator has low repetition
+        "SentenceParser" => 5000,    # Linear grammar, minimal benefit
+        :default => 1000,
       }.freeze
 
       # Creates a new parsing context.
@@ -66,8 +66,8 @@ module Parsanol
         # Optional GPeg-style interval caching
         @use_intervals = interval_cache
         if @use_intervals
-          require 'parsanol/interval_tree'
-          require 'parsanol/edit_tracker'
+          require "parsanol/interval_tree"
+          require "parsanol/edit_tracker"
           @interval_trees = Hash.new { |h, k| h[k] = Parsanol::IntervalTree.new }
           @edits = Parsanol::EditTracker.new
         end
@@ -78,7 +78,7 @@ module Parsanol
         # Determine adaptive cache threshold
         threshold = adaptive_cache_threshold
         if threshold.nil? && parser_class
-          name = parser_class.name&.split('::')&.last
+          name = parser_class.name&.split("::")&.last
           threshold = PARSER_CACHE_LIMITS[name] || PARSER_CACHE_LIMITS[:default]
         end
         threshold ||= PARSER_CACHE_LIMITS[:default]
@@ -143,7 +143,11 @@ module Parsanol
 
         # Only cache if beneficial (heuristic)
         attempts = @hit_stats[key] + @miss_stats[key]
-        @memo[pos][key] = [outcome, delta] if attempts <= @min_hits_for_cache || @hit_stats[key].positive?
+        if attempts <= @min_hits_for_cache || @hit_stats[key].positive?
+          @memo[pos][key] =
+            [outcome,
+             delta]
+        end
 
         outcome
       end
@@ -175,7 +179,10 @@ module Parsanol
         end_pos = pos + delta
 
         attempts = @hit_stats[key] + @miss_stats[key]
-        tree.insert(pos, end_pos, [outcome, delta]) if attempts <= @min_hits_for_cache || @hit_stats[key].positive?
+        if attempts <= @min_hits_for_cache || @hit_stats[key].positive?
+          tree.insert(pos, end_pos,
+                      [outcome, delta])
+        end
 
         outcome
       end
@@ -188,8 +195,8 @@ module Parsanol
       #
       # @return [Array(Boolean, Object)] error result tuple
       #
-      def err_at(*args)
-        return [false, @reporter.err_at(*args)] if @reporter
+      def err_at(*)
+        return [false, @reporter.err_at(*)] if @reporter
 
         ERROR_RESULT
       end
@@ -198,8 +205,8 @@ module Parsanol
       #
       # @return [Array(Boolean, Object)] error result tuple
       #
-      def err(*args)
-        return [false, @reporter.err(*args)] if @reporter
+      def err(*)
+        return [false, @reporter.err(*)] if @reporter
 
         ERROR_RESULT
       end
@@ -208,10 +215,10 @@ module Parsanol
       #
       # @return [Array(Boolean, Object)] success result tuple
       #
-      def succ(*args)
+      def succ(*)
         return SUCCESS_RESULT unless @reporter
 
-        val = @reporter.succ(*args)
+        val = @reporter.succ(*)
         return SUCCESS_RESULT if val.nil?
 
         [true, val]

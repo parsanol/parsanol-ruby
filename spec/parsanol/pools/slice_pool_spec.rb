@@ -1,40 +1,40 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require "spec_helper"
 
 describe Parsanol::Pools::SlicePool do
-  describe '#initialize' do
-    it 'creates a pool with default size' do
+  describe "#initialize" do
+    it "creates a pool with default size" do
       pool = described_class.new
       expect(pool.size).to eq(1000)
     end
 
-    it 'creates a pool with specified size' do
+    it "creates a pool with specified size" do
       pool = described_class.new(size: 500)
       expect(pool.size).to eq(500)
     end
 
-    it 'pre-allocates Slice objects by default' do
+    it "pre-allocates Slice objects by default" do
       pool = described_class.new(size: 10)
       stats = pool.statistics
       expect(stats[:available]).to eq(10)
     end
 
-    it 'can disable pre-allocation' do
+    it "can disable pre-allocation" do
       pool = described_class.new(size: 10, preallocate: false)
       stats = pool.statistics
       expect(stats[:available]).to eq(0)
     end
   end
 
-  describe '#acquire' do
-    it 'returns a Slice instance' do
+  describe "#acquire" do
+    it "returns a Slice instance" do
       pool = described_class.new(size: 10, preallocate: false)
       slice = pool.acquire
       expect(slice).to be_a(Parsanol::Slice)
     end
 
-    it 'reuses slices from the pool' do
+    it "reuses slices from the pool" do
       pool = described_class.new(size: 10, preallocate: true)
       slice1 = pool.acquire
       slice1_id = slice1.object_id
@@ -44,7 +44,7 @@ describe Parsanol::Pools::SlicePool do
       expect(slice2.object_id).to eq(slice1_id)
     end
 
-    it 'creates new slices when pool is empty' do
+    it "creates new slices when pool is empty" do
       pool = described_class.new(size: 2, preallocate: false)
       pool.acquire
       pool.acquire
@@ -54,57 +54,57 @@ describe Parsanol::Pools::SlicePool do
     end
   end
 
-  describe '#acquire_with' do
-    it 'acquires and initializes slice in one step' do
+  describe "#acquire_with" do
+    it "acquires and initializes slice in one step" do
       pool = described_class.new(size: 10, preallocate: false)
-      slice = pool.acquire_with(42, 'hello')
+      slice = pool.acquire_with(42, "hello")
 
       expect(slice).to be_a(Parsanol::Slice)
       expect(slice.offset).to eq(42)
-      expect(slice.to_s).to eq('hello')
+      expect(slice.to_s).to eq("hello")
     end
 
-    it 'accepts optional input string for lazy line/column' do
+    it "accepts optional input string for lazy line/column" do
       pool = described_class.new(size: 10, preallocate: false)
       input = "hello\nworld"
-      slice = pool.acquire_with(0, 'hello', input)
+      slice = pool.acquire_with(0, "hello", input)
 
       expect(slice).to be_a(Parsanol::Slice)
       expect(slice.line_and_column).to eq([1, 1])
     end
 
-    it 'reuses slices with new values' do
+    it "reuses slices with new values" do
       pool = described_class.new(size: 10, preallocate: false)
 
       # First use
-      slice1 = pool.acquire_with(0, 'first')
-      expect(slice1.to_s).to eq('first')
+      slice1 = pool.acquire_with(0, "first")
+      expect(slice1.to_s).to eq("first")
       slice1_id = slice1.object_id
 
       # Return to pool
       pool.release(slice1)
 
       # Reuse with different values
-      slice2 = pool.acquire_with(10, 'second')
+      slice2 = pool.acquire_with(10, "second")
       expect(slice2.object_id).to eq(slice1_id) # Same object
-      expect(slice2.to_s).to eq('second')       # Different content
+      expect(slice2.to_s).to eq("second")       # Different content
       expect(slice2.offset).to eq(10)           # Different position
     end
 
-    it 'properly initializes all slice attributes' do
+    it "properly initializes all slice attributes" do
       pool = described_class.new(size: 10, preallocate: false)
-      input = 'test content here'
+      input = "test content here"
 
-      slice = pool.acquire_with(5, 'content', input)
+      slice = pool.acquire_with(5, "content", input)
 
       expect(slice.offset).to eq(5)
-      expect(slice.to_s).to eq('content')
+      expect(slice.to_s).to eq("content")
       expect(slice.line_and_column).to eq([1, 6]) # Line 1, column 6 (offset 5 + 1)
     end
   end
 
-  describe '#release' do
-    it 'returns slice to pool' do
+  describe "#release" do
+    it "returns slice to pool" do
       pool = described_class.new(size: 10, preallocate: false)
       slice = pool.acquire
 
@@ -114,22 +114,22 @@ describe Parsanol::Pools::SlicePool do
       expect(stats[:available]).to eq(1)
     end
 
-    it 'resets slice before pooling' do
+    it "resets slice before pooling" do
       pool = described_class.new(size: 10, preallocate: false)
-      slice = pool.acquire_with(99, 'original')
+      slice = pool.acquire_with(99, "original")
 
       pool.release(slice)
 
       # Slice should be reset to defaults
       expect(slice.offset).to eq(0)
-      expect(slice.to_s).to eq('')
+      expect(slice.to_s).to eq("")
       expect(slice.input).to be_nil
     end
 
-    it 'discards slices when pool is full' do
+    it "discards slices when pool is full" do
       pool = described_class.new(size: 1, preallocate: true)
 
-      new_slice = Parsanol::Slice.new(0, 'extra')
+      new_slice = Parsanol::Slice.new(0, "extra")
       result = pool.release(new_slice)
 
       expect(result).to be false
@@ -138,19 +138,19 @@ describe Parsanol::Pools::SlicePool do
     end
   end
 
-  describe 'integration with Slice' do
-    it 'works with real parsing scenario' do
+  describe "integration with Slice" do
+    it "works with real parsing scenario" do
       pool = described_class.new(size: 5, preallocate: false)
 
       # Simulate parsing multiple tokens
       slices = []
 
       # Parse "hello world"
-      slices << pool.acquire_with(0, 'hello')
-      slices << pool.acquire_with(6, 'world')
+      slices << pool.acquire_with(0, "hello")
+      slices << pool.acquire_with(6, "world")
 
-      expect(slices[0].to_s).to eq('hello')
-      expect(slices[1].to_s).to eq('world')
+      expect(slices[0].to_s).to eq("hello")
+      expect(slices[1].to_s).to eq("world")
 
       # Release all slices
       slices.each { |s| pool.release(s) }
@@ -162,13 +162,13 @@ describe Parsanol::Pools::SlicePool do
       expect(stats[:reused]).to eq(0)
     end
 
-    it 'maintains slice equality after pooling' do
+    it "maintains slice equality after pooling" do
       pool = described_class.new(size: 5, preallocate: false)
 
-      slice1 = pool.acquire_with(0, 'test')
+      slice1 = pool.acquire_with(0, "test")
       pool.release(slice1)
 
-      slice2 = pool.acquire_with(0, 'test')
+      slice2 = pool.acquire_with(0, "test")
 
       # Should be same object
       expect(slice1.object_id).to eq(slice2.object_id)
@@ -177,12 +177,12 @@ describe Parsanol::Pools::SlicePool do
     end
   end
 
-  describe 'performance characteristics' do
-    it 'shows high reuse rate with pooling' do
+  describe "performance characteristics" do
+    it "shows high reuse rate with pooling" do
       pool = described_class.new(size: 100, preallocate: false)
 
       # Create initial slices
-      slices = 50.times.map { |i| pool.acquire_with(i, "slice#{i}") }
+      slices = Array.new(50) { |i| pool.acquire_with(i, "slice#{i}") }
 
       # Release all
       slices.each { |s| pool.release(s) }
@@ -196,7 +196,7 @@ describe Parsanol::Pools::SlicePool do
       expect(stats[:utilization]).to eq(50.0)
     end
 
-    it 'handles rapid acquire/release cycles' do
+    it "handles rapid acquire/release cycles" do
       pool = described_class.new(size: 10, preallocate: false)
 
       100.times do |i|
@@ -211,14 +211,14 @@ describe Parsanol::Pools::SlicePool do
     end
   end
 
-  describe 'statistics' do
-    it 'tracks slice-specific operations' do
+  describe "statistics" do
+    it "tracks slice-specific operations" do
       pool = described_class.new(size: 5, preallocate: false)
 
       # Create 3 slices
-      s1 = pool.acquire_with(0, 'a')
-      s2 = pool.acquire_with(1, 'b')
-      pool.acquire_with(2, 'c')
+      s1 = pool.acquire_with(0, "a")
+      s2 = pool.acquire_with(1, "b")
+      pool.acquire_with(2, "c")
 
       # Release 2
       pool.release(s1)
@@ -235,29 +235,29 @@ describe Parsanol::Pools::SlicePool do
     end
   end
 
-  describe 'edge cases' do
-    it 'handles empty string slices' do
+  describe "edge cases" do
+    it "handles empty string slices" do
       pool = described_class.new(size: 5, preallocate: false)
-      slice = pool.acquire_with(0, '')
+      slice = pool.acquire_with(0, "")
 
-      expect(slice.to_s).to eq('')
+      expect(slice.to_s).to eq("")
       expect(slice.size).to eq(0)
     end
 
-    it 'handles large string slices' do
+    it "handles large string slices" do
       pool = described_class.new(size: 5, preallocate: false)
-      large_str = 'x' * 10_000
+      large_str = "x" * 10_000
       slice = pool.acquire_with(0, large_str)
 
       expect(slice.to_s).to eq(large_str)
       expect(slice.size).to eq(10_000)
     end
 
-    it 'handles unicode content' do
+    it "handles unicode content" do
       pool = described_class.new(size: 5, preallocate: false)
-      slice = pool.acquire_with(0, 'hello 世界 мир')
+      slice = pool.acquire_with(0, "hello 世界 мир")
 
-      expect(slice.to_s).to eq('hello 世界 мир')
+      expect(slice.to_s).to eq("hello 世界 мир")
     end
   end
 end

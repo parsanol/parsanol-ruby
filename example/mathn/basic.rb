@@ -6,23 +6,23 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol/parslet'
-require 'parsanol/convenience'
+require "parsanol/parslet"
+require "parsanol/convenience"
 include Parsanol::Parslet
 
 def attempt_parse
   possible_whitespace = match['\s'].repeat
 
   cephalopod =
-    str('octopus') |
-    str('squid')
+    str("octopus") |
+    str("squid")
 
   parenthesized_cephalopod =
-    str('(') >>
+    str("(") >>
     possible_whitespace >>
     cephalopod >>
     possible_whitespace >>
-    str(')')
+    str(")")
 
   parser =
     possible_whitespace >>
@@ -37,11 +37,11 @@ rescue Parsanol::ParseFailed
 end
 
 attempt_parse
-puts 'it terminates before we require mathn'
+puts "it terminates before we require mathn"
 
-puts 'requiring mathn now'
+puts "requiring mathn now"
 # mathn was deprecated as of Ruby 2.5
-require 'mathn' if RUBY_VERSION.gsub(/[^\d]/, '').to_i < 250
-puts 'and trying again (will hang without the fix)'
+require "mathn" if RUBY_VERSION.gsub(/[^\d]/, "").to_i < 250
+puts "and trying again (will hang without the fix)"
 attempt_parse # but it doesn't terminate after requiring mathn
-puts 'okay!'
+puts "okay!"

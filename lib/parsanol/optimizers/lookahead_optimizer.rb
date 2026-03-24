@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../ast_visitor'
+require_relative "../ast_visitor"
 
 module Parsanol
   module Optimizers
@@ -26,13 +26,19 @@ module Parsanol
           inner_positive = inner.positive
 
           # !(!x) => &x (double negation)
-          return Parsanol::Atoms::Lookahead.new(inner.bound_parslet, true) if !outer_positive && !inner_positive
+          if !outer_positive && !inner_positive
+            return Parsanol::Atoms::Lookahead.new(inner.bound_parslet,
+                                                  true)
+          end
 
           # &(&x) => &x (idempotent)
           return inner if outer_positive && inner_positive
 
           # !(&x) => !x (negative of positive)
-          return Parsanol::Atoms::Lookahead.new(inner.bound_parslet, false) if !outer_positive && inner_positive
+          if !outer_positive && inner_positive
+            return Parsanol::Atoms::Lookahead.new(inner.bound_parslet,
+                                                  false)
+          end
 
           # &(!x) => !x (positive of negative)
           return inner if outer_positive && !inner_positive

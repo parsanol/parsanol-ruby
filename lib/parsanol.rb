@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'set'
-
 # Parsanol - A high-performance PEG parser construction library for Ruby.
 #
 # Typical usage:
@@ -148,7 +146,7 @@ module Parsanol
   #
   # @return [Parsanol::Atoms::Re] regex atom matching '.'
   def any
-    Atoms::Re.new('.')
+    Atoms::Re.new(".")
   end
   module_function :any
 
@@ -179,8 +177,8 @@ module Parsanol
   # @param operators [Array<Array>] operator definitions
   # @yield optional block to customize result tree structure
   # @return [Parsanol::Atoms::Infix] infix parser
-  def infix_expression(operand, *operators, &combiner)
-    Atoms::Infix.new(operand, operators, &combiner)
+  def infix_expression(operand, *operators, &)
+    Atoms::Infix.new(operand, operators, &)
   end
   module_function :infix_expression
 
@@ -237,44 +235,44 @@ module Parsanol
   end
   module_function :exp
 
-  autoload :Expression, 'parsanol/expression'
+  autoload :Expression, "parsanol/expression"
 end
 
-require 'parsanol/version'
-require 'parsanol/resettable'
-require 'parsanol/result'
-require 'parsanol/slice'
-require 'parsanol/string_view'
-require 'parsanol/rope'
-require 'parsanol/pool'
-require 'parsanol/pools/slice_pool'
-require 'parsanol/pools/array_pool'
-require 'parsanol/pools/position_pool'
-require 'parsanol/buffer'
-require 'parsanol/pools/buffer_pool'
-require 'parsanol/lazy_result'
-require 'parsanol/result_builder'
-require 'parsanol/first_set'
-require 'parsanol/cause'
-require 'parsanol/source'
-require 'parsanol/atoms'
-require 'parsanol/pattern'
-require 'parsanol/pattern/binding'
-require 'parsanol/transform'
-require 'parsanol/parser'
-require 'parsanol/error_reporter'
-require 'parsanol/scope'
-require 'parsanol/optimizer'
-require 'parsanol/options'
-require 'parsanol/native'
+require "parsanol/version"
+require "parsanol/resettable"
+require "parsanol/result"
+require "parsanol/slice"
+require "parsanol/string_view"
+require "parsanol/rope"
+require "parsanol/pool"
+require "parsanol/pools/slice_pool"
+require "parsanol/pools/array_pool"
+require "parsanol/pools/position_pool"
+require "parsanol/buffer"
+require "parsanol/pools/buffer_pool"
+require "parsanol/lazy_result"
+require "parsanol/result_builder"
+require "parsanol/first_set"
+require "parsanol/cause"
+require "parsanol/source"
+require "parsanol/atoms"
+require "parsanol/pattern"
+require "parsanol/pattern/binding"
+require "parsanol/transform"
+require "parsanol/parser"
+require "parsanol/error_reporter"
+require "parsanol/scope"
+require "parsanol/optimizer"
+require "parsanol/options"
+require "parsanol/native"
 
 # New features (require native extension for full functionality)
-require 'parsanol/source_location'
-require 'parsanol/grammar_builder'
-require 'parsanol/streaming_parser'
-require 'parsanol/incremental_parser'
-require 'parsanol/builder_callbacks'
-require 'parsanol/parallel'
+require "parsanol/source_location"
+require "parsanol/grammar_builder"
+require "parsanol/streaming_parser"
+require "parsanol/incremental_parser"
+require "parsanol/builder_callbacks"
+require "parsanol/parallel"
 
 # Add GrammarBuilder DSL to Parsanol module
 Parsanol.extend(Parsanol::GrammarBuilderDSL)

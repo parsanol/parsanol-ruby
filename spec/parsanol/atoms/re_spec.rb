@@ -1,16 +1,17 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require "spec_helper"
 
 describe Parsanol::Atoms::Re do
-  describe 'construction' do
+  describe "construction" do
     include Parsanol
 
-    it 'should allow match(str) form' do
-      match('[a]').should be_a(Parsanol::Atoms::Re)
+    it "allows match(str) form" do
+      match("[a]").should be_a(described_class)
     end
-    it 'should allow match[str] form' do
-      match['a'].should be_a(Parsanol::Atoms::Re)
+
+    it "allows match[str] form" do
+      match["a"].should be_a(described_class)
     end
   end
 end

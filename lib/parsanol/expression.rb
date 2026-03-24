@@ -56,7 +56,7 @@ module Parsanol
   class Expression
     include Parsanol
 
-    autoload :Treetop, 'parsanol/expression/treetop'
+    autoload :Treetop, "parsanol/expression/treetop"
 
     # Creates a parser atom from a treetop-style expression string.
     #

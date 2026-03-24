@@ -1,26 +1,26 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-require 'parsanol/rig/rspec'
+require "spec_helper"
+require "parsanol/rig/rspec"
 
-describe 'rspec integration' do
+describe "rspec integration" do
   include Parsanol
 
-  subject { str('example') }
+  subject { str("example") }
 
-  it { should parse('example') }
-  it { should_not parse('foo') }
-  it { should parse('example').as('example') }
-  it { should_not parse('foo').as('example') }
-  it { should_not parse('example').as('foo') }
+  it { is_expected.to parse("example") }
+  it { is_expected.not_to parse("foo") }
+  it { is_expected.to parse("example").as("example") }
+  it { is_expected.not_to parse("foo").as("example") }
+  it { is_expected.not_to parse("example").as("foo") }
 
-  it { str('foo').as(:bar).should parse('foo').as({ bar: 'foo' }) }
-  it { str('foo').as(:bar).should_not parse('foo').as({ b: 'f' }) }
+  it { str("foo").as(:bar).should parse("foo").as({ bar: "foo" }) }
+  it { str("foo").as(:bar).should_not parse("foo").as({ b: "f" }) }
 
-  it 'accepts a block to assert more specific details about the parsing output' do
-    str('foo').as(:bar).should(parse('foo').as do |output|
+  it "accepts a block to assert more specific details about the parsing output" do
+    str("foo").as(:bar).should(parse("foo").as do |output|
       output.should have_key(:bar)
-      output.values.first.should == 'foo'
+      output.values.first.should == "foo"
     end)
   end
 
@@ -36,17 +36,17 @@ describe 'rspec integration' do
   # end
 end
 
-describe 'rspec3 syntax' do
+describe "rspec3 syntax" do
   include Parsanol
 
-  let(:s) { str('example') }
+  let(:s) { str("example") }
 
-  it { expect(s).to parse('example') }
-  it { expect(s).not_to parse('foo') }
-  it { expect(s).to parse('example').as('example') }
-  it { expect(s).not_to parse('foo').as('example') }
+  it { expect(s).to parse("example") }
+  it { expect(s).not_to parse("foo") }
+  it { expect(s).to parse("example").as("example") }
+  it { expect(s).not_to parse("foo").as("example") }
 
-  it { expect(s).not_to parse('example').as('foo') }
+  it { expect(s).not_to parse("example").as("foo") }
 
   # Uncomment to test error messages manually:
   # it { expect(str('foo')).to parse('foo', :trace => true).as('bar') }

@@ -58,7 +58,7 @@ module Parsanol
         return true if real_set1.empty? || real_set2.empty?
 
         # Check if intersection is empty (using to_a for Opal compatibility)
-        (real_set1.to_a & real_set2.to_a).empty?
+        !real_set1.to_a.intersect?(real_set2.to_a)
       end
 
       # Check if all FIRST sets in a collection are mutually disjoint

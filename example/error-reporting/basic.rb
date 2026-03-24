@@ -2,8 +2,8 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol/parslet'
-require 'parsanol/convenience'
+require "parsanol/parslet"
+require "parsanol/convenience"
 
 # This example demonstrates tree error reporting in a real life example.
 # Originally contributed to Parslet, ported to Parsanol as an example.
@@ -25,25 +25,25 @@ class Parser < Parsanol::Parser
 
   rule(:newline) { match('[\r\n]') }
 
-  rule(:comment) { str('#') >> match('[^\r\n]').repeat }
+  rule(:comment) { str("#") >> match('[^\r\n]').repeat }
 
   rule(:line_separator) do
-    (space? >> ((comment.maybe >> newline) | str(';')) >> space?).repeat(1)
+    (space? >> ((comment.maybe >> newline) | str(";")) >> space?).repeat(1)
   end
 
   rule(:blank) { line_separator | space }
   rule(:blank?) { blank.maybe }
 
-  rule(:identifier) { match('[a-zA-Z0-9_]').repeat(1) }
+  rule(:identifier) { match("[a-zA-Z0-9_]").repeat(1) }
 
   # res_statement
 
   rule(:reference) do
-    (str('@').repeat(1, 2) >> identifier).as(:reference)
+    (str("@").repeat(1, 2) >> identifier).as(:reference)
   end
 
   rule(:res_action_or_link) do
-    str('.').as(:dot) >> (identifier >> str('?').maybe).as(:name) >> str('()')
+    str(".").as(:dot) >> (identifier >> str("?").maybe).as(:name) >> str("()")
   end
 
   rule(:res_actions) do
@@ -53,7 +53,7 @@ class Parser < Parsanol::Parser
 
   rule(:res_statement) do
     res_actions >>
-      (str(':') >> identifier.as(:name)).maybe.as(:res_field)
+      (str(":") >> identifier.as(:name)).maybe.as(:res_field)
   end
 
   # expression
@@ -72,17 +72,17 @@ class Parser < Parsanol::Parser
   # blocks
 
   rule(:begin_block) do
-    (str('concurrent').as(:type) >> space).maybe.as(:pre) >>
-      str('begin').as(:begin) >>
+    (str("concurrent").as(:type) >> space).maybe.as(:pre) >>
+      str("begin").as(:begin) >>
       body >>
-      str('end')
+      str("end")
   end
 
   rule(:define_block) do
-    str('define').as(:define) >> space >>
-      identifier.as(:name) >> str('()') >>
+    str("define").as(:define) >> space >>
+      identifier.as(:name) >> str("()") >>
       body >>
-      str('end')
+      str("end")
   end
 
   rule(:block) do
@@ -110,11 +110,11 @@ ds = [
         @res.name
       end
     end
-  }
+  },
 ]
 
 ds.each do |d|
-  puts '-' * 80
+  puts "-" * 80
   prettify(d)
 
   parser = Parser.new
@@ -122,4 +122,4 @@ ds.each do |d|
   parser.parse_with_debug(d)
 end
 
-puts '-' * 80
+puts "-" * 80

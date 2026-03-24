@@ -9,7 +9,7 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol/parslet'
+require "parsanol/parslet"
 
 # Expression parser with full operator precedence
 class ExpressionParser < Parsanol::Parser
@@ -20,7 +20,7 @@ class ExpressionParser < Parsanol::Parser
 
   rule(:comparison) do
     (addition.as(:left) >>
-      ((match('==|!=|<=|>=|<>').as(:op) | str('<') | str('>')).as(:op) >>
+      ((match("==|!=|<=|>=|<>").as(:op) | str("<") | str(">")).as(:op) >>
        addition.as(:right)).repeat(1)) |
       addition
   end
@@ -28,28 +28,28 @@ class ExpressionParser < Parsanol::Parser
   # Addition/subtraction
   rule(:addition) do
     (multiplication.as(:left) >>
-      (match('[+-]').as(:op) >> multiplication.as(:right)).repeat(1)) |
+      (match("[+-]").as(:op) >> multiplication.as(:right)).repeat(1)) |
       multiplication
   end
 
   # Multiplication/division/modulo
   rule(:multiplication) do
     (power.as(:left) >>
-      (match('[*/%]').as(:op) >> power.as(:right)).repeat(1)) |
+      (match("[*/%]").as(:op) >> power.as(:right)).repeat(1)) |
       power
   end
 
   # Exponentiation (right associative)
   rule(:power) do
     (unary.as(:left) >>
-      (str('^').as(:op) >> power.as(:right)).maybe) |
+      (str("^").as(:op) >> power.as(:right)).maybe) |
       unary
   end
 
   # Unary operators
   rule(:unary) do
-    (str('-').as(:op) >> unary.as(:operand)).as(:unary) |
-      (str('!').as(:op) >> unary.as(:operand)).as(:unary) |
+    (str("-").as(:op) >> unary.as(:operand)).as(:unary) |
+      (str("!").as(:op) >> unary.as(:operand)).as(:unary) |
       primary
   end
 
@@ -62,16 +62,16 @@ class ExpressionParser < Parsanol::Parser
   end
 
   rule(:number) do
-    ((match('[0-9]').repeat(1) >> str('.') >> match('[0-9]').repeat(1)) |
-     match('[0-9]').repeat(1)).as(:number) >> space?
+    ((match("[0-9]").repeat(1) >> str(".") >> match("[0-9]").repeat(1)) |
+     match("[0-9]").repeat(1)).as(:number) >> space?
   end
 
   rule(:variable) do
-    (match('[a-zA-Z_]') >> match('[a-zA-Z0-9_]').repeat).as(:variable) >> space?
+    (match("[a-zA-Z_]") >> match("[a-zA-Z0-9_]").repeat).as(:variable) >> space?
   end
 
   rule(:funcall) do
-    (match('[a-zA-Z_]') >> match('[a-zA-Z0-9_]').repeat).as(:name) >>
+    (match("[a-zA-Z_]") >> match("[a-zA-Z0-9_]").repeat).as(:name) >>
       lparen >>
       arglist.as(:args) >>
       rparen
@@ -81,9 +81,9 @@ class ExpressionParser < Parsanol::Parser
     (expression >> (comma >> expression).repeat).maybe
   end
 
-  rule(:lparen) { str('(') >> space? }
-  rule(:rparen) { str(')') >> space? }
-  rule(:comma) { str(',') >> space? }
+  rule(:lparen) { str("(") >> space? }
+  rule(:rparen) { str(")") >> space? }
+  rule(:comma) { str(",") >> space? }
   rule(:space?) { match('\s').repeat }
 end
 
@@ -106,18 +106,18 @@ BinaryOp = Struct.new(:left, :op, :right) do
     r = right.eval(ctx)
 
     case op
-    when '+' then l + r
-    when '-' then l - r
-    when '*' then l * r
-    when '/' then l / r
-    when '%' then l % r
-    when '^' then l**r
-    when '==' then l == r ? 1.0 : 0.0
-    when '!=' then l == r ? 0.0 : 1.0
-    when '<' then l < r ? 1.0 : 0.0
-    when '>' then l > r ? 1.0 : 0.0
-    when '<=' then l <= r ? 1.0 : 0.0
-    when '>=' then l >= r ? 1.0 : 0.0
+    when "+" then l + r
+    when "-" then l - r
+    when "*" then l * r
+    when "/" then l / r
+    when "%" then l % r
+    when "^" then l**r
+    when "==" then l == r ? 1.0 : 0.0
+    when "!=" then l == r ? 0.0 : 1.0
+    when "<" then l < r ? 1.0 : 0.0
+    when ">" then l > r ? 1.0 : 0.0
+    when "<=" then l <= r ? 1.0 : 0.0
+    when ">=" then l >= r ? 1.0 : 0.0
     else raise "Unknown operator: #{op}"
     end
   end
@@ -127,8 +127,8 @@ UnaryOp = Struct.new(:op, :operand) do
   def eval(ctx)
     v = operand.eval(ctx)
     case op
-    when '-' then -v
-    when '!' then v.zero? ? 1.0 : 0.0
+    when "-" then -v
+    when "!" then v.zero? ? 1.0 : 0.0
     else raise "Unknown unary operator: #{op}"
     end
   end
@@ -173,23 +173,23 @@ class EvalContext
 
   def initialize
     @variables = {
-      'PI' => Math::PI,
-      'E' => Math::E
+      "PI" => Math::PI,
+      "E" => Math::E,
     }
 
     @functions = {
-      'sin' => ->(args) { Math.sin(args[0] || 0) },
-      'cos' => ->(args) { Math.cos(args[0] || 0) },
-      'tan' => ->(args) { Math.tan(args[0] || 0) },
-      'sqrt' => ->(args) { Math.sqrt(args[0] || 0) },
-      'abs' => ->(args) { (args[0] || 0).abs },
-      'floor' => ->(args) { (args[0] || 0).floor },
-      'ceil' => ->(args) { (args[0] || 0).ceil },
-      'round' => ->(args) { (args[0] || 0).round },
-      'min' => ->(args) { [args[0] || 0, args[1] || 0].min },
-      'max' => ->(args) { [args[0] || 0, args[1] || 0].max },
-      'log' => ->(args) { Math.log(args[0] || 1) },
-      'exp' => ->(args) { Math.exp(args[0] || 0) }
+      "sin" => ->(args) { Math.sin(args[0] || 0) },
+      "cos" => ->(args) { Math.cos(args[0] || 0) },
+      "tan" => ->(args) { Math.tan(args[0] || 0) },
+      "sqrt" => ->(args) { Math.sqrt(args[0] || 0) },
+      "abs" => ->(args) { (args[0] || 0).abs },
+      "floor" => ->(args) { (args[0] || 0).floor },
+      "ceil" => ->(args) { (args[0] || 0).ceil },
+      "round" => ->(args) { (args[0] || 0).round },
+      "min" => ->(args) { [args[0] || 0, args[1] || 0].min },
+      "max" => ->(args) { [args[0] || 0, args[1] || 0].max },
+      "log" => ->(args) { Math.log(args[0] || 1) },
+      "exp" => ->(args) { Math.exp(args[0] || 0) },
     }
   end
 
@@ -241,31 +241,31 @@ end
 # Main demo
 if __FILE__ == $PROGRAM_NAME
   ctx = EvalContext.new
-  ctx.set('x', 10.0)
-  ctx.set('y', 5.0)
+  ctx.set("x", 10.0)
+  ctx.set("y", 5.0)
 
-  puts 'Expression Evaluator Example'
-  puts '=' * 40
+  puts "Expression Evaluator Example"
+  puts "=" * 40
   puts
   puts "Variables: x = #{ctx.variables['x']}, y = #{ctx.variables['y']}"
   puts "Constants: PI = #{ctx.variables['PI']}, E = #{ctx.variables['E']}"
   puts
 
   expressions = [
-    '1 + 2 * 3',
-    '(1 + 2) * 3',
-    '2 ^ 3 ^ 2',
-    'x + y',
-    'x * y - 5',
-    'sin(PI / 2)',
-    'sqrt(16)',
-    'max(x, y)',
-    'x > y',
-    'min(sin(0), cos(0))'
+    "1 + 2 * 3",
+    "(1 + 2) * 3",
+    "2 ^ 3 ^ 2",
+    "x + y",
+    "x * y - 5",
+    "sin(PI / 2)",
+    "sqrt(16)",
+    "max(x, y)",
+    "x > y",
+    "min(sin(0), cos(0))",
   ]
 
-  printf "%-25s | %s\n", 'Expression', 'Result'
-  puts '-' * 40
+  printf "%-25s | %s\n", "Expression", "Result"
+  puts "-" * 40
 
   expressions.each do |expr|
     result = evaluate(expr, ctx)
@@ -274,7 +274,7 @@ if __FILE__ == $PROGRAM_NAME
 
   # Command line argument
   if ARGV.length.positive?
-    expr = ARGV.join(' ')
+    expr = ARGV.join(" ")
     puts
     puts "Evaluating: #{expr}"
     puts "Result: #{evaluate(expr, ctx)}"

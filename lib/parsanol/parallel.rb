@@ -86,7 +86,7 @@ module Parsanol
         Parsanol::Native.parse_batch_parallel(
           grammar_json,
           inputs,
-          num_threads: config.num_threads
+          num_threads: config.num_threads,
         )
       end
 
@@ -98,7 +98,8 @@ module Parsanol
       # @param config [Config] Parallel configuration (optional)
       # @return [Array<Object>] Array of transformed results
       #
-      def parse_batch_with_transform(grammar_json, inputs, transform, config: Config.new)
+      def parse_batch_with_transform(grammar_json, inputs, transform,
+config: Config.new)
         results = parse_batch(grammar_json, inputs, config: config)
         results.map { |result| transform.apply(result) }
       end
@@ -107,7 +108,7 @@ module Parsanol
       #
       # @return [Integer] Number of available cores
       def available_cores
-        require 'etc'
+        require "etc"
         Etc.nprocessors
       rescue StandardError
         1

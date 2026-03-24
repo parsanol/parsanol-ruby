@@ -113,10 +113,10 @@ module Parsanol
       return if prefix_flags.size < 2
 
       prefix_flags[1..-2].each do |is_last|
-        stream.print is_last ? '   ' : '|  '
+        stream.print is_last ? "   " : "|  "
       end
 
-      stream.print prefix_flags.last ? '`- ' : '|- '
+      stream.print prefix_flags.last ? "`- " : "|- "
     end
   end
 end

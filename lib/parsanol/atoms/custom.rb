@@ -54,7 +54,7 @@ module Parsanol
       #
       def try_match(source, context, consume_all)
         raise NotImplementedError,
-              'Custom atoms must implement #try_match(source, context, consume_all)'
+              "Custom atoms must implement #try_match(source, context, consume_all)"
       end
 
       # Override of Base#try that delegates to try_match
@@ -71,7 +71,7 @@ module Parsanol
           context.err(
             self,
             source,
-            "Failed to match custom atom: #{self.class.name}"
+            "Failed to match custom atom: #{self.class.name}",
           )
         end
       end

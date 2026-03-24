@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require "spec_helper"
 
-require 'parsanol/parslet'
+require "parsanol/parslet"
 
-describe 'Regressions from real examples' do
+describe "Regressions from real examples" do
   # This parser piece produces on the left a subtree that is keyed (a hash)
   # and on the right a subtree that is a repetition of such subtrees. I've
   # for now decided that these would merge into the repetition such that the
@@ -24,13 +24,13 @@ describe 'Regressions from real examples' do
     rule :string do
       str('"') >>
         (
-          (str('\\') >> any) |
+          (str("\\") >> any) |
           (str('"').absent? >> any)
         ).repeat.as(:string) >>
         str('"') >> space?
     end
     rule :comma do
-      str(',') >> space?
+      str(",") >> space?
     end
     rule :space? do
       space.maybe
@@ -44,14 +44,14 @@ describe 'Regressions from real examples' do
     end
   end
   describe ArgumentListParser do
-    let(:instance) { ArgumentListParser.new }
+    let(:instance) { described_class.new }
 
-    it 'has method expression' do
+    it "has method expression" do
       expect(instance).to respond_to(:expression)
     end
 
     it 'parses "arg1", "arg2"' do
-      result = ArgumentListParser.new.parse('"arg1", "arg2"')
+      result = described_class.new.parse('"arg1", "arg2"')
 
       expect(result.size).to eq(2)
       result.each do |r|
@@ -60,7 +60,7 @@ describe 'Regressions from real examples' do
     end
 
     it 'parses "arg1", "arg2", "arg3"' do
-      result = ArgumentListParser.new.parse('"arg1", "arg2", "arg3"')
+      result = described_class.new.parse('"arg1", "arg2", "arg3"')
 
       expect(result.size).to eq(3)
       result.each do |r|
@@ -71,42 +71,42 @@ describe 'Regressions from real examples' do
 
   class ParensParser < Parsanol::Parser
     rule(:balanced) do
-      str('(').as(:l) >> balanced.maybe.as(:m) >> str(')').as(:r)
+      str("(").as(:l) >> balanced.maybe.as(:m) >> str(")").as(:r)
     end
 
     root(:balanced)
   end
   describe ParensParser do
-    let(:instance) { ParensParser.new }
+    let(:instance) { described_class.new }
 
-    context 'statefulness: trying several expressions in sequence' do
-      it 'is not stateful' do
+    context "statefulness: trying several expressions in sequence" do
+      it "is not stateful" do
         # NOTE: Since you've come here to read this, I'll explain why
         # this is broken and not fixed: You're looking at the tuning branch,
         # which rewrites a bunch of stuff - so I have failing tests to
         # remind me of what is left to be done. And to remind you not to
         # trust this code.
-        instance.parse('(())')
+        instance.parse("(())")
         expect do
-          instance.parse('((()))')
-          instance.parse('(((())))')
+          instance.parse("((()))")
+          instance.parse("(((())))")
         end.not_to raise_error
       end
     end
 
     context "expression '(())'" do
-      let(:result) { instance.parse('(())') }
+      let(:result) { instance.parse("(())") }
 
-      it 'yields a doubly nested hash' do
+      it "yields a doubly nested hash" do
         expect(result).to be_a(Hash)
         expect(result).to have_key(:m)
         expect(result[:m]).to be_a(Hash) # This was an array earlier
       end
 
-      context 'inner hash' do
+      context "inner hash" do
         let(:inner) { result[:m] }
 
-        it 'has nil as :m' do
+        it "has nil as :m" do
           expect(inner[:m]).to be_nil
         end
       end
@@ -118,22 +118,26 @@ describe 'Regressions from real examples' do
 
     rule(:expressions) { (line >> eol).repeat(1) | line }
     rule(:line) { space? >> an_expression.as(:exp).repeat }
-    rule(:an_expression) { str('a').as(:a) >> space? }
+    rule(:an_expression) { str("a").as(:a) >> space? }
 
     rule(:eol) { space? >> match["\n\r"].repeat(1) >> space? }
 
     rule(:space?) { space.repeat }
-    rule(:space) { multiline_comment.as(:multi) | line_comment.as(:line) | str(' ') }
+    rule(:space) do
+      multiline_comment.as(:multi) | line_comment.as(:line) | str(" ")
+    end
 
-    rule(:line_comment) { str('//') >> (match["\n\r"].absent? >> any).repeat }
-    rule(:multiline_comment) { str('/*') >> (str('*/').absent? >> any).repeat >> str('*/') }
+    rule(:line_comment) { str("//") >> (match["\n\r"].absent? >> any).repeat }
+    rule(:multiline_comment) do
+      str("/*") >> (str("*/").absent? >> any).repeat >> str("*/")
+    end
   end
   describe ALanguage do
     def remove_indent(s)
       s.to_s.lines.map { |l| l.chomp.strip }.join("\n")
     end
 
-    it 'counts lines correctly' do
+    it "counts lines correctly" do
       # This test verifies that error reporting provides meaningful output
       # The exact format may vary between versions, but the key is that
       # the error identifies the problem location correctly
@@ -150,7 +154,7 @@ describe 'Regressions from real examples' do
 
       # Verify the cause exists and contains meaningful error information
       expect(cause).not_to be_nil
-      expect(cause.ascii_tree).to include('Expected one of [(LINE EOL){1, }, LINE]')
+      expect(cause.ascii_tree).to include("Expected one of [(LINE EOL){1, }, LINE]")
       # The error should indicate a problem with parsing, either at line 7 or earlier
       expect(cause.ascii_tree).to match(/line (1|7)/)
     end
@@ -159,18 +163,18 @@ describe 'Regressions from real examples' do
   class BLanguage < Parsanol::Parser
     root :expression
     rule(:expression) { b.as(:one) >> b.as(:two) }
-    rule(:b) { str('b') }
+    rule(:b) { str("b") }
   end
   describe BLanguage do
     it "parses 'bb'" do
-      expect(subject).to parse('bb').as(one: 'b', two: 'b')
+      expect(subject).to parse("bb").as(one: "b", two: "b")
     end
 
-    it 'transforms with binding constraint' do
+    it "transforms with binding constraint" do
       transform = Parsanol::Transform.new do |t|
         t.rule(one: simple(:b), two: simple(:b)) { :ok }
       end
-      expect(transform.apply(subject.parse('bb'))).to eq(:ok)
+      expect(transform.apply(subject.parse("bb"))).to eq(:ok)
     end
   end
 
@@ -179,48 +183,48 @@ describe 'Regressions from real examples' do
     rule(:gobble) { any.repeat }
   end
   describe UnicodeLanguage do
-    it 'parses UTF-8 strings' do
-      expect(subject).to parse('éèäöü').as('éèäöü')
-      expect(subject).to parse('RubyKaigi2009のテーマは、「変わる／変える」です。 前回の').as('RubyKaigi2009のテーマは、「変わる／変える」です。 前回の')
+    it "parses UTF-8 strings" do
+      expect(subject).to parse("éèäöü").as("éèäöü")
+      expect(subject).to parse("RubyKaigi2009のテーマは、「変わる／変える」です。 前回の").as("RubyKaigi2009のテーマは、「変わる／変える」です。 前回の")
     end
   end
 
   class UnicodeSentenceLanguage < Parsanol::Parser
-    rule(:sentence) { (match('[^。]').repeat(1) >> str('。')).as(:sentence) }
+    rule(:sentence) { (match("[^。]").repeat(1) >> str("。")).as(:sentence) }
     rule(:sentences) { sentence.repeat }
     root(:sentences)
   end
   describe UnicodeSentenceLanguage do
     let(:string) do
-      'RubyKaigi2009のテーマは、「変わる／変える」です。 前回の' \
-        'RubyKaigi2008のテーマであった「多様性」の言葉の通り、 ' \
-        '2008年はRubyそのものに関しても、またRubyの活躍する舞台に関しても、 ' \
-        'ますます多様化が進みつつあります。RubyKaigi2008は、そのような ' \
-        'Rubyの生態系をあらためて認識する場となりました。 しかし、' \
-        'こうした多様化が進む中、異なる者同士が単純に距離を 置いたままでは、' \
-        'その違いを認識したところであまり意味がありません。 異なる実装、' \
-        '異なる思想、異なる背景といった、様々な多様性を理解しつつ、 ' \
-        'すり合わせるべきものをすり合わせ、変えていくべきところを ' \
-        '変えていくことが、豊かな未来へとつながる道に違いありません。'
+      "RubyKaigi2009のテーマは、「変わる／変える」です。 前回の" \
+        "RubyKaigi2008のテーマであった「多様性」の言葉の通り、 " \
+        "2008年はRubyそのものに関しても、またRubyの活躍する舞台に関しても、 " \
+        "ますます多様化が進みつつあります。RubyKaigi2008は、そのような " \
+        "Rubyの生態系をあらためて認識する場となりました。 しかし、" \
+        "こうした多様化が進む中、異なる者同士が単純に距離を 置いたままでは、" \
+        "その違いを認識したところであまり意味がありません。 異なる実装、" \
+        "異なる思想、異なる背景といった、様々な多様性を理解しつつ、 " \
+        "すり合わせるべきものをすり合わせ、変えていくべきところを " \
+        "変えていくことが、豊かな未来へとつながる道に違いありません。"
     end
 
-    it 'parses sentences' do
+    it "parses sentences" do
       expect(subject).to parse(string)
     end
   end
 
   class TwoCharLanguage < Parsanol::Parser
     root :twochar
-    rule(:twochar) { any >> str('2') }
+    rule(:twochar) { any >> str("2") }
   end
   describe TwoCharLanguage do
     def di(s)
       s.strip.to_s.lines.map { |l| l.chomp.strip }.join("\n")
     end
 
-    it 'raises an error' do
+    it "raises an error" do
       error = catch_failed_parse do
-        subject.parse('123')
+        subject.parse("123")
       end
       expect(di(error.ascii_tree)).to eq(di(%q(
         Failed to match sequence (. '2') at line 1 char 2.
@@ -233,13 +237,13 @@ describe 'Regressions from real examples' do
   class RepetitionParser < Parsanol::Parser
     rule(:nl)      { match('[\s]').repeat(1) }
     rule(:nl?)     { nl.maybe }
-    rule(:sp)      { str(' ').repeat(1) }
-    rule(:sp?)     { str(' ').repeat(0) }
-    rule(:line)    { sp >> str('line') }
+    rule(:sp)      { str(" ").repeat(1) }
+    rule(:sp?)     { str(" ").repeat(0) }
+    rule(:line)    { sp >> str("line") }
     rule(:body)    { ((line | block) >> nl).repeat(0) }
     rule(:block)   do
-      sp? >> str('begin') >> sp >> match('[a-z]') >> nl >>
-        body >> sp? >> str('end')
+      sp? >> str("begin") >> sp >> match("[a-z]") >> nl >>
+        body >> sp? >> str("end")
     end
     rule(:blocks) { nl? >> block >> (nl >> block).repeat(0) >> nl? }
 
@@ -250,14 +254,14 @@ describe 'Regressions from real examples' do
       s.strip.to_s.lines.map { |l| l.chomp.strip }.join("\n")
     end
 
-    it 'parses a block' do
+    it "parses a block" do
       subject.parse('
         begin a
         end
       ')
     end
 
-    it 'parses nested blocks' do
+    it "parses nested blocks" do
       subject.parse('
         begin a
           begin b
@@ -266,7 +270,7 @@ describe 'Regressions from real examples' do
       ')
     end
 
-    it 'parses successive blocks' do
+    it "parses successive blocks" do
       subject.parse('
         begin a
         end
@@ -275,7 +279,7 @@ describe 'Regressions from real examples' do
       ')
     end
 
-    it 'fails gracefully on a missing end' do
+    it "fails gracefully on a missing end" do
       error = catch_failed_parse do
         subject.parse('
           begin a
@@ -291,7 +295,7 @@ describe 'Regressions from real examples' do
         "))
     end
 
-    it 'fails gracefully on a missing end (2)' do
+    it "fails gracefully on a missing end (2)" do
       error = catch_failed_parse do
         subject.parse('
           begin a
@@ -308,7 +312,7 @@ describe 'Regressions from real examples' do
         )))
     end
 
-    it 'fails gracefully on a missing end (deepest reporter)' do
+    it "fails gracefully on a missing end (deepest reporter)" do
       error = catch_failed_parse do
         subject.parse('
             begin a

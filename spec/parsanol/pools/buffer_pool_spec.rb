@@ -1,44 +1,44 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require "spec_helper"
 
 describe Parsanol::Pools::BufferPool do
   let(:pool) { described_class.new(pool_size: 10) }
 
-  describe '#initialize' do
-    it 'creates pools for all size classes' do
+  describe "#initialize" do
+    it "creates pools for all size classes" do
       described_class::SIZE_CLASSES.each do |size|
         expect(pool.pools[size]).to be_a(Array)
         expect(pool.pools[size]).to be_empty
       end
     end
 
-    it 'initializes statistics for all size classes' do
+    it "initializes statistics for all size classes" do
       described_class::SIZE_CLASSES.each do |size|
         expect(pool.stats[size]).to include(
           created: 0,
           reused: 0,
           released: 0,
-          discarded: 0
+          discarded: 0,
         )
       end
     end
 
-    it 'uses custom pool size' do
+    it "uses custom pool size" do
       custom_pool = described_class.new(pool_size: 50)
       expect(custom_pool.instance_variable_get(:@pool_size)).to eq(50)
     end
   end
 
-  describe '#acquire' do
-    it 'returns buffer with appropriate capacity' do
+  describe "#acquire" do
+    it "returns buffer with appropriate capacity" do
       buffer = pool.acquire(size: 5)
 
       expect(buffer).to be_a(Parsanol::Buffer)
       expect(buffer.capacity).to be >= 5
     end
 
-    it 'selects appropriate size class' do
+    it "selects appropriate size class" do
       # Request size 5 should get size class 8
       buffer = pool.acquire(size: 5)
       expect(buffer.capacity).to eq(8)
@@ -48,14 +48,14 @@ describe Parsanol::Pools::BufferPool do
       expect(buffer.capacity).to eq(16)
     end
 
-    it 'creates new buffer when pool is empty' do
+    it "creates new buffer when pool is empty" do
       pool.acquire(size: 4)
 
       expect(pool.stats[4][:created]).to eq(1)
       expect(pool.stats[4][:reused]).to eq(0)
     end
 
-    it 'reuses buffer when available in pool' do
+    it "reuses buffer when available in pool" do
       # First acquire and release
       buffer1 = pool.acquire(size: 4)
       pool.release(buffer1)
@@ -67,7 +67,7 @@ describe Parsanol::Pools::BufferPool do
       expect(pool.stats[4][:reused]).to eq(1)
     end
 
-    it 'handles power-of-2 size class selection' do
+    it "handles power-of-2 size class selection" do
       test_cases = [
         [1, 2],
         [2, 2],
@@ -80,7 +80,7 @@ describe Parsanol::Pools::BufferPool do
         [17, 32],
         [32, 32],
         [33, 64],
-        [64, 64]
+        [64, 64],
       ]
 
       test_cases.each do |requested, expected|
@@ -90,18 +90,18 @@ describe Parsanol::Pools::BufferPool do
       end
     end
 
-    it 'handles sizes larger than standard classes' do
+    it "handles sizes larger than standard classes" do
       # Size 100 should get next power of 2 (128)
       buffer = pool.acquire(size: 100)
       expect(buffer.capacity).to eq(128)
     end
   end
 
-  describe '#release' do
-    it 'returns buffer to appropriate pool' do
+  describe "#release" do
+    it "returns buffer to appropriate pool" do
       buffer = pool.acquire(size: 4)
-      buffer.push('a')
-      buffer.push('b')
+      buffer.push("a")
+      buffer.push("b")
 
       result = pool.release(buffer)
 
@@ -110,10 +110,10 @@ describe Parsanol::Pools::BufferPool do
       expect(pool.stats[4][:released]).to eq(1)
     end
 
-    it 'clears buffer before returning to pool' do
+    it "clears buffer before returning to pool" do
       buffer = pool.acquire(size: 4)
-      buffer.push('a')
-      buffer.push('b')
+      buffer.push("a")
+      buffer.push("b")
 
       pool.release(buffer)
 
@@ -123,7 +123,7 @@ describe Parsanol::Pools::BufferPool do
       expect(buffer2.empty?).to be true
     end
 
-    it 'discards buffer when pool is full' do
+    it "discards buffer when pool is full" do
       # Acquire 11 buffers (one more than pool size)
       buffers = []
       11.times do
@@ -148,7 +148,7 @@ describe Parsanol::Pools::BufferPool do
       expect(pool.stats[4][:discarded]).to eq(1)
     end
 
-    it 'discards buffer with non-standard size class' do
+    it "discards buffer with non-standard size class" do
       # Create buffer with non-standard capacity
       buffer = Parsanol::Buffer.new(capacity: 100)
       result = pool.release(buffer)
@@ -157,7 +157,7 @@ describe Parsanol::Pools::BufferPool do
     end
   end
 
-  describe '#statistics' do
+  describe "#statistics" do
     before do
       # Create some activity
       3.times { pool.acquire(size: 2) }
@@ -168,7 +168,7 @@ describe Parsanol::Pools::BufferPool do
       pool.acquire(size: 4) # This should be reused
     end
 
-    it 'returns statistics for all size classes' do
+    it "returns statistics for all size classes" do
       stats = pool.statistics
 
       described_class::SIZE_CLASSES.each do |size|
@@ -176,7 +176,7 @@ describe Parsanol::Pools::BufferPool do
       end
     end
 
-    it 'includes all statistic fields' do
+    it "includes all statistic fields" do
       stats = pool.statistics[2]
 
       expect(stats).to include(
@@ -185,11 +185,11 @@ describe Parsanol::Pools::BufferPool do
         :reused,
         :released,
         :discarded,
-        :utilization
+        :utilization,
       )
     end
 
-    it 'calculates utilization correctly' do
+    it "calculates utilization correctly" do
       stats = pool.statistics
 
       # Size 2: 3 created, 0 reused => 0% utilization
@@ -200,21 +200,21 @@ describe Parsanol::Pools::BufferPool do
       expect(stats[4][:utilization]).to eq(50.0)
     end
 
-    it 'shows available count' do
+    it "shows available count" do
       stats = pool.statistics
 
       # Size 4 has 0 available (one released, one re-acquired)
       expect(stats[4][:available]).to eq(0)
     end
 
-    it 'tracks created count' do
+    it "tracks created count" do
       stats = pool.statistics
 
       expect(stats[2][:created]).to eq(3)
       expect(stats[4][:created]).to eq(1)
     end
 
-    it 'tracks reused count' do
+    it "tracks reused count" do
       stats = pool.statistics
 
       expect(stats[2][:reused]).to eq(0)
@@ -222,7 +222,7 @@ describe Parsanol::Pools::BufferPool do
     end
   end
 
-  describe '#clear!' do
+  describe "#clear!" do
     before do
       # Create some activity
       buffer = pool.acquire(size: 4)
@@ -232,7 +232,7 @@ describe Parsanol::Pools::BufferPool do
       pool.release(buffer)
     end
 
-    it 'clears all pools' do
+    it "clears all pools" do
       pool.clear!
 
       described_class::SIZE_CLASSES.each do |size|
@@ -240,7 +240,7 @@ describe Parsanol::Pools::BufferPool do
       end
     end
 
-    it 'resets all statistics' do
+    it "resets all statistics" do
       pool.clear!
 
       described_class::SIZE_CLASSES.each do |size|
@@ -248,17 +248,17 @@ describe Parsanol::Pools::BufferPool do
           created: 0,
           reused: 0,
           released: 0,
-          discarded: 0
+          discarded: 0,
         )
       end
     end
   end
 
-  describe 'buffer reuse lifecycle' do
-    it 'efficiently reuses buffers across acquire/release cycles' do
+  describe "buffer reuse lifecycle" do
+    it "efficiently reuses buffers across acquire/release cycles" do
       # First cycle
       buffer1 = pool.acquire(size: 8)
-      buffer1.push('a')
+      buffer1.push("a")
       pool.release(buffer1)
 
       # Second cycle - should reuse same buffer
@@ -266,7 +266,7 @@ describe Parsanol::Pools::BufferPool do
       expect(buffer2.object_id).to eq(buffer1.object_id)
       expect(buffer2.empty?).to be true
 
-      buffer2.push('b')
+      buffer2.push("b")
       pool.release(buffer2)
 
       # Third cycle - should still reuse
@@ -280,15 +280,15 @@ describe Parsanol::Pools::BufferPool do
     end
   end
 
-  describe 'size class selection edge cases' do
-    it 'handles exact size class match' do
+  describe "size class selection edge cases" do
+    it "handles exact size class match" do
       described_class::SIZE_CLASSES.each do |size|
         buffer = pool.acquire(size: size)
         expect(buffer.capacity).to eq(size)
       end
     end
 
-    it 'handles sizes between classes' do
+    it "handles sizes between classes" do
       # 3 is between 2 and 4, should get 4
       buffer = pool.acquire(size: 3)
       expect(buffer.capacity).to eq(4)
@@ -298,7 +298,7 @@ describe Parsanol::Pools::BufferPool do
       expect(buffer.capacity).to eq(16)
     end
 
-    it 'handles zero and negative sizes' do
+    it "handles zero and negative sizes" do
       buffer = pool.acquire(size: 0)
       expect(buffer.capacity).to eq(2)  # Smallest class
 
@@ -306,15 +306,15 @@ describe Parsanol::Pools::BufferPool do
       expect(buffer.capacity).to eq(2)  # Smallest class
     end
 
-    it 'handles very large sizes' do
+    it "handles very large sizes" do
       buffer = pool.acquire(size: 1000)
       expect(buffer.capacity).to be >= 1000
       expect(buffer.capacity).to eq(1024) # Next power of 2
     end
   end
 
-  describe 'pool capacity management' do
-    it 'respects pool size limit per class' do
+  describe "pool capacity management" do
+    it "respects pool size limit per class" do
       buffers = []
 
       # Acquire and release more than pool_size
@@ -341,8 +341,8 @@ describe Parsanol::Pools::BufferPool do
     end
   end
 
-  describe 'multiple size classes' do
-    it 'manages different size classes independently' do
+  describe "multiple size classes" do
+    it "manages different size classes independently" do
       # Acquire from different classes
       buffer2 = pool.acquire(size: 2)
       buffer4 = pool.acquire(size: 4)

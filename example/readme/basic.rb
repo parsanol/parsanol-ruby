@@ -6,16 +6,16 @@
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
 # cut here -------------------------------------------------------------------
-require 'parsanol/parslet'
+require "parsanol/parslet"
 include Parsanol::Parslet
 
 # Constructs a parser using a Parser Expression Grammar like DSL:
-parser =  str('"') >>
-          (
-            (str('\\') >> any) |
-            (str('"').absent? >> any)
-          ).repeat.as(:string) >>
-          str('"')
+parser = str('"') >>
+  (
+    (str("\\") >> any) |
+    (str('"').absent? >> any)
+  ).repeat.as(:string) >>
+  str('"')
 
 # Parse the string and capture parts of the interpretation (:string above)
 tree = parser.parse('"This is a \\"String\\" in which you can escape stuff"') # => {:string=>"This is a \\\"String\\\" in which you can escape stuff"}

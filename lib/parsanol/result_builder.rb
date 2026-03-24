@@ -27,14 +27,14 @@ module Parsanol
     # @param options [Hash] Builder options
     # @return [ResultBuilder] Appropriate builder instance
     #
-    def self.for(type, context, **options)
+    def self.for(type, context, **)
       case type
       when :repetition
-        RepetitionBuilder.new(context, **options)
+        RepetitionBuilder.new(context, **)
       when :sequence
-        SequenceBuilder.new(context, **options)
+        SequenceBuilder.new(context, **)
       when :hash
-        HashBuilder.new(context, **options)
+        HashBuilder.new(context, **)
       else
         raise ArgumentError, "Unknown builder type: #{type}"
       end

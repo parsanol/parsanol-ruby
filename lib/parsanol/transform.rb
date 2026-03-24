@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'parsanol/pattern'
+require "parsanol/pattern"
 
 # Tree transformation engine for converting parse trees into abstract syntax trees.
 #
@@ -223,4 +223,4 @@ module Parsanol
   end
 end
 
-require 'parsanol/context'
+require "parsanol/context"

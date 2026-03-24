@@ -5,15 +5,15 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'pp'
-require 'parsanol/parslet'
-require 'parsanol/convenience'
+require "pp"
+require "parsanol/parslet"
+require "parsanol/convenience"
 
 module MiniLisp
   class Parser < Parsanol::Parser
     root :expression
     rule(:expression) do
-      space? >> str('(') >> space? >> body >> str(')') >> space?
+      space? >> str("(") >> space? >> body >> str(")") >> space?
     end
 
     rule(:body) do
@@ -28,25 +28,25 @@ module MiniLisp
     end
 
     rule(:identifier) do
-      (match('[a-zA-Z=*]') >> match('[a-zA-Z=*_]').repeat).as(:identifier) >> space?
+      (match("[a-zA-Z=*]") >> match("[a-zA-Z=*_]").repeat).as(:identifier) >> space?
     end
 
     rule(:float) do
       (
         integer >> (
-          (str('.') >> match('[0-9]').repeat(1)) |
-          (str('e') >> match('[0-9]').repeat(1))
+          (str(".") >> match("[0-9]").repeat(1)) |
+          (str("e") >> match("[0-9]").repeat(1))
         ).as(:e)
       ).as(:float) >> space?
     end
 
     rule(:integer) do
-      ((str('+') | str('-')).maybe >> match('[0-9]').repeat(1)).as(:integer) >> space?
+      ((str("+") | str("-")).maybe >> match("[0-9]").repeat(1)).as(:integer) >> space?
     end
 
     rule(:string) do
       str('"') >> (
-        (str('\\') >> any) |
+        (str("\\") >> any) |
         (str('"').absent? >> any)
       ).repeat.as(:string) >> str('"') >> space?
     end

@@ -4,16 +4,16 @@
 # The parser recognizes strings and integer literals and constructs almost a
 # useful AST from the file contents.
 
-require 'pp'
+require "pp"
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
-require 'parsanol/parslet'
+require "parsanol/parslet"
 
 include Parsanol::Parslet
 
 class LiteralsParser < Parsanol::Parser
   rule :space do
-    (match '[ ]').repeat(1)
+    (match "[ ]").repeat(1)
   end
 
   rule :literals do
@@ -27,14 +27,14 @@ class LiteralsParser < Parsanol::Parser
   rule :string do
     str('"') >>
       (
-        (str('\\') >> any) |
+        (str("\\") >> any) |
         (str('"').absent? >> any)
       ).repeat.as(:string) >>
       str('"')
   end
 
   rule :integer do
-    match('[0-9]').repeat(1).as(:integer)
+    match("[0-9]").repeat(1).as(:integer)
   end
 
   rule :eol do
@@ -52,7 +52,7 @@ class LiteralsParser < Parsanol::Parser
   root :literals
 end
 
-input_name = File.join(File.dirname(__FILE__), 'simple.lit')
+input_name = File.join(File.dirname(__FILE__), "simple.lit")
 file = File.read(input_name)
 
 parsetree = LiteralsParser.new.parse(file)

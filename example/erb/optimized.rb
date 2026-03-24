@@ -3,22 +3,22 @@
 # Please also look at the more naive 'erb.rb'. This shows how to optimize an
 # ERB like parser using parslet.
 
-$LOAD_PATH.unshift File.join(File.dirname(__FILE__), '/../lib')
+$LOAD_PATH.unshift File.join(File.dirname(__FILE__), "/../lib")
 
-require 'parsanol/parslet'
-require './qed/applique/gobbleup'
-require 'parsanol/accelerator'
+require "parsanol/parslet"
+require "./qed/applique/gobbleup"
+require "parsanol/accelerator"
 
 class ErbParser < Parsanol::Parser
-  rule(:ruby) { (str('%>').absent? >> any).repeat.as(:ruby) }
+  rule(:ruby) { (str("%>").absent? >> any).repeat.as(:ruby) }
 
-  rule(:expression) { (str('=') >> ruby).as(:expression) }
-  rule(:comment) { (str('#') >> ruby).as(:comment) }
+  rule(:expression) { (str("=") >> ruby).as(:expression) }
+  rule(:comment) { (str("#") >> ruby).as(:comment) }
   rule(:code) { ruby.as(:code) }
   rule(:erb) { expression | comment | code }
 
-  rule(:erb_with_tags) { str('<%') >> erb >> str('%>') }
-  rule(:text) { (str('<%').absent? >> any).repeat(1) }
+  rule(:erb_with_tags) { str("<%") >> erb >> str("%>") }
+  rule(:text) { (str("<%").absent? >> any).repeat(1) }
 
   rule(:text_with_ruby) { (text.as(:text) | erb_with_tags).repeat.as(:text) }
   root(:text_with_ruby)
@@ -28,8 +28,12 @@ parser = ErbParser.new
 
 A = Parsanol::Accelerator
 optimized = A.apply(parser,
-                    A.rule((A.str(:x).absent? >> A.any).repeat(1)) { GobbleUp.new(x, 1) },
-                    A.rule((A.str(:x).absent? >> A.any).repeat(0)) { GobbleUp.new(x, 0) })
+                    A.rule((A.str(:x).absent? >> A.any).repeat(1)) do
+                      GobbleUp.new(x, 1)
+                    end,
+                    A.rule((A.str(:x).absent? >> A.any).repeat(0)) do
+                      GobbleUp.new(x, 0)
+                    end)
 
 input = File.read("#{File.dirname(__FILE__)}/big.erb")
 

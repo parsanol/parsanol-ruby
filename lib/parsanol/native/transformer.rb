@@ -18,9 +18,9 @@ module Parsanol
     #
     class AstTransformer
       # Frozen string constants for tag comparisons (avoid allocations)
-      SEQUENCE_TAG = ':sequence'
-      REPETITION_TAG = ':repetition'
-      EMPTY_STRING = ''
+      SEQUENCE_TAG = ":sequence"
+      REPETITION_TAG = ":repetition"
+      EMPTY_STRING = ""
       EMPTY_ARRAY = [].freeze
       EMPTY_HASH = {}.freeze
 
@@ -62,7 +62,7 @@ module Parsanol
         # Check if this is a tagged array from native parser
         # Native parser produces Symbol tags: [:sequence, item1, item2, ...]
         first = arr.first
-        if first == SEQUENCE_SYM || first == SEQUENCE_TAG
+        if [SEQUENCE_SYM, SEQUENCE_TAG].include?(first)
           # Optimized: transform items starting from index 1
           # Avoid creating arr[1..] slice
           len = arr.length
@@ -75,7 +75,7 @@ module Parsanol
             i += 1
           end
           flatten_sequence(items)
-        elsif first == REPETITION_SYM || first == REPETITION_TAG
+        elsif [REPETITION_SYM, REPETITION_TAG].include?(first)
           # Optimized: transform items starting from index 1
           len = arr.length
           return EMPTY_ARRAY if len == 1
@@ -87,7 +87,7 @@ module Parsanol
             i += 1
           end
           flatten_repetition(items)
-        elsif first.is_a?(Symbol) || (first.is_a?(String) && first.start_with?(':'))
+        elsif first.is_a?(Symbol) || (first.is_a?(String) && first.start_with?(":"))
           # Other tagged arrays - pass through
           arr.map { |item| transform(item) }
         else
@@ -119,13 +119,15 @@ module Parsanol
 
         # Check if value is a tagged repetition from native parser
         is_tagged_repetition = value.is_a?(Array) && !value.empty? &&
-                               value.first.is_a?(String) && value.first == REPETITION_TAG
+          value.first.is_a?(String) && value.first == REPETITION_TAG
 
         # Check RAW value for repetition pattern BEFORE transformation
         # Array with items that all have the parent key
         # e.g., [{x: 1}, {x: 2}] where parent key is :x
         is_raw_array_repetition = value.is_a?(Array) && !value.empty? &&
-                                  value.all? { |item| item.is_a?(Hash) && item.keys.length == 1 && item.key?(key) }
+          value.all? do |item|
+            item.is_a?(Hash) && item.keys.length == 1 && item.key?(key)
+          end
 
         # Empty array from native parser is a repetition result (not a sequence)
         # Sequences produce arrays of arrays like [[], []], not empty arrays
@@ -134,12 +136,15 @@ module Parsanol
         # Special handling for arrays that look like character repetitions
         # (arrays of single-character Slices/strings should be joined)
         if transformed.is_a?(Array) && !transformed.empty? &&
-           transformed.all? { |item| slice_or_string?(item) && item_length(item) == 1 }
+            transformed.all? do |item|
+              slice_or_string?(item) && item_length(item) == 1
+            end
           # Join preserving position from first Slice
           first_slice = transformed.find { |i| i.is_a?(::Parsanol::Slice) }
           content = transformed.map { |i| slice_content(i) }.join
           transformed = if first_slice
-                          ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input)
+                          ::Parsanol::Slice.new(first_slice.offset, content,
+                                                first_slice.input)
                         else
                           content
                         end
@@ -148,9 +153,9 @@ module Parsanol
         # Check for UNTAGGED repetition pattern (native output):
         # If array items all have the same key as parent, it's a repetition
         is_transformed_repetition = transformed.is_a?(Array) && !transformed.empty? &&
-                                    transformed.all? do |item|
-                                      item.is_a?(Hash) && item.keys.length == 1 && item.key?(sym_key)
-                                    end
+          transformed.all? do |item|
+            item.is_a?(Hash) && item.keys.length == 1 && item.key?(sym_key)
+          end
 
         is_repetition = is_tagged_repetition || is_raw_array_repetition || is_transformed_repetition || is_empty_repetition
 
@@ -184,7 +189,9 @@ module Parsanol
           if transformed.empty?
             { sym_key => EMPTY_ARRAY }
           # Check if items already have the same key (avoid double-wrapping)
-          elsif transformed.all? { |item| item.is_a?(Hash) && item.key?(sym_key) }
+          elsif transformed.all? do |item|
+            item.is_a?(Hash) && item.key?(sym_key)
+          end
             { sym_key => transformed }
           else
             # Wrap each item with the name
@@ -207,7 +214,9 @@ module Parsanol
           # We can't tell from the value alone, so we return empty Slice (sequence semantics)
           # The repetition detection in transform_single_key_hash will handle the other case
           { sym_key => ::Parsanol::Slice.new(0, EMPTY_STRING, nil) }
-        elsif transformed.all? { |v| v.is_a?(Hash) && v.keys.length == 1 && v.key?(sym_key) }
+        elsif transformed.all? do |v|
+          v.is_a?(Hash) && v.keys.length == 1 && v.key?(sym_key)
+        end
           # Items already have the parent key (repetition pattern) - keep as-is
           { sym_key => transformed }
         elsif transformed.all?(Hash)
@@ -229,13 +238,15 @@ module Parsanol
           sym_key = cached_symbol(key)
 
           is_repetition = value.is_a?(Array) && !value.empty? &&
-                          value.first.is_a?(String) && value.first == REPETITION_TAG
+            value.first.is_a?(String) && value.first == REPETITION_TAG
 
           transformed = transform(value)
 
           result[sym_key] = if is_repetition
                               if transformed.is_a?(Array)
-                                if transformed.all? { |item| item.is_a?(Hash) && item.key?(sym_key) }
+                                if transformed.all? do |item|
+                                  item.is_a?(Hash) && item.key?(sym_key)
+                                end
                                   transformed
                                 else
                                   transformed.map { |item| { sym_key => item } }
@@ -308,7 +319,7 @@ module Parsanol
             else
               # Check if array contains only hashes (repetition wrapper pattern)
               # In this case, merge the inner hashes into merged_hash
-              non_hash_items = item.reject { |sub| sub.is_a?(Hash) }
+              non_hash_items = item.grep_v(Hash)
               all_items_are_hashes = non_hash_items.empty?
 
               if all_items_are_hashes
@@ -399,12 +410,16 @@ module Parsanol
               # REPETITION pattern (same keys like entity_decl): keep as array
               # WRAPPER pattern (different keys like spaces vs schemaDecl): merge
               first_inner_keys = items.first[wrapper_key].keys.to_set
-              all_same_keys = items.all? { |item| item[wrapper_key].keys.to_set == first_inner_keys }
+              items.all? do |item|
+                item[wrapper_key].keys.to_set == first_inner_keys
+              end
 
               # Check if items have single keys or multiple keys
               # - Single key items with repeated outer key = true repetition (keep array)
               # - Multiple key items with repeated outer key = duplicate labels in sequence (merge)
-              max_keys_per_item = items.map { |item| item.is_a?(Hash) ? item.keys.length : 0 }.max || 0
+              max_keys_per_item = items.map do |item|
+                item.is_a?(Hash) ? item.keys.length : 0
+              end.max || 0
 
               # Check if inner values are hashes with different keys
               # This distinguishes:
@@ -412,9 +427,13 @@ module Parsanol
               # - Duplicate labels: [{group: {char: 'a'}}, {group: {digit: '5'}}] - inner is hash with different keys
               inner_keys_all_same = true
               first_inner_keys = nil
-              if items.all? { |item| item.is_a?(Hash) && item[wrapper_key].is_a?(Hash) }
+              if items.all? do |item|
+                item.is_a?(Hash) && item[wrapper_key].is_a?(Hash)
+              end
                 first_inner_keys = items.first[wrapper_key].keys.to_set
-                inner_keys_all_same = items.all? { |item| item[wrapper_key].keys.to_set == first_inner_keys }
+                inner_keys_all_same = items.all? do |item|
+                  item[wrapper_key].keys.to_set == first_inner_keys
+                end
               end
 
               # DUPLICATE LABELS IN SEQUENCE: multiple keys per item with repeated outer key
@@ -426,7 +445,9 @@ module Parsanol
 
               # Check if inner hashes have the same keys or different keys
               first_inner_keys ||= items.first[wrapper_key].keys.to_set
-              all_same_keys = items.all? { |item| item[wrapper_key].keys.to_set == first_inner_keys }
+              all_same_keys = items.all? do |item|
+                item[wrapper_key].keys.to_set == first_inner_keys
+              end
 
               if has_duplicate_labels
                 # DUPLICATE LABELS PATTERN: items have multiple keys with repeated outer key
@@ -436,7 +457,7 @@ module Parsanol
                 merged = {}
                 items.each do |item|
                   item.each do |k, v|
-                    merged[k] = v  # Last value wins
+                    merged[k] = v # Last value wins
                   end
                 end
                 # Return only the wrapper key with its last value
@@ -475,11 +496,14 @@ module Parsanol
         if slice_or_string_parts.any?
           # Join Slices/strings, preserving position from first Slice
           first_slice = slice_or_string_parts.find { |i| i.is_a?(::Parsanol::Slice) }
-          content = slice_or_string_parts.map { |i| i.is_a?(::Parsanol::Slice) ? i.content : i }.join
+          content = slice_or_string_parts.map do |i|
+            i.is_a?(::Parsanol::Slice) ? i.content : i
+          end.join
 
           if first_slice
             # Create new Slice with combined content, preserving position from first
-            return ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input)
+            return ::Parsanol::Slice.new(first_slice.offset, content,
+                                         first_slice.input)
           else
             # All plain strings (shouldn't happen with new decode_flat, but handle it)
             return slice_or_string_parts.length == 1 ? slice_or_string_parts.first : content
@@ -520,11 +544,14 @@ module Parsanol
         # If all Slices or strings, join them preserving position from first Slice
         if all_slices_or_strings
           first_slice = flat_items.find { |i| i.is_a?(::Parsanol::Slice) }
-          content = flat_items.map { |i| i.is_a?(::Parsanol::Slice) ? i.content : i }.join
+          content = flat_items.map do |i|
+            i.is_a?(::Parsanol::Slice) ? i.content : i
+          end.join
 
           if first_slice
             # Create new Slice with combined content, preserving position from first
-            ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input)
+            ::Parsanol::Slice.new(first_slice.offset, content,
+                                  first_slice.input)
           else
             # All plain strings (shouldn't happen with new decode_flat, but handle it)
             content

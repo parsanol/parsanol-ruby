@@ -25,7 +25,10 @@ module Parsanol
         unless (entry = @cache[beg]&.[](obj.object_id))
           result = obj.try(source, self, consume_all)
 
-          (@cache[beg] ||= {})[obj.object_id] = [result, source.bytepos - beg] if obj.cached?
+          if obj.cached?
+            (@cache[beg] ||= {})[obj.object_id] =
+              [result, source.bytepos - beg]
+          end
 
           return result
         end
@@ -45,13 +48,24 @@ module Parsanol
         case parslets.size
         when 1
           success, value = parslets[0].apply(source, context, consume_all)
-          success ? succ([:sequence, value]) : context.err(self, source, @error_msg, [value])
+          if success
+            succ([:sequence,
+                  value])
+          else
+            context.err(self, source, @error_msg,
+                        [value])
+          end
         when 2
           success, v1 = parslets[0].apply(source, context, false)
           return context.err(self, source, @error_msg, [v1]) unless success
 
           success, v2 = parslets[1].apply(source, context, consume_all)
-          success ? succ([:sequence, v1, v2]) : context.err(self, source, @error_msg, [v2])
+          if success
+            succ([:sequence, v1,
+                  v2])
+          else
+            context.err(self, source, @error_msg, [v2])
+          end
         when 3
           success, v1 = parslets[0].apply(source, context, false)
           return context.err(self, source, @error_msg, [v1]) unless success
@@ -60,13 +74,19 @@ module Parsanol
           return context.err(self, source, @error_msg, [v2]) unless success
 
           success, v3 = parslets[2].apply(source, context, consume_all)
-          success ? succ([:sequence, v1, v2, v3]) : context.err(self, source, @error_msg, [v3])
+          if success
+            succ([:sequence, v1, v2,
+                  v3])
+          else
+            context.err(self, source, @error_msg, [v3])
+          end
         else
           result = [:sequence]
           last_idx = parslets.size - 1
           i = 0
           while i <= last_idx
-            success, value = parslets[i].apply(source, context, consume_all && i == last_idx)
+            success, value = parslets[i].apply(source, context,
+                                               consume_all && i == last_idx)
             return context.err(self, source, @error_msg, [value]) unless success
 
             result << value
@@ -100,22 +120,37 @@ module Parsanol
           case max
           when 1
             success, value = parslet.apply(source, context, consume_all)
-            return success ? succ([tag, value]) : context.err_at(self, source, @error_msg, source.bytepos, [value])
+            return success ? succ([tag,
+                                   value]) : context.err_at(self, source,
+                                                            @error_msg, source.bytepos, [value])
           when 2
             success, v1 = parslet.apply(source, context, false)
-            return context.err_at(self, source, @error_msg, source.bytepos, [v1]) unless success
+            unless success
+              return context.err_at(self, source, @error_msg, source.bytepos,
+                                    [v1])
+            end
 
             success, v2 = parslet.apply(source, context, consume_all)
-            return success ? succ([tag, v1, v2]) : context.err_at(self, source, @error_msg, source.bytepos, [v2])
+            return success ? succ([tag, v1,
+                                   v2]) : context.err_at(self, source,
+                                                         @error_msg, source.bytepos, [v2])
           when 3
             success, v1 = parslet.apply(source, context, false)
-            return context.err_at(self, source, @error_msg, source.bytepos, [v1]) unless success
+            unless success
+              return context.err_at(self, source, @error_msg, source.bytepos,
+                                    [v1])
+            end
 
             success, v2 = parslet.apply(source, context, false)
-            return context.err_at(self, source, @error_msg, source.bytepos, [v2]) unless success
+            unless success
+              return context.err_at(self, source, @error_msg, source.bytepos,
+                                    [v2])
+            end
 
             success, v3 = parslet.apply(source, context, consume_all)
-            return success ? succ([tag, v1, v2, v3]) : context.err_at(self, source, @error_msg, source.bytepos, [v3])
+            return success ? succ([tag, v1, v2,
+                                   v3]) : context.err_at(self, source,
+                                                         @error_msg, source.bytepos, [v3])
           end
         end
 
@@ -140,7 +175,10 @@ module Parsanol
           return context.err_at(self, source, @error_msg, start_pos, [break_on])
         end
 
-        return context.err(self, source, @unconsumed_msg, [break_on]) if consume_all && source.chars_left.positive?
+        if consume_all && source.chars_left.positive?
+          return context.err(self, source, @unconsumed_msg,
+                             [break_on])
+        end
 
         succ(result)
       end

@@ -2,8 +2,8 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol/parslet'
-require 'pp'
+require "parsanol/parslet"
+require "pp"
 
 tree = { bud: { stem: [] } }
 
@@ -23,8 +23,8 @@ end
 class Fall < Parsanol::Transform
   rule(branch: sequence(:x)) do
     x.each do |e|
-      puts 'Fruit!' if e == :flower
-      puts 'Falling Leaves!' if e == :leaf
+      puts "Fruit!" if e == :flower
+      puts "Falling Leaves!" if e == :leaf
     end
     { branch: [] }
   end

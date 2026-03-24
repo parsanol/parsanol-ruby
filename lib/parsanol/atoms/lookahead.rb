@@ -28,8 +28,8 @@ module Parsanol
         @bound_parslet = parser
 
         # Pre-built error components
-        @should_start = ['Input should start with ', parser].freeze
-        @should_not_start = ['Input should not start with ', parser].freeze
+        @should_start = ["Input should start with ", parser].freeze
+        @should_not_start = ["Input should not start with ", parser].freeze
       end
 
       # Tests lookahead without consuming input.
@@ -54,7 +54,10 @@ module Parsanol
           context.err_at(self, source, @should_start, source.bytepos)
         else
           # Negative: succeed if not matched
-          return context.err_at(self, source, @should_not_start, source.bytepos) if matched
+          if matched
+            return context.err_at(self, source, @should_not_start,
+                                  source.bytepos)
+          end
 
           ok(nil)
         end
@@ -67,7 +70,7 @@ module Parsanol
       # @param prec [Integer] precedence
       # @return [String]
       def to_s_inner(prec)
-        symbol = @positive ? '&' : '!'
+        symbol = @positive ? "&" : "!"
         "#{symbol}#{@bound_parslet.to_s(prec)}"
       end
 

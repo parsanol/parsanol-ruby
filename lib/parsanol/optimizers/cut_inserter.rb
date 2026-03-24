@@ -84,7 +84,7 @@ module Parsanol
         Parsanol::Atoms::Repetition.new(
           optimized_parslet,
           rep.min,
-          rep.max
+          rep.max,
         )
       end
 
@@ -101,7 +101,10 @@ module Parsanol
         # For sequences, find the longest safe prefix
         if parslet.is_a?(Parsanol::Atoms::Sequence)
           prefix_parslets = find_deterministic_prefix(parslet)
-          return build_cut_sequence(parslet, prefix_parslets) if prefix_parslets && !prefix_parslets.empty?
+          if prefix_parslets && !prefix_parslets.empty?
+            return build_cut_sequence(parslet,
+                                      prefix_parslets)
+          end
         end
 
         # For other atoms, cut the whole thing if safe

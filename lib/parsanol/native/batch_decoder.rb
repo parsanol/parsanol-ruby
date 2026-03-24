@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'parsanol/native/transformer'
+require "parsanol/native/transformer"
 
 module Parsanol
   module Native
@@ -59,7 +59,7 @@ module Parsanol
         # @param slice_class [Class] The Slice class to use
         # @param grammar_atom [Parsanol::Atoms::Base] The grammar atom (unused, kept for API compat)
         # @return [Object] Transformed Ruby AST
-        def decode_and_flatten(data, input, slice_class, grammar_atom)
+        def decode_and_flatten(data, input, slice_class, _grammar_atom)
           # Check if data is batch data (flat u64 array) or already a Ruby value
           if data.is_a?(Integer) || (data.is_a?(Array) && data.first.is_a?(Integer))
             # Batch data (flat u64 array) - decode first, then transform
@@ -84,11 +84,13 @@ module Parsanol
           case value
           when Array
             # Recursively process array elements
-            processed = value.map { |v| join_consecutive_slices(v, slice_class, input) }
+            processed = value.map do |v|
+              join_consecutive_slices(v, slice_class, input)
+            end
 
             # Check if all non-nil elements are Slices
             non_nil = processed.compact
-            if non_nil.all? { |v| v.is_a?(slice_class) }
+            if non_nil.all?(slice_class)
               # Check if slices are consecutive
               if slices_consecutive?(non_nil)
                 # Join into single slice
@@ -129,7 +131,7 @@ module Parsanol
           last = slices.last
           total_length = last.offset + last.content.bytesize - first.offset
           content = input_bytes[first.offset, total_length]
-          content = content.force_encoding('UTF-8') if content
+          content = content.force_encoding("UTF-8") if content
           slice_class.new(first.offset, content, input)
         end
 
@@ -156,7 +158,7 @@ module Parsanol
             bits = @data[@pos]
             @pos += 1
             # Convert IEEE 754 bits to float
-            [bits].pack('Q').unpack1('D')
+            [bits].pack("Q").unpack1("D")
           when TAG_STRING
             offset = @data[@pos]
             length = @data[@pos + 1]
@@ -203,6 +205,7 @@ module Parsanol
 
             # Read key
             raise "Expected TAG_HASH_KEY, got #{tag}" unless tag == TAG_HASH_KEY
+
             @pos += 1
             key = decode_inline_string
 
@@ -228,22 +231,23 @@ module Parsanol
         def decode_inline_string_bytes(len)
           # Read u64 chunks
           chunks = (len + 7) / 8
-          bytes = String.new(encoding: 'ASCII-8BIT', capacity: len)
+          bytes = String.new(encoding: "ASCII-8BIT", capacity: len)
           chunks.times do
             chunk = @data[@pos]
             @pos += 1
             8.times do |byte_idx|
               break if bytes.bytesize >= len
+
               bytes << ((chunk >> (byte_idx * 8)) & 0xFF)
             end
           end
 
-          bytes.force_encoding('UTF-8')
+          bytes.force_encoding("UTF-8")
         end
 
         def create_slice(offset, length)
           content = @input_bytes[offset, length]
-          content = content.force_encoding('UTF-8') if content
+          content = content.force_encoding("UTF-8") if content
           @slice_class.new(offset, content, @input)
         end
       end

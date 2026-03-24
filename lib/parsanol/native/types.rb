@@ -19,9 +19,9 @@ module Parsanol
       TAG_INLINE_STRING = 0x0A
 
       # Frozen string constants for transformer (avoid allocations)
-      SEQUENCE_TAG = ':sequence'
-      REPETITION_TAG = ':repetition'
-      EMPTY_STRING = ''
+      SEQUENCE_TAG = ":sequence"
+      REPETITION_TAG = ":repetition"
+      EMPTY_STRING = ""
       EMPTY_ARRAY = [].freeze
       EMPTY_HASH = {}.freeze
     end

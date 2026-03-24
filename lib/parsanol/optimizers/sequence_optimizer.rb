@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../ast_visitor'
+require_relative "../ast_visitor"
 
 module Parsanol
   module Optimizers

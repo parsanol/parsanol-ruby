@@ -12,14 +12,14 @@ module Parsanol
 
     attr_reader :content, :input
 
-    def initialize(byte_offset = 0, string_content = '', input = nil)
+    def initialize(byte_offset = 0, string_content = "", input = nil)
       @byte_position = byte_offset
       @content = string_content
       @input = input
       @line_and_column = nil
     end
 
-    def reset!(new_offset = 0, new_content = '', new_input = nil)
+    def reset!(new_offset = 0, new_content = "", new_input = nil)
       @byte_position = new_offset
       @content = new_content
       @input = new_input
@@ -44,6 +44,7 @@ module Parsanol
     def ==(other)
       return content == other if other.is_a?(String)
       return content == other.content if other.is_a?(Parsanol::Slice)
+
       content == other
     end
 
@@ -72,7 +73,8 @@ module Parsanol
 
     # Lazy line/column — computed once and cached.
     def line_and_column
-      raise ArgumentError, 'Line/column requires input' unless @input
+      raise ArgumentError, "Line/column requires input" unless @input
+
       @line_and_column ||= compute_line_and_column
     end
 
@@ -109,11 +111,11 @@ module Parsanol
     end
 
     def as_json(_options = {})
-      result = { 'value' => content, 'offset' => offset, 'length' => length }
+      result = { "value" => content, "offset" => offset, "length" => length }
       if @input
         line, column = line_and_column
-        result['line'] = line
-        result['column'] = column
+        result["line"] = line
+        result["column"] = column
       end
       result
     end
@@ -123,7 +125,8 @@ module Parsanol
       line, column = line_and_column
       end_line, end_column = line_and_column_at(offset + length)
       start_pos = SourcePosition.new(offset: offset, line: line, column: column)
-      end_pos = SourcePosition.new(offset: offset + length, line: end_line, column: end_column)
+      end_pos = SourcePosition.new(offset: offset + length, line: end_line,
+                                   column: end_column)
       SourceSpan.new(start_pos: start_pos, end_pos: end_pos)
     end
 
@@ -142,7 +145,7 @@ module Parsanol
         @input.line_and_column(pos)
       else
         # String input
-        prefix = @input.byteslice(0, pos) || ''
+        prefix = @input.byteslice(0, pos) || ""
         line = 1 + prefix.count("\n")
         last_nl = prefix.rindex("\n")
         column = last_nl ? pos - last_nl : pos + 1

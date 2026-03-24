@@ -32,7 +32,7 @@ module Parsanol
       end
 
       def to_s_inner(_prec)
-        'dynamic { ... }'
+        "dynamic { ... }"
       end
     end
   end

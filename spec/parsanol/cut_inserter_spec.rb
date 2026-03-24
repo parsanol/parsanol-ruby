@@ -1,71 +1,64 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require "spec_helper"
 
 describe Parsanol::Optimizers::CutInserter do
   include Parsanol
 
-  let(:inserter) { Parsanol::Optimizers::CutInserter.new }
+  let(:inserter) { described_class.new }
 
-  describe 'basic functionality' do
-    it 'returns parslet unchanged if not an alternative' do
-      parslet = str('hello')
+  describe "basic functionality" do
+    it "returns parslet unchanged if not an alternative" do
+      parslet = str("hello")
       result = inserter.optimize(parslet)
-      expect(result.to_s).to include('hello')
+      expect(result.to_s).to include("hello")
     end
 
-    it 'returns sequence unchanged if no alternatives inside' do
-      parslet = str('a') >> str('b')
+    it "returns sequence unchanged if no alternatives inside" do
+      parslet = str("a") >> str("b")
       result = inserter.optimize(parslet)
       # NOTE: Phase 24 may optimize this to str('ab')
       expect(result).to be_a(Parsanol::Atoms::Base)
     end
   end
 
-  describe 'disjoint alternatives' do
-    it 'inserts cuts for simple disjoint alternatives' do
-      parslet = str('if') | str('while') | str('print')
+  describe "disjoint alternatives" do
+    it "inserts cuts for simple disjoint alternatives" do
+      parslet = str("if") | str("while") | str("print")
       result = inserter.optimize(parslet)
 
       # Should insert cuts in each alternative
       expect(result).to be_a(Parsanol::Atoms::Alternative)
-      result.alternatives.each do |alt|
-        # Each alternative should be wrapped with cut
-        expect(alt).to be_a(Parsanol::Atoms::Cut)
-      end
+      expect(result.alternatives).to all(be_a(Parsanol::Atoms::Cut))
     end
 
-    it 'inserts cuts for two disjoint alternatives' do
-      parslet = str('yes') | str('no')
+    it "inserts cuts for two disjoint alternatives" do
+      parslet = str("yes") | str("no")
       result = inserter.optimize(parslet)
 
       expect(result).to be_a(Parsanol::Atoms::Alternative)
       expect(result.alternatives.size).to eq(2)
-      result.alternatives.each do |alt|
-        expect(alt).to be_a(Parsanol::Atoms::Cut)
-      end
+      expect(result.alternatives).to all(be_a(Parsanol::Atoms::Cut))
     end
 
-    it 'inserts cuts after deterministic prefix in sequences' do
+    it "inserts cuts after deterministic prefix in sequences" do
       # NOTE: Phase 24 may concatenate adjacent strings
       # So str('if') >> str(' ') >> str('x') may become str('if x')
-      parslet = (str('if') >> str(' ') >> str('x')) |
-                (str('while') >> str(' ') >> str('y'))
+      parslet = (str("if") >> str(" ") >> str("x")) |
+        (str("while") >> str(" ") >> str("y"))
       result = inserter.optimize(parslet)
 
       expect(result).to be_a(Parsanol::Atoms::Alternative)
       # Each alternative should be wrapped with cut
       # (May be Cut wrapping whole thing if Phase 24 concatenated strings)
-      result.alternatives.each do |alt|
-        expect(alt).to be_a(Parsanol::Atoms::Cut)
-      end
+      expect(result.alternatives).to all(be_a(Parsanol::Atoms::Cut))
     end
   end
 
-  describe 'overlapping alternatives' do
-    it 'does not insert cuts when FIRST sets overlap' do
+  describe "overlapping alternatives" do
+    it "does not insert cuts when FIRST sets overlap" do
       # Same atom in both alternatives - not disjoint
-      atom = str('same')
+      atom = str("same")
       parslet = atom | atom
       result = inserter.optimize(parslet)
 
@@ -77,11 +70,11 @@ describe Parsanol::Optimizers::CutInserter do
     end
   end
 
-  describe 'EPSILON handling' do
-    it 'does not cut after parslets with EPSILON in FIRST set' do
+  describe "EPSILON handling" do
+    it "does not cut after parslets with EPSILON in FIRST set" do
       # str('a').maybe has EPSILON in FIRST set
-      parslet = (str('a').maybe >> str('b')) |
-                (str('c') >> str('d'))
+      parslet = (str("a").maybe >> str("b")) |
+        (str("c") >> str("d"))
       result = inserter.optimize(parslet)
 
       # First alternative has EPSILON, so shouldn't have cut at start
@@ -93,10 +86,10 @@ describe Parsanol::Optimizers::CutInserter do
       expect(second_alt).to be_a(Parsanol::Atoms::Cut)
     end
 
-    it 'cuts after non-EPSILON prefix even if later elements have EPSILON' do
+    it "cuts after non-EPSILON prefix even if later elements have EPSILON" do
       # str('if') doesn't have EPSILON, safe to cut after it
-      parslet = (str('if') >> str('x').maybe >> str('y')) |
-                (str('while') >> str('z'))
+      parslet = (str("if") >> str("x").maybe >> str("y")) |
+        (str("while") >> str("z"))
       result = inserter.optimize(parslet)
 
       expect(result).to be_a(Parsanol::Atoms::Alternative)
@@ -108,12 +101,12 @@ describe Parsanol::Optimizers::CutInserter do
     end
   end
 
-  describe 'nested alternatives' do
-    it 'recursively optimizes nested alternatives' do
+  describe "nested alternatives" do
+    it "recursively optimizes nested alternatives" do
       # Outer alternative: 'a' | (inner alternative)
       # Inner alternative: 'b' | 'c'
-      inner = str('b') | str('c')
-      outer = str('a') | inner
+      inner = str("b") | str("c")
+      outer = str("a") | inner
 
       result = inserter.optimize(outer)
 
@@ -130,28 +123,26 @@ describe Parsanol::Optimizers::CutInserter do
       # The inner alternative was optimized and wrapped
       # Structure: outer sees flattened alternatives OR nested structure
       # Just verify both alternatives have cuts applied somewhere
-      expect(result.to_s).to include('↑')
+      expect(result.to_s).to include("↑")
     end
   end
 
-  describe 'repetitions' do
-    it 'recursively optimizes alternatives inside repetitions' do
-      parslet = (str('a') | str('b')).repeat(1, 3)
+  describe "repetitions" do
+    it "recursively optimizes alternatives inside repetitions" do
+      parslet = (str("a") | str("b")).repeat(1, 3)
       result = inserter.optimize(parslet)
 
       expect(result).to be_a(Parsanol::Atoms::Repetition)
       # The inner alternative should be optimized
       inner = result.parslet
       expect(inner).to be_a(Parsanol::Atoms::Alternative)
-      inner.alternatives.each do |alt|
-        expect(alt).to be_a(Parsanol::Atoms::Cut)
-      end
+      expect(inner.alternatives).to all(be_a(Parsanol::Atoms::Cut))
     end
   end
 
-  describe 'named atoms' do
-    it 'recursively optimizes named alternatives' do
-      parslet = (str('x') | str('y')).as(:choice)
+  describe "named atoms" do
+    it "recursively optimizes named alternatives" do
+      parslet = (str("x") | str("y")).as(:choice)
       result = inserter.optimize(parslet)
 
       expect(result).to be_a(Parsanol::Atoms::Named)
@@ -160,20 +151,18 @@ describe Parsanol::Optimizers::CutInserter do
       # The wrapped alternative should be optimized
       inner = result.parslet
       expect(inner).to be_a(Parsanol::Atoms::Alternative)
-      inner.alternatives.each do |alt|
-        expect(alt).to be_a(Parsanol::Atoms::Cut)
-      end
+      expect(inner.alternatives).to all(be_a(Parsanol::Atoms::Cut))
     end
   end
 
-  describe 'complex grammars' do
-    it 'optimizes statement-like grammar' do
+  describe "complex grammars" do
+    it "optimizes statement-like grammar" do
       # Simulates: if_stmt | while_stmt | print_stmt
       # Each statement has keyword followed by other stuff
       # Note: Phase 24 may concatenate these into single strings
-      if_stmt = str('if') >> str(' ') >> str('condition')
-      while_stmt = str('while') >> str(' ') >> str('condition')
-      print_stmt = str('print') >> str(' ') >> str('expr')
+      if_stmt = str("if") >> str(" ") >> str("condition")
+      while_stmt = str("while") >> str(" ") >> str("condition")
+      print_stmt = str("print") >> str(" ") >> str("expr")
 
       parslet = if_stmt | while_stmt | print_stmt
       result = inserter.optimize(parslet)
@@ -185,14 +174,15 @@ describe Parsanol::Optimizers::CutInserter do
       # The exact structure depends on Phase 24 optimization
       result.alternatives.each do |alt|
         # Should be either Cut or Sequence with Cut
-        expect([Parsanol::Atoms::Cut, Parsanol::Atoms::Sequence]).to include(alt.class)
+        expect([Parsanol::Atoms::Cut,
+                Parsanol::Atoms::Sequence]).to include(alt.class)
       end
     end
 
-    it 'handles mixed safe and unsafe alternatives correctly' do
+    it "handles mixed safe and unsafe alternatives correctly" do
       # If FIRST sets aren't all disjoint, no cuts
-      parslet = (str('a') >> str('b')) |
-                (str('a') >> str('c')) # Both start with 'a' - not disjoint!
+      parslet = (str("a") >> str("b")) |
+        (str("a") >> str("c")) # Both start with 'a' - not disjoint!
 
       result = inserter.optimize(parslet)
 
@@ -202,19 +192,19 @@ describe Parsanol::Optimizers::CutInserter do
     end
   end
 
-  describe 'edge cases' do
-    it 'handles single alternative (no optimization needed)' do
+  describe "edge cases" do
+    it "handles single alternative (no optimization needed)" do
       # Alternative with one option - trivial case
-      parslet = Parsanol::Atoms::Alternative.new(str('only'))
+      parslet = Parsanol::Atoms::Alternative.new(str("only"))
       result = inserter.optimize(parslet)
 
       # Should still work, just return optimized single alternative
       expect(result).to be_a(Parsanol::Atoms::Alternative)
     end
 
-    it 'handles empty sequence prefix (no cut insertion)' do
+    it "handles empty sequence prefix (no cut insertion)" do
       # If prefix is empty, shouldn't insert cut
-      parslet = (str('a').maybe >> str('b')) | str('c')
+      parslet = (str("a").maybe >> str("b")) | str("c")
       result = inserter.optimize(parslet)
 
       # Alternatives are disjoint but first has EPSILON prefix
@@ -222,29 +212,29 @@ describe Parsanol::Optimizers::CutInserter do
     end
   end
 
-  describe 'preservation of semantics' do
-    it 'produces parslet that parses the same input' do
-      parslet = str('if') | str('while') | str('for')
+  describe "preservation of semantics" do
+    it "produces parslet that parses the same input" do
+      parslet = str("if") | str("while") | str("for")
       optimized = inserter.optimize(parslet)
 
       # Should parse same inputs
-      expect(parslet.parse('if')).to eq('if')
-      expect(optimized.parse('if')).to eq('if')
+      expect(parslet.parse("if")).to eq("if")
+      expect(optimized.parse("if")).to eq("if")
 
-      expect(parslet.parse('while')).to eq('while')
-      expect(optimized.parse('while')).to eq('while')
+      expect(parslet.parse("while")).to eq("while")
+      expect(optimized.parse("while")).to eq("while")
 
-      expect(parslet.parse('for')).to eq('for')
-      expect(optimized.parse('for')).to eq('for')
+      expect(parslet.parse("for")).to eq("for")
+      expect(optimized.parse("for")).to eq("for")
     end
 
-    it 'produces parslet that fails on same invalid input' do
-      parslet = str('yes') | str('no')
+    it "produces parslet that fails on same invalid input" do
+      parslet = str("yes") | str("no")
       optimized = inserter.optimize(parslet)
 
       # Both should fail on invalid input
-      expect { parslet.parse('maybe') }.to raise_error(Parsanol::ParseFailed)
-      expect { optimized.parse('maybe') }.to raise_error(Parsanol::ParseFailed)
+      expect { parslet.parse("maybe") }.to raise_error(Parsanol::ParseFailed)
+      expect { optimized.parse("maybe") }.to raise_error(Parsanol::ParseFailed)
     end
   end
 end

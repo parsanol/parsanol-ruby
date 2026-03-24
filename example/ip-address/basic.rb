@@ -10,8 +10,8 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'pp'
-require 'parsanol/parslet'
+require "pp"
+require "parsanol/parslet"
 
 module IPv4
   include Parsanol::Parslet
@@ -23,20 +23,20 @@ module IPv4
   # some platforms, as described in Section 7.4, but only the dotted-decimal
   # form of four octets is allowed by this grammar.
   rule(:ipv4) do
-    (dec_octet >> str('.') >> dec_octet >> str('.') >>
-      dec_octet >> str('.') >> dec_octet).as(:ipv4)
+    (dec_octet >> str(".") >> dec_octet >> str(".") >>
+      dec_octet >> str(".") >> dec_octet).as(:ipv4)
   end
 
   rule(:dec_octet) do
-    (str('25') >> match('[0-5]')) |
-      (str('2') >> match('[0-4]') >> digit) |
-      (str('1') >> digit >> digit) |
-      (match('[1-9]') >> digit) |
+    (str("25") >> match("[0-5]")) |
+      (str("2") >> match("[0-4]") >> digit) |
+      (str("1") >> digit >> digit) |
+      (match("[1-9]") >> digit) |
       digit
   end
 
   rule(:digit) do
-    match('[0-9]')
+    match("[0-9]")
   end
 end
 
@@ -44,7 +44,7 @@ end
 module IPv6
   include Parsanol::Parslet
 
-  rule(:colon) { str(':') }
+  rule(:colon) { str(":") }
   rule(:dcolon) { colon >> colon }
 
   # h16 :
@@ -92,7 +92,7 @@ module IPv6
   end
 
   rule(:hexdigit) do
-    digit | match('[a-fA-F]')
+    digit | match("[a-fA-F]")
   end
 end
 
@@ -117,7 +117,7 @@ end
   1:2
 ].each do |address|
   parser = Parser.new
-  printf '%30s -> ', address
+  printf "%30s -> ", address
   begin
     result = parser.parse(address)
     puts result.inspect

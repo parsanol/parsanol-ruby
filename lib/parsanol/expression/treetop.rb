@@ -44,7 +44,7 @@ module Parsanol
 
         # Alternative: 'a' / 'b'
         rule(:alternatives) do
-          (simple >> (spaced('/') >> simple).repeat).as(:alt)
+          (simple >> (spaced("/") >> simple).repeat).as(:alt)
         end
 
         # Sequence by concatenation: 'a' 'b'
@@ -52,15 +52,15 @@ module Parsanol
 
         # Occurrence modifiers: ?, *, +, {min,max}
         rule(:occurrence) do
-          (atom.as(:repetition) >> spaced('*').as(:sign)) |
-            (atom.as(:repetition) >> spaced('+').as(:sign)) |
+          (atom.as(:repetition) >> spaced("*").as(:sign)) |
+            (atom.as(:repetition) >> spaced("+").as(:sign)) |
             (atom.as(:repetition) >> repetition_spec) |
-            (atom.as(:maybe) >> spaced('?')) |
+            (atom.as(:maybe) >> spaced("?")) |
             atom
         end
 
         rule(:atom) do
-          (spaced('(') >> expression.as(:unwrap) >> spaced(')')) |
+          (spaced("(") >> expression.as(:unwrap) >> spaced(")")) |
             dot |
             string |
             char_class
@@ -68,30 +68,30 @@ module Parsanol
 
         # Character class: [a-z], [0-9], etc.
         rule(:char_class) do
-          (str('[') >>
-            ((str('\\') >> any) | (str(']').absent? >> any)).repeat(1) >>
-            str(']')).as(:match) >> space?
+          (str("[") >>
+            ((str("\\") >> any) | (str("]").absent? >> any)).repeat(1) >>
+            str("]")).as(:match) >> space?
         end
 
         # Any character: .
-        rule(:dot) { spaced('.').as(:any) }
+        rule(:dot) { spaced(".").as(:any) }
 
         # String literal: 'hello'
         rule(:string) do
           str("'") >>
-            ((str('\\') >> any) | (str("'").absent? >> any)).repeat.as(:string) >>
+            ((str("\\") >> any) | (str("'").absent? >> any)).repeat.as(:string) >>
             str("'") >> space?
         end
 
         # Repetition specification: {1,3}, {2,}, {,5}
         rule(:repetition_spec) do
-          spaced('{') >>
-            integer.maybe.as(:min) >> spaced(',') >>
-            integer.maybe.as(:max) >> spaced('}')
+          spaced("{") >>
+            integer.maybe.as(:min) >> spaced(",") >>
+            integer.maybe.as(:max) >> spaced("}")
         end
 
         rule(:integer) do
-          match['0-9'].repeat(1)
+          match["0-9"].repeat(1)
         end
 
         # Whitespace handling
@@ -115,7 +115,7 @@ module Parsanol
       class Transform < Parsanol::Transform
         # Repetition with sign: * (zero+) or + (one+)
         rule(repetition: simple(:rep), sign: simple(:sign)) do
-          min = sign == '+' ? 1 : 0
+          min = sign == "+" ? 1 : 0
           Parsanol::Atoms::Repetition.new(rep, min, nil)
         end
 
@@ -124,7 +124,7 @@ module Parsanol
           Parsanol::Atoms::Repetition.new(
             rep,
             Integer(min || 0),
-            (max && Integer(max)) || nil
+            (max && Integer(max)) || nil,
           )
         end
 
@@ -147,7 +147,7 @@ module Parsanol
         rule(match: simple(:m)) { Parsanol::Atoms::Re.new("[#{m}]") }
 
         # Any character: .
-        rule(any: simple(:_a)) { Parsanol::Atoms::Re.new('.') }
+        rule(any: simple(:_a)) { Parsanol::Atoms::Re.new(".") }
       end
     end
   end

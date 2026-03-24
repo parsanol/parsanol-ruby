@@ -21,7 +21,7 @@ module Parsanol
         @char_count = @str.length
 
         # Pre-built error messages (frozen)
-        @early_eof_msg = 'Unexpected end of input'
+        @early_eof_msg = "Unexpected end of input"
         @mismatch_msg = "Expected #{@str.inspect}, but got "
 
         # Optimization: single-char fast path
@@ -75,7 +75,10 @@ module Parsanol
 
       # Fast path for single-character strings.
       def single_char_match(source, context)
-        return context.err(self, source, @early_eof_msg) if source.chars_left < 1
+        if source.chars_left < 1
+          return context.err(self, source,
+                             @early_eof_msg)
+        end
 
         pos = source.pos
         slice = source.consume(1)
@@ -88,7 +91,10 @@ module Parsanol
 
       # Standard path for multi-character strings.
       def multi_char_match(source, context)
-        return context.err(self, source, @early_eof_msg) if source.chars_left < @char_count
+        if source.chars_left < @char_count
+          return context.err(self, source,
+                             @early_eof_msg)
+        end
 
         pos = source.pos
         slice = source.consume(@char_count)

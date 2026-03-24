@@ -6,21 +6,21 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'pp'
-require 'parsanol/parslet'
+require "pp"
+require "parsanol/parslet"
 
 # as in 'lots of insipid and stupid parenthesis'
 module LISP
   class Parser < Parsanol::Parser
     rule(:balanced) do
-      str('(').as(:l) >> balanced.maybe.as(:m) >> str(')').as(:r)
+      str("(").as(:l) >> balanced.maybe.as(:m) >> str(")").as(:r)
     end
 
     root(:balanced)
   end
 
   class Transform < Parsanol::Transform
-    rule(l: '(', m: simple(:x), r: ')') do
+    rule(l: "(", m: simple(:x), r: ")") do
       # innermost :m will contain nil
       x.nil? ? 1 : x + 1
     end
