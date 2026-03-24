@@ -16,7 +16,13 @@ module Parsanol
           return @cached_available unless @cached_available.nil?
 
           @cached_available = begin
-            require 'parsanol/parsanol_native'
+            # Try versioned path first (released gem), then non-versioned (local dev)
+            ruby_version = RUBY_VERSION.split('.').take(2).join('.')
+            begin
+              require "parsanol/#{ruby_version}/parsanol_native"
+            rescue LoadError
+              require 'parsanol/parsanol_native'
+            end
             Parsanol::Native.is_available
           rescue LoadError
             false
