@@ -70,7 +70,7 @@ jobs:
           if [ "${{ inputs.bump_type }}" = "skip" ]; then
             # Skip version bump - just read current version and create tag if needed
             echo "Skipping version bump, using current version..."
-            VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed "s/.*'\\([^']*\\)'.*/\\1/")
+            VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed 's/.*"\([^"]*\)".*/\1/')
             SHA=$(git rev-parse HEAD)
             TAG="v$VERSION"
 
@@ -89,15 +89,16 @@ jobs:
               VERSION_ARG="${{ inputs.bump_type }}"
             fi
 
-            # Bump version using gem-release (creates commit and annotated tag locally)
-            gem bump --version $VERSION_ARG --tag
+            # Bump version using gem-release (creates commit, tag, and pushes both)
+            # Note: --tag creates tag locally, --push pushes both commit and tag to origin
+            gem bump --version $VERSION_ARG --tag --push
 
             # Read the new version from the version file
-            VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed "s/.*'\\([^']*\\)'.*/\\1/")
+            VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed 's/.*"\([^"]*\)".*/\1/')
 
             # Get the SHA of the commit gem-release just created
             SHA=$(git rev-parse HEAD)
-            TAG="v$VERSION"
+            TAG="v${VERSION}"
           fi
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -106,10 +107,11 @@ jobs:
 
       - name: Push version bump commit and tag
         run: |
-          if [ "${{ inputs.bump_type }}" != "skip" ]; then
+          # Only needed when bump_type=skip (gem bump --push not used)
+          if [ "${{ inputs.bump_type }}" = "skip" ]; then
             git push origin HEAD:${{ github.ref_name }}
+            git push origin ${{ steps.version.outputs.tag }}
           fi
-          git push origin ${{ steps.version.outputs.tag }}
 
   ci-data:
     runs-on: ubuntu-22.04
