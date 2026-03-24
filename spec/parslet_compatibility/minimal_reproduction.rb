@@ -2,7 +2,6 @@
 # frozen_string_literal: true
 
 # Minimal reproduction script for Parslet compatibility bug
-# Run from: /Users/mulgogi/src/parsanol/parsanol-ruby
 #
 # Usage: ruby spec/parslet_compatibility/minimal_reproduction.rb
 
@@ -178,7 +177,7 @@ end
 
 
 
-  The bug is in: /Users/mulgogi/src/parsanol/parsanol-rs/src/portable/parslet_transform.rs
+  The bug is in: src/portable/parslet_transform.rs
 
   Function: flatten_sequence (line ~203)
 
@@ -194,6 +193,6 @@ end
   - Repeated elements: item.as(:x) (separator item.as(:x))*
 
   See full proposal at:
-  /Users/mulgogi/src/parsanol/parsanol-ruby/PARSLET_COMPATIBILITY_BUG_PROPOSAL.md
+  PARSLET_COMPATIBILITY_BUG_PROPOSAL.md
 
 SUMMARY
