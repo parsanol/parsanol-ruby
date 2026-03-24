@@ -109,13 +109,14 @@ module Parsanol
     #   result[:name].to_s           # => "hello"
     #
     def parse(input, mode_or_opts = {}, **kwargs)
-      if mode_or_opts.is_a?(Hash)
-        # Legacy API: parse(input, options={})
+      if mode_or_opts.is_a?(Hash) && !kwargs.key?(:mode)
+        # Legacy API: parse(input, options={}) or parse(input, mode: :ruby)
         merged = mode_or_opts.merge(kwargs)
         super(input, merged)
       else
         # New API: parse(input, mode:, **options)
-        dispatch_parse(mode_or_opts, input, kwargs)
+        mode = kwargs.delete(:mode) || :ruby
+        dispatch_parse(mode, input, kwargs)
       end
     end
 
@@ -128,6 +129,38 @@ module Parsanol
     #
     def parse_batch(inputs, mode: :ruby, **opts)
       inputs.map { |str| parse(str, mode: mode, **opts) }
+    end
+
+    # Clear the Rust grammar cache to free memory.
+    #
+    # @return [nil]
+    # @raise [LoadError] if native parser is not available
+    def clear_grammar_cache
+      Parsanol::Native.clear_grammar_cache
+    end
+
+    # Get the current number of cached grammars in Rust.
+    #
+    # @return [Integer] number of cached grammars
+    # @raise [LoadError] if native parser is not available
+    def grammar_cache_size
+      Parsanol::Native.grammar_cache_size
+    end
+
+    # Get the grammar cache capacity.
+    #
+    # @return [Integer] maximum cache capacity
+    # @raise [LoadError] if native parser is not available
+    def grammar_cache_capacity
+      Parsanol::Native.grammar_cache_capacity
+    end
+
+    # Get cache statistics for both Ruby and Rust caches.
+    #
+    # @return [Hash] cache statistics including Ruby GRAMMAR_CACHE and Rust grammar cache
+    # @raise [LoadError] if native parser is not available for Rust stats
+    def cache_stats
+      Parsanol::Native.cache_stats
     end
 
     private
@@ -158,6 +191,9 @@ module Parsanol
     # @param opts [Hash] parsing options
     # @return [Object] parse result
     #
+    def parse_ruby(input, opts)
+      super
+    end
 
     # Native extension parsing with Ruby fallback.
     # Returns results with Slice objects containing position info.
