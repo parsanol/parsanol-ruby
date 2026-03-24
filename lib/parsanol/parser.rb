@@ -110,13 +110,22 @@ module Parsanol
     #
     def parse(input, mode_or_opts = {}, **kwargs)
       if mode_or_opts.is_a?(Hash) && !kwargs.key?(:mode)
-        # Legacy API: parse(input, options={}) or parse(input, mode: :ruby)
+        # Legacy API: parse(input, options={})
         merged = mode_or_opts.merge(kwargs)
         super(input, merged)
       else
         # New API: parse(input, mode:, **options)
         mode = kwargs.delete(:mode) || :ruby
-        dispatch_parse(mode, input, kwargs)
+        case mode
+        when :ruby
+          super(input, kwargs)
+        when :native
+          parse_native(input, kwargs)
+        when :json
+          parse_json(input, kwargs)
+        else
+          raise ArgumentError, "Unknown mode: #{mode}. Valid modes: :ruby, :native, :json"
+        end
       end
     end
 
@@ -175,7 +184,8 @@ module Parsanol
     def dispatch_parse(mode, input, opts)
       case mode
       when :ruby
-        parse_ruby(input, opts)
+        # Call base class parse directly (send needed since parse is defined in parent)
+        Parsanol::Atoms::Base.instance_method(:parse).bind(self).call(input, opts)
       when :native
         parse_native(input, opts)
       when :json
@@ -183,16 +193,6 @@ module Parsanol
       else
         raise ArgumentError, "Unknown mode: #{mode}. Valid modes: :ruby, :native, :json"
       end
-    end
-
-    # Pure Ruby parsing (delegates to Base implementation).
-    #
-    # @param input [String] input to parse
-    # @param opts [Hash] parsing options
-    # @return [Object] parse result
-    #
-    def parse_ruby(input, opts)
-      super
     end
 
     # Native extension parsing with Ruby fallback.
@@ -204,10 +204,9 @@ module Parsanol
     #
     def parse_native(input, opts)
       if Parsanol::Native.available?
-        # Parse with lazy line/column support
         Parsanol::Native.parse(root, input)
       else
-        parse_ruby(input, opts)
+        super
       end
     end
 
