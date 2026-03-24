@@ -85,10 +85,10 @@ module Parsanol
     # @yield [element] Each element
     # @return [Enumerator, self] Enumerator if no block, self otherwise
     #
-    def each(&block)
+    def each(&)
       return to_enum(:each) unless block_given?
 
-      to_a.each(&block)
+      to_a.each(&)
       self
     end
 
