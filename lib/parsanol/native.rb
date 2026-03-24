@@ -128,11 +128,44 @@ module Parsanol
       # Clear grammar caches (call if grammar changes)
       def clear_cache
         Parser.clear_cache
+        clear_grammar_cache if available?
+      end
+
+      # Clear the Rust grammar cache to free memory.
+      #
+      # This is useful for batch processing scenarios where you want to
+      # limit memory usage by clearing unused grammars.
+      #
+      # @return [nil]
+      def clear_grammar_cache
+        raise LoadError, "Native parser not available" unless available?
+        _clear_grammar_cache
+      end
+
+      # Get the current number of cached grammars in Rust.
+      #
+      # @return [Integer] Number of cached grammars
+      def grammar_cache_size
+        raise LoadError, "Native parser not available" unless available?
+        _grammar_cache_size
+      end
+
+      # Get the grammar cache capacity.
+      #
+      # @return [Integer] Maximum cache capacity
+      def grammar_cache_capacity
+        raise LoadError, "Native parser not available" unless available?
+        _grammar_cache_capacity
       end
 
       # Get cache statistics
       def cache_stats
-        Parser.cache_stats
+        stats = Parser.cache_stats
+        if available?
+          stats[:rust_grammar_cache_size] = grammar_cache_size
+          stats[:rust_grammar_cache_capacity] = grammar_cache_capacity
+        end
+        stats
       end
     end
   end
