@@ -67,7 +67,7 @@ module Parsanol
         created: 0,
         reused: 0,
         released: 0,
-        discarded: 0
+        discarded: 0,
       }
 
       # Pre-allocate objects for efficiency if requested
@@ -154,7 +154,7 @@ module Parsanol
         reused: @stats[:reused],
         released: @stats[:released],
         discarded: @stats[:discarded],
-        utilization: utilization.round(2)
+        utilization: utilization.round(2),
       }
     end
 
@@ -174,7 +174,7 @@ module Parsanol
         created: 0,
         reused: 0,
         released: 0,
-        discarded: 0
+        discarded: 0,
       }
     end
 

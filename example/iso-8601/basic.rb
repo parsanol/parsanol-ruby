@@ -8,17 +8,17 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol/parslet'
+require "parsanol/parslet"
 
 # ISO 8601 parser
 class Iso8601Parser < Parsanol::Parser
   root :iso_value
 
   # Date components
-  rule(:year) { match('[0-9]').repeat(4, 4).as(:year) }
-  rule(:month) { match('[0-9]').repeat(2, 2).as(:month) }
-  rule(:day) { match('[0-9]').repeat(2, 2).as(:day) }
-  rule(:date_separator) { str('-').maybe }
+  rule(:year) { match("[0-9]").repeat(4, 4).as(:year) }
+  rule(:month) { match("[0-9]").repeat(2, 2).as(:month) }
+  rule(:day) { match("[0-9]").repeat(2, 2).as(:day) }
+  rule(:date_separator) { str("-").maybe }
 
   # Calendar date: YYYY-MM-DD or YYYYMMDD
   rule(:calendar_date) do
@@ -27,24 +27,24 @@ class Iso8601Parser < Parsanol::Parser
 
   # Week date: YYYY-Www-D
   rule(:week_date) do
-    year >> str('-W') >>
-      match('[0-9]').repeat(2, 2).as(:week) >>
-      str('-') >>
-      match('[1-7]').as(:weekday)
+    year >> str("-W") >>
+      match("[0-9]").repeat(2, 2).as(:week) >>
+      str("-") >>
+      match("[1-7]").as(:weekday)
   end
 
   # Ordinal date: YYYY-DDD
   rule(:ordinal_date) do
-    year >> str('-') >>
-      match('[0-9]').repeat(3, 3).as(:ordinal_day)
+    year >> str("-") >>
+      match("[0-9]").repeat(3, 3).as(:ordinal_day)
   end
 
   # Time components
-  rule(:hour) { match('[0-9]').repeat(2, 2).as(:hour) }
-  rule(:minute) { match('[0-9]').repeat(2, 2).as(:minute) }
-  rule(:second) { match('[0-9]').repeat(2, 2).as(:second) }
-  rule(:fraction) { str('.') >> match('[0-9]').repeat(1).as(:fraction) }
-  rule(:time_separator) { str(':').maybe }
+  rule(:hour) { match("[0-9]").repeat(2, 2).as(:hour) }
+  rule(:minute) { match("[0-9]").repeat(2, 2).as(:minute) }
+  rule(:second) { match("[0-9]").repeat(2, 2).as(:second) }
+  rule(:fraction) { str(".") >> match("[0-9]").repeat(1).as(:fraction) }
+  rule(:time_separator) { str(":").maybe }
 
   # Time: HH:MM:SS[.frac]
   rule(:time_basic) do
@@ -52,39 +52,41 @@ class Iso8601Parser < Parsanol::Parser
   end
 
   # Timezone
-  rule(:utc_designator) { str('Z').as(:utc) }
-  rule(:tz_sign) { (str('+') | str('-')).as(:tz_sign) }
-  rule(:tz_hour) { match('[0-9]').repeat(2, 2).as(:tz_hour) }
-  rule(:tz_minute) { (str(':') >> match('[0-9]').repeat(2, 2)).maybe.as(:tz_minute) }
+  rule(:utc_designator) { str("Z").as(:utc) }
+  rule(:tz_sign) { (str("+") | str("-")).as(:tz_sign) }
+  rule(:tz_hour) { match("[0-9]").repeat(2, 2).as(:tz_hour) }
+  rule(:tz_minute) do
+    (str(":") >> match("[0-9]").repeat(2, 2)).maybe.as(:tz_minute)
+  end
 
   rule(:tz_offset) do
     tz_sign >> tz_hour >> tz_minute
   end
 
-  rule(:timezone) { utc_designator | tz_offset | str('') }
+  rule(:timezone) { utc_designator | tz_offset | str("") }
 
   rule(:time) { time_basic >> timezone }
 
   # Combined date-time
   rule(:datetime) do
     (calendar_date | week_date | ordinal_date) >>
-      (str('T') | str(' ')) >>
+      (str("T") | str(" ")) >>
       time
   end
 
   # Duration: P[nY][nM][nD][T[nH][nM][nS]]
   rule(:duration) do
-    str('P') >>
+    str("P") >>
       (
-        (match('[0-9]').repeat(1).as(:years) >> str('Y')).maybe >>
-        (match('[0-9]').repeat(1).as(:months) >> str('M')).maybe >>
-        (match('[0-9]').repeat(1).as(:days) >> str('D')).maybe >>
+        (match("[0-9]").repeat(1).as(:years) >> str("Y")).maybe >>
+        (match("[0-9]").repeat(1).as(:months) >> str("M")).maybe >>
+        (match("[0-9]").repeat(1).as(:days) >> str("D")).maybe >>
         (
-          str('T') >>
+          str("T") >>
           (
-            (match('[0-9]').repeat(1).as(:hours) >> str('H')).maybe >>
-            (match('[0-9]').repeat(1).as(:minutes) >> str('M')).maybe >>
-            (match('[0-9]').repeat(1).as(:seconds) >> str('S')).maybe
+            (match("[0-9]").repeat(1).as(:hours) >> str("H")).maybe >>
+            (match("[0-9]").repeat(1).as(:minutes) >> str("M")).maybe >>
+            (match("[0-9]").repeat(1).as(:seconds) >> str("S")).maybe
           )
         ).maybe
       )
@@ -107,7 +109,7 @@ IsoDate = Struct.new(:year, :month, :day, :week, :weekday, :ordinal_day) do
   end
 
   def to_date
-    require 'date'
+    require "date"
     if week
       Date.commercial(year.to_i, week.to_i, weekday.to_i)
     elsif ordinal_day
@@ -119,11 +121,12 @@ IsoDate = Struct.new(:year, :month, :day, :week, :weekday, :ordinal_day) do
 end
 
 # Time result class
-IsoTime = Struct.new(:hour, :minute, :second, :fraction, :utc, :tz_sign, :tz_hour, :tz_minute) do
+IsoTime = Struct.new(:hour, :minute, :second, :fraction, :utc, :tz_sign,
+                     :tz_hour, :tz_minute) do
   def to_s
     h = "#{hour}:#{minute}:#{second}"
     h += ".#{fraction}" if fraction
-    h += 'Z' if utc
+    h += "Z" if utc
     h += "#{tz_sign}#{tz_hour}#{tz_minute}" if tz_hour
     h
   end
@@ -139,7 +142,7 @@ end
 # Duration result class
 IsoDuration = Struct.new(:years, :months, :days, :hours, :minutes, :seconds) do
   def to_s
-    parts = ['P']
+    parts = ["P"]
     parts << "#{years}Y" if years
     parts << "#{months}M" if months
     parts << "#{days}D" if days
@@ -150,7 +153,7 @@ IsoDuration = Struct.new(:years, :months, :days, :hours, :minutes, :seconds) do
     time_parts << "#{seconds}S" if seconds
 
     if time_parts.any?
-      parts << 'T'
+      parts << "T"
       parts.concat(time_parts)
     end
 
@@ -191,15 +194,18 @@ class Iso8601Transform < Parsanol::Transform
     IsoTime.new(h.to_s, m.to_s, s.to_s, nil, nil, nil, nil)
   end
 
-  rule(hour: simple(:h), minute: simple(:m), second: simple(:s), fraction: simple(:f)) do
+  rule(hour: simple(:h), minute: simple(:m), second: simple(:s),
+       fraction: simple(:f)) do
     IsoTime.new(h.to_s, m.to_s, s.to_s, f.to_s, nil, nil, nil)
   end
 
-  rule(hour: simple(:h), minute: simple(:m), second: simple(:s), utc: simple(:u)) do
+  rule(hour: simple(:h), minute: simple(:m), second: simple(:s),
+       utc: simple(:u)) do
     IsoTime.new(h.to_s, m.to_s, s.to_s, nil, u.to_s, nil, nil)
   end
 
-  rule(hour: simple(:h), minute: simple(:m), second: simple(:s), tz_sign: simple(:ts), tz_hour: simple(:th)) do
+  rule(hour: simple(:h), minute: simple(:m), second: simple(:s),
+       tz_sign: simple(:ts), tz_hour: simple(:th)) do
     IsoTime.new(h.to_s, m.to_s, s.to_s, nil, nil, ts.to_s, th.to_s, nil)
   end
 
@@ -226,36 +232,36 @@ end
 
 # Main demo
 if __FILE__ == $PROGRAM_NAME
-  puts 'ISO 8601 Date/Time Parser'
-  puts '=' * 50
+  puts "ISO 8601 Date/Time Parser"
+  puts "=" * 50
   puts
 
   examples = [
     # Calendar dates
-    ['2024-01-15', 'Calendar date'],
-    ['20240115', 'Compact date'],
-    ['2024-12-25', 'Christmas'],
+    ["2024-01-15", "Calendar date"],
+    ["20240115", "Compact date"],
+    ["2024-12-25", "Christmas"],
 
     # Week dates
-    ['2024-W02-1', 'Week date (2nd week, Monday)'],
+    ["2024-W02-1", "Week date (2nd week, Monday)"],
 
     # Ordinal dates
-    ['2024-015', 'Ordinal date (15th day)'],
+    ["2024-015", "Ordinal date (15th day)"],
 
     # Times
-    ['10:30:00', 'Time'],
-    ['10:30:00.123', 'Time with fraction'],
-    ['10:30:00Z', 'UTC time'],
-    ['10:30:00+09:00', 'Time with timezone'],
+    ["10:30:00", "Time"],
+    ["10:30:00.123", "Time with fraction"],
+    ["10:30:00Z", "UTC time"],
+    ["10:30:00+09:00", "Time with timezone"],
 
     # Date-times
-    ['2024-01-15T10:30:00Z', 'DateTime UTC'],
-    ['2024-01-15T10:30:00+09:00', 'DateTime with timezone'],
+    ["2024-01-15T10:30:00Z", "DateTime UTC"],
+    ["2024-01-15T10:30:00+09:00", "DateTime with timezone"],
 
     # Durations
-    ['P1Y2M3DT4H5M6S', 'Full duration'],
-    ['PT30M', '30 minutes duration'],
-    ['P1D', '1 day duration']
+    ["P1Y2M3DT4H5M6S", "Full duration"],
+    ["PT30M", "30 minutes duration"],
+    ["P1D", "1 day duration"],
   ]
 
   examples.each do |input, description|

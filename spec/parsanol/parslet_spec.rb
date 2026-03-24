@@ -1,24 +1,25 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require "spec_helper"
 
 describe Parsanol do
-  include Parsanol
+  include described_class
 
   describe Parsanol::ParseFailed do
-    it 'should be caught by an empty rescue' do
-      raise Parsanol::ParseFailed
+    it "is caught by an empty rescue" do
+      raise described_class
     rescue StandardError
       # Success! Ignore this.
     end
   end
-  describe '<- .rule' do
+
+  describe "<- .rule" do
     # Rules define methods. This can be easily tested by defining them right
     # here.
-    context 'empty rule' do
+    context "empty rule" do
       rule(:empty) {}
 
-      it 'should raise a NotImplementedError' do
+      it "raises a NotImplementedError" do
         lambda {
           empty.parslet
         }.should raise_error(NotImplementedError)
@@ -29,8 +30,9 @@ describe Parsanol do
       rule(:any_rule) { any }
       subject { any_rule }
 
-      it { should be_a Parsanol::Atoms::Entity }
-      it 'should memoize the returned instance' do
+      it { is_expected.to be_a Parsanol::Atoms::Entity }
+
+      it "memoizes the returned instance" do
         any_rule.object_id.should == any_rule.object_id
       end
     end

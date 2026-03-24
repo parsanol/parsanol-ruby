@@ -4,16 +4,16 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'pp'
-require 'rspec'
-require 'parsanol/parslet'
-require 'parsanol/rig/rspec'
-require 'parsanol/convenience'
+require "pp"
+require "rspec"
+require "parsanol/parslet"
+require "parsanol/rig/rspec"
+require "parsanol/convenience"
 
 class InfixExpressionParser < Parsanol::Parser
   root :variable_assignment_list
 
-  rule(:space) { match[' '] }
+  rule(:space) { match[" "] }
 
   def cts(atom)
     atom >> space.repeat
@@ -25,9 +25,9 @@ class InfixExpressionParser < Parsanol::Parser
 
   # This is the heart of the infix expression parser: real simple definitions
   # for all the pieces we need.
-  rule(:mul_op) { cts match['*/'] }
-  rule(:add_op) { cts match['+-'] }
-  rule(:digit) { match['0-9'] }
+  rule(:mul_op) { cts match["*/"] }
+  rule(:add_op) { cts match["+-"] }
+  rule(:digit) { match["0-9"] }
   rule(:integer) { cts digit.repeat(1).as(:int) }
 
   rule(:expression) do
@@ -45,10 +45,10 @@ class InfixExpressionParser < Parsanol::Parser
     identifier.as(:ident) >> equal_sign >> expression.as(:exp) >> eol
   end
   rule(:identifier) do
-    cts(match['a-z'] >> match['a-zA-Z0-9'].repeat)
+    cts(match["a-z"] >> match["a-zA-Z0-9"].repeat)
   end
   rule(:equal_sign) do
-    cts str('=')
+    cts str("=")
   end
   rule(:eol) do
     cts(str("\n")) | any.absent?

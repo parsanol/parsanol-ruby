@@ -44,7 +44,7 @@ module Parsanol
         return class_match[1].downcase if class_match
 
         # Fallback for unexpected class names
-        'subtree'
+        "subtree"
       end
     end
   end

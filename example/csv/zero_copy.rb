@@ -10,7 +10,7 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol'
+require "parsanol"
 
 # NOTE: This example requires:
 # 1. ZeroCopy extension support for parse_to_objects
@@ -65,7 +65,7 @@ module Csv
     end
 
     def to_s
-      @fields.map(&:value).join(',')
+      @fields.map(&:value).join(",")
     end
   end
 
@@ -139,7 +139,7 @@ class CsvParser < Parsanol::Parser
     (comma.absent? >> newline.absent? >> any).repeat.as(:simple)
   end
 
-  rule(:comma) { str(',') }
+  rule(:comma) { str(",") }
   rule(:newline) { str("\n") | str("\r\n") | str("\r") }
   rule(:space) { match('\s').repeat(1) }
   rule(:space?) { space.maybe }
@@ -175,7 +175,7 @@ def simulate_parse(input)
   return Csv::Document.new([]) if lines.empty?
 
   rows = lines.map do |line|
-    fields = line.split(',').map do |field|
+    fields = line.split(",").map do |field|
       raw = field
       # Unescape if quoted
       value = if field.start_with?('"') && field.end_with?('"')
@@ -193,12 +193,12 @@ end
 
 # Example usage
 if __FILE__ == $PROGRAM_NAME
-  puts '=' * 60
-  puts 'CSV Parser Example - ZeroCopy: Mirrored Objects'
-  puts '=' * 60
+  puts "=" * 60
+  puts "CSV Parser Example - ZeroCopy: Mirrored Objects"
+  puts "=" * 60
   puts
-  puts 'NOTE: This example shows the planned API for ZeroCopy.'
-  puts 'The native extension support for parse_to_objects is coming soon.'
+  puts "NOTE: This example shows the planned API for ZeroCopy."
+  puts "The native extension support for parse_to_objects is coming soon."
   puts
 
   simple_csv = <<~CSV
@@ -207,11 +207,11 @@ if __FILE__ == $PROGRAM_NAME
     Bob,25,San Francisco
   CSV
 
-  puts 'Simple CSV:'
-  puts '-' * 40
+  puts "Simple CSV:"
+  puts "-" * 40
   doc = parse_csv(simple_csv)
 
-  puts 'As arrays:'
+  puts "As arrays:"
   doc.to_a.each { |row| puts row.inspect }
 
   puts
@@ -219,12 +219,12 @@ if __FILE__ == $PROGRAM_NAME
   puts "Data rows: #{doc.data.size}"
 
   puts
-  puts 'As hashes:'
+  puts "As hashes:"
   doc.to_hashes.each { |row| puts row.inspect }
 
   # Type-safe access
   puts
-  puts 'Type-safe access:'
+  puts "Type-safe access:"
   puts "First row class: #{doc[0].class}"
   puts "First field class: #{doc[0][0].class}"
   puts "First field raw: #{doc[0][0].raw.inspect}"
@@ -232,24 +232,24 @@ if __FILE__ == $PROGRAM_NAME
 
   # Custom method example
   puts
-  puts 'Custom method on Field:'
-  field = Csv::Field.new(raw: '"Hello, World"', value: 'Hello, World')
+  puts "Custom method on Field:"
+  field = Csv::Field.new(raw: '"Hello, World"', value: "Hello, World")
   puts "Field: #{field.value}"
 
   puts
-  puts '=' * 60
-  puts 'ZeroCopy Benefits for CSV:'
-  puts '- FASTEST: No serialization overhead'
-  puts '- Type-safe: Each field is a Csv::Field object'
-  puts '- Custom methods: Can add validation, formatting, etc.'
-  puts '- Zero-copy: Direct construction from Rust'
+  puts "=" * 60
+  puts "ZeroCopy Benefits for CSV:"
+  puts "- FASTEST: No serialization overhead"
+  puts "- Type-safe: Each field is a Csv::Field object"
+  puts "- Custom methods: Can add validation, formatting, etc."
+  puts "- Zero-copy: Direct construction from Rust"
   puts
-  puts 'When to use ZeroCopy for CSV:'
-  puts '- High-throughput CSV processing'
-  puts '- When you need typed field access'
-  puts '- When you want custom methods on fields/rows'
-  puts '- When performance is critical'
-  puts '=' * 60
+  puts "When to use ZeroCopy for CSV:"
+  puts "- High-throughput CSV processing"
+  puts "- When you need typed field access"
+  puts "- When you want custom methods on fields/rows"
+  puts "- When performance is critical"
+  puts "=" * 60
 end
 
 # Rust code that would be needed (for reference):

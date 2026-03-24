@@ -32,8 +32,8 @@ module Parsanol
     #
     # @param name [Symbol, String] method name
     # @yield block to execute when method is called
-    def define_singleton_method(name, &body)
-      singleton_class.define_method(name, &body)
+    def define_singleton_method(name, &)
+      singleton_class.define_method(name, &)
     end
   end
 end

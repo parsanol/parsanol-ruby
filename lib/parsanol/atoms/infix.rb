@@ -74,7 +74,8 @@ module Parsanol
             right_operand = build_result_tree(right_operand)
           end
 
-          accumulator = combiner.call(accumulator, operator_token, right_operand)
+          accumulator = combiner.call(accumulator, operator_token,
+                                      right_operand)
         end
 
         accumulator
@@ -96,7 +97,8 @@ module Parsanol
         ok, first_value = element_parser.apply(source, context, false)
         unless ok
           throw :parse_error,
-                context.err(self, source, "Expected #{element_parser.inspect}", [first_value])
+                context.err(self, source, "Expected #{element_parser.inspect}",
+                            [first_value])
         end
 
         expression_parts << flatten(first_value, true)
@@ -104,7 +106,9 @@ module Parsanol
         # Continue while operators match
         loop do
           saved_position = source.bytepos
-          operator_match, precedence, associativity = try_match_operator(source, context, false)
+          operator_match, precedence, associativity = try_match_operator(
+            source, context, false
+          )
 
           # No operator found - done with this level
           break unless operator_match
@@ -114,7 +118,8 @@ module Parsanol
             next_min = associativity == :left ? precedence + 1 : precedence
 
             expression_parts << operator_match
-            expression_parts << climb_precedence(source, context, consume_all, next_min)
+            expression_parts << climb_precedence(source, context, consume_all,
+                                                 next_min)
           else
             # Operator has lower precedence - backtrack and return
             source.bytepos = saved_position
@@ -154,7 +159,7 @@ module Parsanol
 
       # Returns string representation for debugging
       def to_s_inner(_precedence)
-        op_list = @operator_table.map { |op, _, _| op.inspect }.join(', ')
+        op_list = @operator_table.map { |op, _, _| op.inspect }.join(", ")
         "infix_expression(#{@base_element.inspect}, [#{op_list}])"
       end
     end

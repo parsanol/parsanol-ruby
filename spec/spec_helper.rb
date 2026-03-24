@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require_relative 'support/opal' if RUBY_ENGINE == 'opal'
+require_relative "support/opal" if RUBY_ENGINE == "opal"
 
-require 'parsanol/parslet'
-require 'parsanol/rig/rspec'
+require "parsanol/parslet"
+require "parsanol/rig/rspec"
 
 begin
-  require 'ae'
+  require "ae"
 rescue LoadError
   # AE not available
 end
@@ -35,7 +35,7 @@ RSpec.configure do |config|
 
   # Exclude specs that require optional dependencies not available
   begin
-    require 'benchmark/ips'
+    require "benchmark/ips"
   rescue LoadError
     config.filter_run_excluding benchmark: true
   end
@@ -70,7 +70,7 @@ def strip_positions(obj)
   when Array
     obj.map { |item| strip_positions(item) }
   when String
-    obj.gsub(/@\d+/, '') # Remove slice of text
+    obj.gsub(/@\d+/, "") # Remove slice of text
   else
     obj
   end

@@ -6,13 +6,13 @@
 #
 # Usage: ruby spec/parslet_compatibility/minimal_reproduction.rb
 
-require 'bundler/setup'
-require 'parsanol'
-require 'json'
+require "bundler/setup"
+require "parsanol"
+require "json"
 
-puts '=' * 70
-puts 'PARSLET COMPATIBILITY BUG - MINIMAL REPRODUCTION'
-puts '=' * 70
+
+
+
 
 # ===========================================================================
 # TEST CASE 1: Repetition with separator (most common pattern)
@@ -25,11 +25,11 @@ class ListParser < Parsanol::Parser
   # Example: parameter (',' parameter)*
 
   rule(:item) do
-    match('[a-z]').as(:name)
+    match("[a-z]").as(:name)
   end
 
   rule(:separator) do
-    str(',')
+    str(",")
   end
 
   # This is the key pattern: (separator >> item).repeat
@@ -40,51 +40,51 @@ class ListParser < Parsanol::Parser
   root(:list)
 end
 
-puts "\n#{'=' * 70}"
-puts 'TEST CASE 1: Repetition with Separator'
-puts "Input: 'a,b,c'"
-puts '=' * 70
 
-input1 = 'a,b,c'
+
+
+
+
+input1 = "a,b,c"
 parser1 = ListParser.new
 
 # Get Parslet output (expected)
 begin
   parslet_result = parser1.parse(input1)
-  puts "\n--- PARSLET OUTPUT (Expected) ---"
-  puts JSON.pretty_generate(parslet_result)
+  
+  
 rescue StandardError => e
-  puts "Parslet error: #{e.message}"
+  
 end
 
 # Get Parsanol output (actual)
 begin
   Parsanol::Native.serialize_grammar(parser1.root)
   parsanol_result = Parsanol::Native::Parser.parse(parser1.root, input1)
-  puts "\n--- PARSANOL OUTPUT (Actual) ---"
-  puts JSON.pretty_generate(parsanol_result)
+  
+  
 rescue StandardError => e
-  puts "Parsanol error: #{e.message}"
+  
 end
 
 # ===========================================================================
 # TEST CASE 2: Single repetition element (should still be array)
 # ===========================================================================
 
-puts "\n#{'=' * 70}"
-puts 'TEST CASE 2: Single Repetition Element (should still be array)'
-puts "Input: 'a+b'"
-puts '=' * 70
+
+
+
+
 
 class ExprParser < Parsanol::Parser
   include Parsanol
 
   rule(:factor) do
-    match('[a-z]').as(:value)
+    match("[a-z]").as(:value)
   end
 
   rule(:operator) do
-    str('+').as(:op)
+    str("+").as(:op)
   end
 
   # Expression: factor (operator factor)*
@@ -95,38 +95,38 @@ class ExprParser < Parsanol::Parser
   root(:expression)
 end
 
-input2 = 'a+b'
+input2 = "a+b"
 parser2 = ExprParser.new
 
 begin
   parslet_result2 = parser2.parse(input2)
-  puts "\n--- PARSLET OUTPUT (Expected) ---"
-  puts JSON.pretty_generate(parslet_result2)
-  puts "\n  :rhs class: #{parslet_result2[:rhs].class}"
-  puts "  :rhs length: #{parslet_result2[:rhs].length if parslet_result2[:rhs].is_a?(Array)}"
+  
+  
+  
+  
 rescue StandardError => e
-  puts "Parslet error: #{e.message}"
+  
 end
 
 begin
   Parsanol::Native.serialize_grammar(parser2.root)
   parsanol_result2 = Parsanol::Native::Parser.parse(parser2.root, input2)
-  puts "\n--- PARSANOL OUTPUT (Actual) ---"
-  puts JSON.pretty_generate(parsanol_result2)
-  puts "\n  :rhs class: #{parsanol_result2[:rhs].class if parsanol_result2[:rhs]}"
-  puts "  :rhs length: #{parsanol_result2[:rhs].length if parsanol_result2[:rhs].is_a?(Array)}"
+  
+  
+  
+  
 rescue StandardError => e
-  puts "Parsanol error: #{e.message}"
+  
 end
 
 # ===========================================================================
 # TEST CASE 3: Multiple occurrences of same key
 # ===========================================================================
 
-puts "\n#{'=' * 70}"
-puts 'TEST CASE 3: Multiple Occurrences of Same Key'
-puts "Input: 'a,b'"
-puts '=' * 70
+
+
+
+
 
 # Clear grammar cache to avoid conflicts with previous test cases
 Parsanol::Native::Parser.clear_cache
@@ -137,46 +137,46 @@ class RepeatParser < Parsanol::Parser
   # Grammar: item.as(:x) (',' item.as(:x))*
   # Note: Both occurrences use the SAME label :x
   rule(:item) do
-    match('[a-z]').as(:x)
+    match("[a-z]").as(:x)
   end
 
   rule(:list) do
-    item >> (str(',') >> item).repeat
+    item >> (str(",") >> item).repeat
   end
 
   root(:list)
 end
 
-input3 = 'a,b'
+input3 = "a,b"
 parser3 = RepeatParser.new
 
 begin
   parslet_result3 = parser3.parse(input3)
-  puts "\n--- PARSLET OUTPUT (Expected) ---"
-  puts JSON.pretty_generate(parslet_result3)
-  puts "\n  :x occurrences: #{parslet_result3[:x].inspect}"
+  
+  
+  
 rescue StandardError => e
-  puts "Parslet error: #{e.message}"
+  
 end
 
 begin
   Parsanol::Native.serialize_grammar(parser3.root)
   parsanol_result3 = Parsanol::Native::Parser.parse(parser3.root, input3)
-  puts "\n--- PARSANOL OUTPUT (Actual) ---"
-  puts JSON.pretty_generate(parsanol_result3)
-  puts "\n  :x occurrences: #{parsanol_result3[:x].inspect if parsanol_result3[:x]}"
+  
+  
+  
 rescue StandardError => e
-  puts "Parsanol error: #{e.message}"
+  
 end
 
 # ===========================================================================
 # SUMMARY
 # ===========================================================================
 
-puts "\n#{'=' * 70}"
-puts 'SUMMARY'
-puts '=' * 70
-puts <<~SUMMARY
+
+
+
+
 
   The bug is in: /Users/mulgogi/src/parsanol/parsanol-rs/src/portable/parslet_transform.rs
 

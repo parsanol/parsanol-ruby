@@ -51,7 +51,10 @@ module Parsanol
     #
     def match(subtree, bindings = nil)
       current_bindings = bindings ? bindings.dup : {}
-      check_match(subtree, @pattern_def, current_bindings) ? current_bindings : nil
+      if check_match(subtree, @pattern_def,
+                     current_bindings)
+        current_bindings
+      end
     end
 
     private

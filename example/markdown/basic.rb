@@ -8,7 +8,7 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol/parslet'
+require "parsanol/parslet"
 
 # Markdown parser
 class MarkdownParser < Parsanol::Parser
@@ -29,7 +29,7 @@ class MarkdownParser < Parsanol::Parser
 
   # Heading: # to ######
   rule(:heading) do
-    (str('#').repeat(1, 6).as(:level) >>
+    (str("#").repeat(1, 6).as(:level) >>
      space >>
      heading_content.as(:text) >>
      newline).as(:heading)
@@ -45,26 +45,26 @@ class MarkdownParser < Parsanol::Parser
   end
 
   rule(:paragraph_line) do
-    (blank_line.absent? >> (str('#').absent? | space.absent?) >> any).repeat(1)
+    (blank_line.absent? >> (str("#").absent? | space.absent?) >> any).repeat(1)
   end
 
   # Code block: ``` ... ```
   rule(:code_block) do
-    (str('```') >>
-     (str('`').absent? >> any).repeat.as(:language) >>
+    (str("```") >>
+     (str("`").absent? >> any).repeat.as(:language) >>
      newline >>
      code_content.as(:code) >>
-     str('```') >>
+     str("```") >>
      newline?).as(:code_block)
   end
 
   rule(:code_content) do
-    (str('```').absent? >> any).repeat
+    (str("```").absent? >> any).repeat
   end
 
   # Blockquote: > text
   rule(:blockquote) do
-    (str('>') >>
+    (str(">") >>
      space? >>
      quote_content.as(:text) >>
      newline).as(:blockquote)
@@ -80,7 +80,7 @@ class MarkdownParser < Parsanol::Parser
   end
 
   rule(:unordered_item) do
-    (match('[*-]') >>
+    (match("[*-]") >>
      space >>
      list_content.as(:text) >>
      newline).as(:item)
@@ -92,8 +92,8 @@ class MarkdownParser < Parsanol::Parser
   end
 
   rule(:ordered_item) do
-    (match('[0-9]').repeat(1).as(:number) >>
-     str('.') >>
+    (match("[0-9]").repeat(1).as(:number) >>
+     str(".") >>
      space >>
      list_content.as(:text) >>
      newline).as(:item)
@@ -113,30 +113,30 @@ class MarkdownParser < Parsanol::Parser
   end
 
   rule(:bold) do
-    (str('**') >>
-     (str('**').absent? >> any).repeat(1).as(:text) >>
-     str('**')).as(:bold)
+    (str("**") >>
+     (str("**").absent? >> any).repeat(1).as(:text) >>
+     str("**")).as(:bold)
   end
 
   rule(:italic) do
-    (str('*') >>
-     (str('*').absent? >> any).repeat(1).as(:text) >>
-     str('*')).as(:italic)
+    (str("*") >>
+     (str("*").absent? >> any).repeat(1).as(:text) >>
+     str("*")).as(:italic)
   end
 
   rule(:code_inline) do
-    (str('`') >>
-     (str('`').absent? >> any).repeat(1).as(:code) >>
-     str('`')).as(:code)
+    (str("`") >>
+     (str("`").absent? >> any).repeat(1).as(:code) >>
+     str("`")).as(:code)
   end
 
   rule(:link) do
-    (str('[') >>
-     (str(']').absent? >> any).repeat(1).as(:text) >>
-     str(']') >>
-     str('(') >>
-     (str(')').absent? >> any).repeat(1).as(:url) >>
-     str(')')).as(:link)
+    (str("[") >>
+     (str("]").absent? >> any).repeat(1).as(:text) >>
+     str("]") >>
+     str("(") >>
+     (str(")").absent? >> any).repeat(1).as(:url) >>
+     str(")")).as(:link)
   end
 
   rule(:text) do
@@ -144,7 +144,7 @@ class MarkdownParser < Parsanol::Parser
   end
 
   # Helpers
-  rule(:space) { str(' ') }
+  rule(:space) { str(" ") }
   rule(:space?) { match('\s').repeat }
   rule(:newline) { match('\n') }
   rule(:newline?) { match('\n').maybe }
@@ -226,7 +226,9 @@ class MarkdownTransform < Parsanol::Transform
   end
 
   rule(item: { text: simple(:t) }) { { text: t.to_s.strip } }
-  rule(item: { number: simple(:n), text: simple(:t) }) { { number: n.to_s, text: t.to_s.strip } }
+  rule(item: { number: simple(:n), text: simple(:t) }) do
+    { number: n.to_s, text: t.to_s.strip }
+  end
 end
 
 # Parse markdown string
@@ -243,8 +245,8 @@ end
 
 # Main demo
 if __FILE__ == $PROGRAM_NAME
-  puts 'Markdown Parser'
-  puts '=' * 50
+  puts "Markdown Parser"
+  puts "=" * 50
   puts
 
   markdown = <<~MD
@@ -271,19 +273,19 @@ if __FILE__ == $PROGRAM_NAME
     ```
   MD
 
-  puts 'Input:'
-  puts '-' * 50
+  puts "Input:"
+  puts "-" * 50
   puts markdown
-  puts '-' * 50
+  puts "-" * 50
   puts
 
   result = parse_markdown("#{markdown}\n")
 
   if result
-    puts 'Parsed AST:'
+    puts "Parsed AST:"
     puts result.inspect
     puts
-    puts 'HTML Output:'
+    puts "HTML Output:"
     puts result.to_html
   end
 end

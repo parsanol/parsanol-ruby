@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../ast_visitor'
+require_relative "../ast_visitor"
 
 module Parsanol
   module Optimizers
@@ -26,19 +26,19 @@ module Parsanol
         if inner.is_a?(Parsanol::Atoms::Repetition)
           # repeat(0,1).repeat(0,1) => repeat(0,1) (idempotent)
           if parslet.min.zero? && parslet.max == 1 &&
-             inner.min.zero? && inner.max == 1
+              inner.min.zero? && inner.max == 1
             return inner
           end
 
           # repeat(n,n).repeat(m,m) => repeat(n*m,n*m) for exact counts
           if parslet.min == parslet.max && inner.min == inner.max &&
-             parslet.max && inner.max
+              parslet.max && inner.max
             new_count = parslet.min * inner.min
             return Parsanol::Atoms::Repetition.new(
               inner.parslet,
               new_count,
               new_count,
-              parslet.result_tag
+              parslet.result_tag,
             )
           end
         end
@@ -51,7 +51,7 @@ module Parsanol
             inner,
             parslet.min,
             parslet.max,
-            parslet.result_tag
+            parslet.result_tag,
           )
         end
       end

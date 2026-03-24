@@ -13,7 +13,7 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol'
+require "parsanol"
 
 # NOTE: This example requires:
 # 1. Native extension support for parse_to_objects
@@ -64,10 +64,10 @@ module Calculator
       right_val = @right.eval
 
       case @op
-      when '+' then left_val + right_val
-      when '-' then left_val - right_val
-      when '*' then left_val * right_val
-      when '/' then left_val / right_val
+      when "+" then left_val + right_val
+      when "-" then left_val - right_val
+      when "*" then left_val * right_val
+      when "/" then left_val / right_val
       end
     end
 
@@ -100,14 +100,14 @@ class CalculatorParser < Parsanol::Parser
   end
 
   rule(:number) do
-    match('[0-9]').repeat(1).as(:int) >> space?
+    match("[0-9]").repeat(1).as(:int) >> space?
   end
 
-  rule(:add_op) { match('[+-]').as(:op) >> space? }
-  rule(:mult_op) { match('[*/]').as(:op) >> space? }
+  rule(:add_op) { match("[+-]").as(:op) >> space? }
+  rule(:mult_op) { match("[*/]").as(:op) >> space? }
 
-  rule(:lparen) { str('(') >> space? }
-  rule(:rparen) { str(')') >> space? }
+  rule(:lparen) { str("(") >> space? }
+  rule(:rparen) { str(")") >> space? }
   rule(:space?) { match('\s').repeat }
 
   # Output type mapping (ZeroCopy feature)
@@ -145,39 +145,39 @@ end
 # Simulated parsing for demonstration
 def simulate_parse(input)
   case input.strip
-  when '42'
+  when "42"
     Calculator::Number.new(42)
-  when '1 + 2'
+  when "1 + 2"
     Calculator::BinOp.new(
       left: Calculator::Number.new(1),
-      op: '+',
-      right: Calculator::Number.new(2)
+      op: "+",
+      right: Calculator::Number.new(2),
     )
-  when '3 * 4'
+  when "3 * 4"
     Calculator::BinOp.new(
       left: Calculator::Number.new(3),
-      op: '*',
-      right: Calculator::Number.new(4)
+      op: "*",
+      right: Calculator::Number.new(4),
     )
-  when '2 + 3 * 4'
+  when "2 + 3 * 4"
     Calculator::BinOp.new(
       left: Calculator::Number.new(2),
-      op: '+',
+      op: "+",
       right: Calculator::BinOp.new(
         left: Calculator::Number.new(3),
-        op: '*',
-        right: Calculator::Number.new(4)
-      )
+        op: "*",
+        right: Calculator::Number.new(4),
+      ),
     )
-  when '(2 + 3) * 4'
+  when "(2 + 3) * 4"
     Calculator::BinOp.new(
       left: Calculator::BinOp.new(
         left: Calculator::Number.new(2),
-        op: '+',
-        right: Calculator::Number.new(3)
+        op: "+",
+        right: Calculator::Number.new(3),
       ),
-      op: '*',
-      right: Calculator::Number.new(4)
+      op: "*",
+      right: Calculator::Number.new(4),
     )
   else
     raise "Not simulated: #{input}"
@@ -186,49 +186,49 @@ end
 
 # Example usage
 if __FILE__ == $PROGRAM_NAME
-  puts '=' * 60
-  puts 'Calculator Example - ZeroCopy: Mirrored Objects'
-  puts '=' * 60
+  puts "=" * 60
+  puts "Calculator Example - ZeroCopy: Mirrored Objects"
+  puts "=" * 60
   puts
-  puts 'NOTE: This example shows the planned API for ZeroCopy.'
-  puts 'The native extension support for parse_to_objects is coming soon.'
+  puts "NOTE: This example shows the planned API for ZeroCopy."
+  puts "The native extension support for parse_to_objects is coming soon."
   puts
 
   test_cases = [
-    ['42', 42],
-    ['1 + 2', 3],
-    ['3 * 4', 12],
-    ['2 + 3 * 4', 14],
-    ['(2 + 3) * 4', 20]
+    ["42", 42],
+    ["1 + 2", 3],
+    ["3 * 4", 12],
+    ["2 + 3 * 4", 14],
+    ["(2 + 3) * 4", 20],
   ]
 
   test_cases.each do |input, expected|
     puts
-    puts '-' * 40
+    puts "-" * 40
     puts "Input: #{input}"
     begin
       result = calculate(input)
-      status = result == expected ? '✓ PASS' : '✗ FAIL'
+      status = result == expected ? "✓ PASS" : "✗ FAIL"
       puts "Expected: #{expected}, Got: #{result} - #{status}"
     rescue StandardError => e
       puts "Error: #{e.message}"
-      puts '✗ FAIL'
+      puts "✗ FAIL"
     end
   end
 
   puts
-  puts '=' * 60
-  puts 'ZeroCopy Benefits:'
-  puts '- FASTEST: No serialization overhead'
-  puts '- Zero-copy: Direct Ruby object construction'
-  puts '- Type-safe: Types defined in both Rust and Ruby'
-  puts '- Methods defined in Ruby (eval, to_s, etc.)'
+  puts "=" * 60
+  puts "ZeroCopy Benefits:"
+  puts "- FASTEST: No serialization overhead"
+  puts "- Zero-copy: Direct Ruby object construction"
+  puts "- Type-safe: Types defined in both Rust and Ruby"
+  puts "- Methods defined in Ruby (eval, to_s, etc.)"
   puts
-  puts 'ZeroCopy Requirements:'
-  puts '- Define types in Rust with #[derive(RubyObject)]'
-  puts '- Define matching Ruby classes'
-  puts '- Native extension compiled with ruby feature'
-  puts '=' * 60
+  puts "ZeroCopy Requirements:"
+  puts "- Define types in Rust with #[derive(RubyObject)]"
+  puts "- Define matching Ruby classes"
+  puts "- Native extension compiled with ruby feature"
+  puts "=" * 60
 end
 
 # Rust code that would be needed (for reference):

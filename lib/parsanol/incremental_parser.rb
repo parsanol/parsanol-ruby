@@ -19,7 +19,7 @@ module Parsanol
   class Edit
     attr_reader :start, :deleted, :inserted
 
-    def initialize(start:, deleted:, inserted: '')
+    def initialize(start:, deleted:, inserted: "")
       @start = start
       @deleted = deleted
       @inserted = inserted
@@ -61,13 +61,14 @@ module Parsanol
     #
     # @param grammar [Parsanol::Parser, Parsanol::Atoms::Base] Grammar to use
     # @param initial_input [String] Initial input string
-    def initialize(grammar, initial_input = '')
+    def initialize(grammar, initial_input = "")
       @grammar = grammar
       @input = initial_input
 
       if Parsanol::Native.available?
         grammar_json = Parsanol::Native.serialize_grammar(grammar.root)
-        @native_parser = Parsanol::Native.incremental_parser_new(grammar_json, initial_input)
+        @native_parser = Parsanol::Native.incremental_parser_new(grammar_json,
+                                                                 initial_input)
       else
         @native_parser = nil
       end
@@ -81,7 +82,7 @@ module Parsanol
     # @param start [Integer] Start position of edit
     # @param deleted [Integer] Number of characters deleted
     # @param inserted [String] Text to insert
-    def apply_edit(start:, deleted:, inserted: '')
+    def apply_edit(start:, deleted:, inserted: "")
       edit = Edit.new(start: start, deleted: deleted, inserted: inserted)
       @edits << edit
 
@@ -93,7 +94,8 @@ module Parsanol
 
       return unless @native_parser
 
-      Parsanol::Native.incremental_parser_apply_edit(@native_parser, start, deleted, inserted)
+      Parsanol::Native.incremental_parser_apply_edit(@native_parser, start,
+                                                     deleted, inserted)
     end
 
     # Convenience method to apply multiple edits
@@ -119,7 +121,9 @@ module Parsanol
       return @cached_result if @cached_result
 
       if @native_parser
-        @cached_result = Parsanol::Native.incremental_parser_reparse(@native_parser, @input)
+        @cached_result = Parsanol::Native.incremental_parser_reparse(
+          @native_parser, @input
+        )
       else
         # Pure Ruby fallback - reparse from scratch
         root = @grammar.root
@@ -164,14 +168,15 @@ module Parsanol
     #
     # @param new_input [String, nil] Optional new initial input
     def reset(new_input = nil)
-      @input = new_input || ''
+      @input = new_input || ""
       @edits.clear
       @cached_result = nil
 
       return unless @native_parser && new_input
 
       grammar_json = Parsanol::Native.serialize_grammar(@grammar.root)
-      @native_parser = Parsanol::Native.incremental_parser_new(grammar_json, @input)
+      @native_parser = Parsanol::Native.incremental_parser_new(grammar_json,
+                                                               @input)
     end
   end
 end

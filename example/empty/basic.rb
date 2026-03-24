@@ -5,7 +5,7 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol/parslet'
+require "parsanol/parslet"
 
 class MyParser < Parsanol::Parser
   rule(:empty) {}

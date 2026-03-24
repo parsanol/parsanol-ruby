@@ -72,7 +72,7 @@ module Parsanol
           new_parslet,
           parslet.min,
           parslet.max,
-          parslet.instance_variable_get(:@tag)
+          parslet.instance_variable_get(:@tag),
         )
       end
     end

@@ -11,12 +11,12 @@
 #   bundle exec ruby benchmark/run_all.rb --quick  # Skip large inputs
 #   bundle exec ruby benchmark/run_all.rb --parser parslet-ruby  # Only specific parser
 
-require 'bundler/setup'
-require 'benchmark/ips'
-require 'json'
-require 'fileutils'
-require 'optparse'
-require 'time'
+require "bundler/setup"
+require "benchmark/ips"
+require "json"
+require "fileutils"
+require "optparse"
+require "time"
 
 class BenchmarkRunner
   APPROACHES = %w[
@@ -40,30 +40,31 @@ class BenchmarkRunner
     {
       quick: false,
       parser: nil,
-      output_dir: File.join(__dir__, 'reports'),
+      output_dir: File.join(__dir__, "reports"),
       verbose: false,
-      show_diagram: true
+      show_diagram: true,
     }.tap do |opts|
       OptionParser.new do |parser|
         parser.banner = "Usage: #{$0} [options]"
 
-        parser.on('-q', '--quick', 'Skip large inputs for faster run') do
+        parser.on("-q", "--quick", "Skip large inputs for faster run") do
           opts[:quick] = true
         end
 
-        parser.on('-p', '--parser NAME', APPROACHES, "Test only this parser") do |p|
+        parser.on("-p", "--parser NAME", APPROACHES,
+                  "Test only this parser") do |p|
           opts[:parser] = p
         end
 
-        parser.on('-v', '--verbose', 'Show detailed output') do
+        parser.on("-v", "--verbose", "Show detailed output") do
           opts[:verbose] = true
         end
 
-        parser.on('--no-diagram', 'Hide the approaches diagram') do
+        parser.on("--no-diagram", "Hide the approaches diagram") do
           opts[:show_diagram] = false
         end
 
-        parser.on('-o', '--output DIR', 'Output directory for reports') do |d|
+        parser.on("-o", "--output DIR", "Output directory for reports") do |d|
           opts[:output_dir] = d
         end
       end.parse!(args)
@@ -145,8 +146,8 @@ class BenchmarkRunner
 
     # Approach 1: Parslet Ruby
     begin
-      require 'parslet'
-      available << 'parslet-ruby'
+      require "parslet"
+      available << "parslet-ruby"
       log "✓ parslet-ruby available (Approach 1: Pure Ruby baseline)"
     rescue LoadError
       log "✗ parslet-ruby not available"
@@ -154,49 +155,49 @@ class BenchmarkRunner
 
     # Approach 2: Parsanol Ruby backend
     begin
-      require 'parsanol'
-      available << 'parsanol-ruby'
+      require "parsanol"
+      available << "parsanol-ruby"
       log "✓ parsanol-ruby available (Approach 2: Parsanol Ruby backend)"
     rescue LoadError => e
       log "✗ parsanol-ruby not available: #{e.message}"
     end
 
     # Approach 3: Parsanol Native (Rust → AST → Ruby)
-    if available.include?('parsanol-ruby')
+    if available.include?("parsanol-ruby")
       begin
         if defined?(Parsanol::Native) && Parsanol::Native.available?
-          available << 'parsanol-native'
+          available << "parsanol-native"
           log "✓ parsanol-native available (Approach 3: Rust → AST → Ruby)"
         end
-      rescue => e
+      rescue StandardError => e
         log "✗ parsanol-native not available: #{e.message}"
       end
     end
 
     # Approach 4: Parsanol FFI Hash (Rust → Ruby Hash direct)
-    if available.include?('parsanol-native')
+    if available.include?("parsanol-native")
       begin
         if Parsanol::Native.respond_to?(:parse_to_objects)
-          available << 'parsanol-ffi-hash'
+          available << "parsanol-ffi-hash"
           log "✓ parsanol-ffi-hash available (Approach 4: Rust → Ruby Hash)"
         else
           log "✗ parsanol-ffi-hash not available (parse_to_objects not implemented)"
         end
-      rescue => e
+      rescue StandardError => e
         log "✗ parsanol-ffi-hash not available: #{e.message}"
       end
     end
 
     # Approach 5: Parsanol FFI JSON (Rust → JSON string)
-    if available.include?('parsanol-native')
+    if available.include?("parsanol-native")
       begin
         if Parsanol::Native.respond_to?(:parse_to_json)
-          available << 'parsanol-ffi-json'
+          available << "parsanol-ffi-json"
           log "✓ parsanol-ffi-json available (Approach 5: Rust → JSON)"
         else
           log "✗ parsanol-ffi-json not available (parse_to_json not implemented)"
         end
-      rescue => e
+      rescue StandardError => e
         log "✗ parsanol-ffi-json not available: #{e.message}"
       end
     end
@@ -205,7 +206,7 @@ class BenchmarkRunner
   end
 
   def run_benchmark_set(parsers, type, size)
-    input_file = File.join(__dir__, 'inputs', size, "#{type}.txt")
+    input_file = File.join(__dir__, "inputs", size, "#{type}.txt")
 
     unless File.exist?(input_file)
       log "Skipping #{type}/#{size} - input file not found"
@@ -233,7 +234,7 @@ class BenchmarkRunner
         @results[key][parser] = result
         $stdout = stdout_was
         ips_value = result[:ips]
-        stddev_pct = result[:ips] > 0 ? (result[:stddev] / result[:ips] * 100) : 0
+        stddev_pct = result[:ips].positive? ? (result[:stddev] / result[:ips] * 100) : 0
         puts "#{ips_value.round(1).to_s.rjust(12)} iter/s  (±#{stddev_pct.round(1)}%)"
       rescue StandardError => e
         $stdout = stdout_was
@@ -248,7 +249,11 @@ class BenchmarkRunner
 
     # Warmup
     warmup_iterations = 5
-    warmup_iterations.times { parser.call(input) rescue nil }
+    warmup_iterations.times do
+      parser.call(input)
+    rescue StandardError
+      nil
+    end
 
     # Benchmark
     result = Benchmark.ips do |x|
@@ -264,21 +269,21 @@ class BenchmarkRunner
     {
       ips: entry.ips,
       stddev: entry.respond_to?(:ips_sd) ? entry.ips_sd : 0,
-      iterations: entry.iterations
+      iterations: entry.iterations,
     }
   end
 
   def create_parser(parser_name, type)
     case parser_name
-    when 'parslet-ruby'
+    when "parslet-ruby"
       create_parslet_parser(type)
-    when 'parsanol-ruby'
+    when "parsanol-ruby"
       create_parsanol_ruby_parser(type)
-    when 'parsanol-native'
+    when "parsanol-native"
       create_parsanol_native_parser(type)
-    when 'parsanol-ffi-hash'
+    when "parsanol-ffi-hash"
       create_parsanol_ffi_hash_parser(type)
-    when 'parsanol-ffi-json'
+    when "parsanol-ffi-json"
       create_parsanol_ffi_json_parser(type)
     else
       raise "Unknown parser: #{parser_name}"
@@ -286,80 +291,80 @@ class BenchmarkRunner
   end
 
   def create_parslet_parser(type)
-    require 'parslet'
+    require "parslet"
 
     case type
-    when 'json'
-      require_relative 'parsers/json_parslet'
+    when "json"
+      require_relative "parsers/json_parslet"
       parser = JsonParsletParser.new
       ->(input) { parser.parse(input) }
-    when 'expression'
-      Class.new(Parslet::Parser) {
-        rule(:number) { match('[0-9]').repeat(1) }
+    when "expression"
+      Class.new(Parslet::Parser) do
+        rule(:number) { match("[0-9]").repeat(1) }
         rule(:op) { match('[+\-*/]') }
         rule(:space) { match('\s').repeat(1) }
         rule(:expr) { number >> (space >> op >> space >> number).repeat }
         root(:expr)
-      }.new.method(:parse)
-    when 'express'
-      ->(input) { input.scan(/\w+|[;:,\(\)\[\]]/) }
+      end.new.method(:parse)
+    when "express"
+      ->(input) { input.scan(/\w+|[;:,()\[\]]/) }
     end
   end
 
   def create_parsanol_ruby_parser(type)
-    require 'parsanol'
+    require "parsanol"
 
     case type
-    when 'json'
-      require_relative 'parsers/json_parsanol'
+    when "json"
+      require_relative "parsers/json_parsanol"
       parser = JsonParsanolParser.new
       ->(input) { parser.parse(input, mode: :ruby) }
-    when 'expression'
-      Class.new(Parsanol::Parser) {
-        rule(:number) { match('[0-9]').repeat(1) }
+    when "expression"
+      Class.new(Parsanol::Parser) do
+        rule(:number) { match("[0-9]").repeat(1) }
         rule(:op) { match('[+\-*/]') }
         rule(:space) { match('\s').repeat(1) }
         rule(:expr) { number >> (space >> op >> space >> number).repeat }
         root :expr
-      }.new.method(:parse)
-    when 'express'
-      require_relative 'parsers/express_parsanol'
+      end.new.method(:parse)
+    when "express"
+      require_relative "parsers/express_parsanol"
       parser = ExpressParsanolParser.new
       ->(input) { parser.parse(input, mode: :ruby) }
     end
   end
 
   def create_parsanol_native_parser(type)
-    require 'parsanol'
+    require "parsanol"
 
     case type
-    when 'json'
-      require_relative 'parsers/json_parsanol'
+    when "json"
+      require_relative "parsers/json_parsanol"
       parser = JsonParsanolParser.new
       ->(input) { parser.parse(input, mode: :native) }
-    when 'expression'
-      Class.new(Parsanol::Parser) {
-        rule(:number) { match('[0-9]').repeat(1) }
+    when "expression"
+      Class.new(Parsanol::Parser) do
+        rule(:number) { match("[0-9]").repeat(1) }
         rule(:op) { match('[+\-*/]') }
         rule(:space) { match('\s').repeat(1) }
         rule(:expr) { number >> (space >> op >> space >> number).repeat }
         root :expr
-      }.new.method(:parse)
-    when 'express'
-      require_relative 'parsers/express_parsanol'
+      end.new.method(:parse)
+    when "express"
+      require_relative "parsers/express_parsanol"
       parser = ExpressParsanolParser.new
       ->(input) { parser.parse(input, mode: :native) }
     end
   end
 
   def create_parsanol_ffi_hash_parser(type)
-    require 'parsanol'
+    require "parsanol"
 
     case type
-    when 'json'
+    when "json"
       # Approach 4: Rust parses, creates Ruby Hash directly
       # Get the grammar from the parser and serialize it
-      require_relative 'parsers/json_parsanol'
+      require_relative "parsers/json_parsanol"
       json_parser = JsonParsanolParser.new
       grammar_json = Parsanol::Native.serialize_grammar(json_parser.root)
       ->(input) { Parsanol::Native.parse_to_objects(grammar_json, input) }
@@ -369,12 +374,12 @@ class BenchmarkRunner
   end
 
   def create_parsanol_ffi_json_parser(type)
-    require 'parsanol'
+    require "parsanol"
 
     case type
-    when 'json'
+    when "json"
       # Approach 5: Rust parses and serializes to JSON directly
-      require_relative 'parsers/json_parsanol'
+      require_relative "parsers/json_parsanol"
       json_parser = JsonParsanolParser.new
       grammar_json = Parsanol::Native.serialize_grammar(json_parser.root)
       ->(input) { Parsanol::Native.parse_to_json(grammar_json, input) }
@@ -390,7 +395,7 @@ class BenchmarkRunner
     puts "=" * 70
 
     # Group by input type
-    @results.group_by { |k, _| k.split('/').first }.each do |type, type_results|
+    @results.group_by { |k, _| k.split("/").first }.each do |type, type_results|
       puts
       puts "=== #{type.upcase} ==="
       puts
@@ -398,10 +403,12 @@ class BenchmarkRunner
       parsers = type_results.flat_map { |_, v| v.keys }.uniq
       parsers.each { |p| printf "%15s", p[0..12] }
       puts
-      puts "-" * (20 + parsers.size * 15)
+      puts "-" * (20 + (parsers.size * 15))
 
-      type_results.sort_by { |k, _| SIZES.index(k.split('/').last) }.each do |key, results|
-        size = key.split('/').last
+      type_results.sort_by do |k, _|
+        SIZES.index(k.split("/").last)
+      end.each do |key, results|
+        size = key.split("/").last
         printf "%-20s", size
 
         parsers.each do |parser|
@@ -423,11 +430,12 @@ class BenchmarkRunner
     puts "=" * 70
 
     @results.each do |key, results|
-      next unless results['parslet-ruby']
+      next unless results["parslet-ruby"]
 
       results.each do |parser, data|
-        next if parser == 'parslet-ruby'
-        speedup = data[:ips] / results['parslet-ruby'][:ips]
+        next if parser == "parslet-ruby"
+
+        speedup = data[:ips] / results["parslet-ruby"][:ips]
         puts "#{key}: #{parser} is #{speedup.round(1)}x faster"
       end
     end
@@ -447,7 +455,7 @@ class BenchmarkRunner
   def save_results
     FileUtils.mkdir_p(@options[:output_dir])
 
-    timestamp = Time.now.strftime('%Y%m%d_%H%M%S')
+    timestamp = Time.now.strftime("%Y%m%d_%H%M%S")
     filename = "benchmark_#{timestamp}.json"
     filepath = File.join(@options[:output_dir], filename)
 
@@ -456,10 +464,10 @@ class BenchmarkRunner
       options: @options,
       system: {
         ruby: RUBY_VERSION,
-        platform: RUBY_PLATFORM
+        platform: RUBY_PLATFORM,
       },
       results: @results,
-      errors: @errors
+      errors: @errors,
     }
 
     File.write(filepath, JSON.pretty_generate(data))

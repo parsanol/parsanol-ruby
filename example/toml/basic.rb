@@ -8,44 +8,46 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol/parslet'
+require "parsanol/parslet"
 
 # TOML parser
 class TomlParser < Parsanol::Parser
   root :document
 
   # Document is a sequence of entries
-  rule(:document) { (comment | table | key_value | newline).repeat.as(:document) }
+  rule(:document) do
+    (comment | table | key_value | newline).repeat.as(:document)
+  end
 
   # Comment: # to end of line
   rule(:comment) do
-    (str('#') >> (newline.absent? >> any).repeat).as(:comment) >> newline
+    (str("#") >> (newline.absent? >> any).repeat).as(:comment) >> newline
   end
 
   # Table: [name] or [name.sub]
   rule(:table) do
-    (str('[') >>
+    (str("[") >>
      table_name.as(:name) >>
-     str(']') >>
+     str("]") >>
      newline).as(:table)
   end
 
   rule(:table_name) do
-    (match('[a-zA-Z0-9_]') | str('.') | str('-')).repeat(1)
+    (match("[a-zA-Z0-9_]") | str(".") | str("-")).repeat(1)
   end
 
   # Key-value pair: key = value
   rule(:key_value) do
     (key.as(:key) >>
      space? >>
-     str('=') >>
+     str("=") >>
      space? >>
      value.as(:value) >>
      newline).as(:key_value)
   end
 
   rule(:key) do
-    (match('[a-zA-Z_]') >> match('[a-zA-Z0-9_]').repeat).as(:key)
+    (match("[a-zA-Z_]") >> match("[a-zA-Z0-9_]").repeat).as(:key)
   end
 
   # Value types
@@ -65,7 +67,7 @@ class TomlParser < Parsanol::Parser
 
   rule(:basic_string) do
     (str('"') >>
-     ((str('\\').ignore >> any) | (str('"').absent? >> any)).repeat.as(:string) >>
+     ((str("\\").ignore >> any) | (str('"').absent? >> any)).repeat.as(:string) >>
      str('"')).as(:basic_string)
   end
 
@@ -77,49 +79,49 @@ class TomlParser < Parsanol::Parser
 
   # Integer: +/-digits
   rule(:integer) do
-    (str('+') | str('-')).maybe >>
-      match('[0-9]').repeat(1).as(:integer)
+    (str("+") | str("-")).maybe >>
+      match("[0-9]").repeat(1).as(:integer)
   end
 
   # Float: digits.digits or scientific notation
   rule(:float) do
-    ((str('+') | str('-')).maybe >>
-     match('[0-9]').repeat(1) >>
-     str('.') >>
-     match('[0-9]').repeat(1) >>
-     (match('[eE]') >> (str('+') | str('-')).maybe >> match('[0-9]').repeat(1)).maybe).as(:float)
+    ((str("+") | str("-")).maybe >>
+     match("[0-9]").repeat(1) >>
+     str(".") >>
+     match("[0-9]").repeat(1) >>
+     (match("[eE]") >> (str("+") | str("-")).maybe >> match("[0-9]").repeat(1)).maybe).as(:float)
   end
 
   # Boolean: true or false
   rule(:boolean) do
-    (str('true') | str('false')).as(:boolean)
+    (str("true") | str("false")).as(:boolean)
   end
 
   # Array: [...]
   rule(:array) do
-    str('[') >>
+    str("[") >>
       space? >>
       (value >> (comma >> value).repeat).maybe.as(:elements) >>
       space? >>
-      str(']').as(:array)
+      str("]").as(:array)
   end
 
   # Inline table: {...}
   rule(:inline_table) do
-    (str('{') >>
+    (str("{") >>
      space? >>
      (key_value_inline >> (comma >> key_value_inline).repeat).maybe.as(:pairs) >>
      space? >>
-     str('}')).as(:inline_table)
+     str("}")).as(:inline_table)
   end
 
   rule(:key_value_inline) do
-    key.as(:key) >> space? >> str('=') >> space? >> value.as(:value)
+    key.as(:key) >> space? >> str("=") >> space? >> value.as(:value)
   end
 
   # Helpers
   rule(:space?) { match('\s').repeat }
-  rule(:comma) { str(',') >> space? }
+  rule(:comma) { str(",") >> space? }
   rule(:newline) { match('\n') | match('\r\n') }
 end
 
@@ -168,7 +170,7 @@ class TomlTransform < Parsanol::Transform
   rule(literal_string: simple(:s)) { s.to_s }
   rule(integer: simple(:i)) { i.to_s.to_i }
   rule(float: simple(:f)) { f.to_s.to_f }
-  rule(boolean: simple(:b)) { b.to_s == 'true' }
+  rule(boolean: simple(:b)) { b.to_s == "true" }
   rule(array: { elements: simple(:e) }) { [e] }
   rule(array: { elements: sequence(:es) }) { es }
   rule(inline_table: { pairs: simple(:p) }) { { p[:key] => p[:value] } }
@@ -191,8 +193,8 @@ end
 
 # Main demo
 if __FILE__ == $PROGRAM_NAME
-  puts 'TOML Parser'
-  puts '=' * 50
+  puts "TOML Parser"
+  puts "=" * 50
   puts
 
   toml = <<~TOML
@@ -210,19 +212,19 @@ if __FILE__ == $PROGRAM_NAME
     ports = [8080, 8081, 8082]
   TOML
 
-  puts 'Input:'
-  puts '-' * 50
+  puts "Input:"
+  puts "-" * 50
   puts toml
-  puts '-' * 50
+  puts "-" * 50
   puts
 
   result = parse_toml(toml)
 
   if result
-    puts 'Parsed AST:'
+    puts "Parsed AST:"
     pp result
     puts
-    puts 'Hash Output:'
+    puts "Hash Output:"
     pp result.to_h
   end
 end

@@ -5,9 +5,9 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'rspec'
-require 'parsanol/parslet'
-require 'parsanol/rig/rspec'
+require "rspec"
+require "parsanol/parslet"
+require "parsanol/rig/rspec"
 
 # This is the parsing stage. It expresses left associativity by compiling
 # list of things that have the same associativity.
@@ -26,10 +26,10 @@ class CalcParser < Parsanol::Parser
 
   rule(:integer) { digit.repeat(1).as(:i) >> space? }
 
-  rule(:mult_op) { match['*/'].as(:o) >> space? }
-  rule(:add_op) { match['+-'].as(:o) >> space? }
+  rule(:mult_op) { match["*/"].as(:o) >> space? }
+  rule(:add_op) { match["+-"].as(:o) >> space? }
 
-  rule(:digit) { match['0-9'] }
+  rule(:digit) { match["0-9"] }
   rule(:space?) { match['\s'].repeat }
 end
 
@@ -45,15 +45,15 @@ Int = Struct.new(:int) do
 
     Int.new(
       case operation
-      when '+'
+      when "+"
         left + right
-      when '-'
+      when "-"
         left - right
-      when '*'
+      when "*"
         left * right
-      when '/'
+      when "/"
         left / right
-      end
+      end,
     )
   end
 
@@ -97,34 +97,34 @@ end
 # A test suite for the above parser
 describe CalcParser do
   let(:p) { described_class.new }
-  describe '#integer' do
+  describe "#integer" do
     let(:i) { p.integer }
-    it 'parses integers' do
-      i.should parse('1')
-      i.should parse('123')
+    it "parses integers" do
+      i.should parse("1")
+      i.should parse("123")
     end
-    it 'consumes trailing white space' do
-      i.should parse('123   ')
+    it "consumes trailing white space" do
+      i.should parse("123   ")
     end
     it "doesn't parse floats" do
-      i.should_not parse('1.3')
+      i.should_not parse("1.3")
     end
   end
-  describe '#multiplication' do
+  describe "#multiplication" do
     let(:m) { p.multiplication }
-    it 'parses simple multiplication' do
-      m.should parse('1*2')
+    it "parses simple multiplication" do
+      m.should parse("1*2")
     end
-    it 'parses division' do
-      m.should parse('1/2')
+    it "parses division" do
+      m.should parse("1/2")
     end
   end
-  describe '#addition' do
+  describe "#addition" do
     let(:a) { p.addition }
 
-    it 'parses simple addition' do
-      a.should parse('1+2')
-      a.should parse('1+2+3-4')
+    it "parses simple addition" do
+      a.should parse("1+2")
+      a.should parse("1+2+3-4")
     end
   end
 end
@@ -133,29 +133,29 @@ describe CalcTransform do
     described_class.new.apply(obj)
   end
 
-  it 'transforms integers' do
-    t(i: '1').should == Int.new(1)
+  it "transforms integers" do
+    t(i: "1").should == Int.new(1)
   end
-  it 'unwraps left operand' do
+  it "unwraps left operand" do
     t(l: :obj).should == :obj
   end
 end
-describe 'whole computation specs' do
+describe "whole computation specs" do
   def self.result_of(str, int)
     it(str) { calculate(str).should == int }
   end
 
-  result_of '1+1', 2
-  result_of '1-1-1', -1
-  result_of '1+1+3*5/2', 9
-  result_of '123*2', 246
+  result_of "1+1", 2
+  result_of "1-1-1", -1
+  result_of "1+1+3*5/2", 9
+  result_of "123*2", 246
 end
 
 # Enable these if you want to change the code.
 # RSpec::Core::Runner.run([], $stderr, $stdout)
 
 str = ARGV.join
-str = '123*2' if str.match(/^\s*$/)
+str = "123*2" if /^\s*$/.match?(str)
 
 print "#{str} (command line): -> "
 puts calculate(str)

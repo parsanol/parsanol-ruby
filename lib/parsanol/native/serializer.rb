@@ -78,9 +78,9 @@ module Parsanol
 
     def serialize_str(atom)
       {
-        'Str' => {
-          'pattern' => atom.str
-        }
+        "Str" => {
+          "pattern" => atom.str,
+        },
       }
     end
 
@@ -90,46 +90,46 @@ module Parsanol
       pattern = atom.match
       pattern = ::Regexp.last_match(1) if pattern =~ /^\(\?[-mix]*:(.+)\)$/
       {
-        'Re' => {
-          'pattern' => pattern
-        }
+        "Re" => {
+          "pattern" => pattern,
+        },
       }
     end
 
     def serialize_sequence(atom)
       atom_ids = atom.parslets.map { |p| serialize_atom(p) }
       {
-        'Sequence' => {
-          'atoms' => atom_ids
-        }
+        "Sequence" => {
+          "atoms" => atom_ids,
+        },
       }
     end
 
     def serialize_alternative(atom)
       atom_ids = atom.alternatives.map { |p| serialize_atom(p) }
       {
-        'Alternative' => {
-          'atoms' => atom_ids
-        }
+        "Alternative" => {
+          "atoms" => atom_ids,
+        },
       }
     end
 
     def serialize_repetition(atom)
       {
-        'Repetition' => {
-          'atom' => serialize_atom(atom.parslet),
-          'min' => atom.min,
-          'max' => atom.max
-        }
+        "Repetition" => {
+          "atom" => serialize_atom(atom.parslet),
+          "min" => atom.min,
+          "max" => atom.max,
+        },
       }
     end
 
     def serialize_named(atom)
       {
-        'Named' => {
-          'name' => atom.name.to_s,
-          'atom' => serialize_atom(atom.parslet)
-        }
+        "Named" => {
+          "name" => atom.name.to_s,
+          "atom" => serialize_atom(atom.parslet),
+        },
       }
     end
 
@@ -169,7 +169,7 @@ module Parsanol
                        serialize_named(parslet)
                      when Parsanol::Atoms::Entity
                        # Nested entity - just reference it via serialize_atom
-                       { 'Entity' => { 'atom' => serialize_atom(parslet) } }
+                       { "Entity" => { "atom" => serialize_atom(parslet) } }
                      when Parsanol::Atoms::Lookahead
                        serialize_lookahead(parslet)
                      else
@@ -181,9 +181,9 @@ module Parsanol
       else
         # If the entity's block returns nil, create a placeholder that will fail
         @atoms[atom_id] = {
-          'Str' => {
-            'pattern' => "\x00__UNIMPLEMENTED_ENTITY_#{atom.name}__"
-          }
+          "Str" => {
+            "pattern" => "\x00__UNIMPLEMENTED_ENTITY_#{atom.name}__",
+          },
         }
       end
       atom_id
@@ -191,10 +191,10 @@ module Parsanol
 
     def serialize_lookahead(atom)
       {
-        'Lookahead' => {
-          'atom' => serialize_atom(atom.bound_parslet),
-          'positive' => atom.positive
-        }
+        "Lookahead" => {
+          "atom" => serialize_atom(atom.bound_parslet),
+          "positive" => atom.positive,
+        },
       }
     end
 
@@ -202,10 +202,10 @@ module Parsanol
       # Capture stores matched text for later reference by Dynamic atoms.
       # Now properly serialized for native parser support (parsanol-rs 0.3.0+).
       {
-        'Capture' => {
-          'name' => atom.capture_key.to_s,
-          'atom' => serialize_atom(atom.inner_atom)
-        }
+        "Capture" => {
+          "name" => atom.capture_key.to_s,
+          "atom" => serialize_atom(atom.inner_atom),
+        },
       }
     end
 
@@ -220,9 +220,9 @@ module Parsanol
       return serialize_unknown(atom) unless inner
 
       {
-        'Scope' => {
-          'atom' => serialize_atom(inner)
-        }
+        "Scope" => {
+          "atom" => serialize_atom(inner),
+        },
       }
     end
 
@@ -232,9 +232,9 @@ module Parsanol
       callback_id = Parsanol::Native::Dynamic.register(atom.block)
 
       {
-        'Dynamic' => {
-          'callback_id' => callback_id
-        }
+        "Dynamic" => {
+          "callback_id" => callback_id,
+        },
       }
     end
 
@@ -242,9 +242,9 @@ module Parsanol
       # For unsupported atom types, create a placeholder
       # This will cause a parse error at runtime
       {
-        'Str' => {
-          'pattern' => '' # Empty pattern that will never match
-        }
+        "Str" => {
+          "pattern" => "", # Empty pattern that will never match
+        },
       }
     end
   end

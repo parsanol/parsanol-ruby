@@ -132,7 +132,10 @@ module Parsanol
 
       # Check right subtree
       # Only search right if intervals starting there could overlap
-      query_recursive(node.right, low, high, results) if node.right && node.low < high
+      if node.right && node.low < high
+        query_recursive(node.right, low, high,
+                        results)
+      end
     end
 
     # Find exact interval match
@@ -154,10 +157,16 @@ module Parsanol
       return nil if node.nil?
 
       # Recursively delete from left subtree
-      node.left = delete_overlapping_recursive(node.left, low, high, deleted) if node.left
+      if node.left
+        node.left = delete_overlapping_recursive(node.left, low, high,
+                                                 deleted)
+      end
 
       # Recursively delete from right subtree
-      node.right = delete_overlapping_recursive(node.right, low, high, deleted) if node.right
+      if node.right
+        node.right = delete_overlapping_recursive(node.right, low, high,
+                                                  deleted)
+      end
 
       # Check if current node overlaps
       if node.low < high && low < node.high

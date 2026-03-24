@@ -1,26 +1,26 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require "spec_helper"
 
-describe 'ResultBuilder Integration' do
+describe "ResultBuilder Integration" do
   include Parsanol
 
   let(:context) { Parsanol::Atoms::Context.new }
 
-  describe 'RepetitionBuilder infrastructure' do
-    it 'constructs repetition results using buffers' do
+  describe "RepetitionBuilder infrastructure" do
+    it "constructs repetition results using buffers" do
       builder = Parsanol::RepetitionBuilder.new(context, estimated_size: 3)
-      builder.add_element('a')
-      builder.add_element('b')
-      builder.add_element('c')
+      builder.add_element("a")
+      builder.add_element("b")
+      builder.add_element("c")
       result = builder.build
 
       # Should be a LazyResult
       expect(result).to be_a(Parsanol::LazyResult)
-      expect(result.to_a).to eq([:repetition, 'a', 'b', 'c'])
+      expect(result.to_a).to eq([:repetition, "a", "b", "c"])
     end
 
-    it 'handles variable length results' do
+    it "handles variable length results" do
       builder = Parsanol::RepetitionBuilder.new(context, estimated_size: 2)
 
       # Add more than estimated
@@ -32,48 +32,48 @@ describe 'ResultBuilder Integration' do
       expect(result.to_a[10]).to eq(9)
     end
 
-    it 'builds empty repetitions' do
+    it "builds empty repetitions" do
       builder = Parsanol::RepetitionBuilder.new(context)
       result = builder.build
 
       expect(result.to_a).to eq([:repetition])
     end
 
-    it 'supports custom tags' do
+    it "supports custom tags" do
       builder = Parsanol::RepetitionBuilder.new(context, tag: :my_list)
-      builder.add_element('x')
+      builder.add_element("x")
       result = builder.build
 
-      expect(result.to_a).to eq([:my_list, 'x'])
+      expect(result.to_a).to eq([:my_list, "x"])
     end
   end
 
-  describe 'SequenceBuilder infrastructure' do
-    it 'constructs sequence results using buffers' do
+  describe "SequenceBuilder infrastructure" do
+    it "constructs sequence results using buffers" do
       builder = Parsanol::SequenceBuilder.new(context, size: 3)
-      builder.add_element('a')
-      builder.add_element('b')
-      builder.add_element('c')
+      builder.add_element("a")
+      builder.add_element("b")
+      builder.add_element("c")
       result = builder.build
 
       expect(result).to be_a(Parsanol::LazyResult)
-      expect(result.to_a).to eq([:sequence, 'a', 'b', 'c'])
+      expect(result.to_a).to eq([:sequence, "a", "b", "c"])
     end
 
-    it 'filters nil values automatically' do
+    it "filters nil values automatically" do
       builder = Parsanol::SequenceBuilder.new(context, size: 4)
-      builder.add_element('a')
+      builder.add_element("a")
       builder.add_element(nil)
-      builder.add_element('b')
+      builder.add_element("b")
       builder.add_element(nil)
-      builder.add_element('c')
+      builder.add_element("c")
       result = builder.build
 
       # Nils should be excluded
-      expect(result.to_a).to eq([:sequence, 'a', 'b', 'c'])
+      expect(result.to_a).to eq([:sequence, "a", "b", "c"])
     end
 
-    it 'handles empty sequences' do
+    it "handles empty sequences" do
       builder = Parsanol::SequenceBuilder.new(context)
       result = builder.build
 
@@ -81,47 +81,48 @@ describe 'ResultBuilder Integration' do
     end
   end
 
-  describe 'HashBuilder infrastructure' do
-    it 'constructs hash directly without arrays' do
+  describe "HashBuilder infrastructure" do
+    it "constructs hash directly without arrays" do
       builder = Parsanol::HashBuilder.new(context)
-      builder.add_pair(:name, 'John')
+      builder.add_pair(:name, "John")
       builder.add_pair(:age, 30)
       result = builder.build
 
       expect(result).to be_a(Hash)
-      expect(result).to eq({ name: 'John', age: 30 })
+      expect(result).to eq({ name: "John", age: 30 })
     end
 
-    it 'handles complex values' do
+    it "handles complex values" do
       builder = Parsanol::HashBuilder.new(context)
       builder.add_pair(:array, %w[a b c])
-      builder.add_pair(:nested, { key: 'value' })
+      builder.add_pair(:nested, { key: "value" })
       result = builder.build
 
       expect(result[:array]).to eq(%w[a b c])
-      expect(result[:nested]).to eq({ key: 'value' })
+      expect(result[:nested]).to eq({ key: "value" })
     end
 
-    it 'overwrites duplicate keys' do
+    it "overwrites duplicate keys" do
       builder = Parsanol::HashBuilder.new(context)
-      builder.add_pair(:key, 'old')
-      builder.add_pair(:key, 'new')
+      builder.add_pair(:key, "old")
+      builder.add_pair(:key, "new")
       result = builder.build
 
-      expect(result).to eq({ key: 'new' })
+      expect(result).to eq({ key: "new" })
     end
   end
 
-  describe 'nested builder usage' do
-    it 'builds nested repetition-sequence structures' do
+  describe "nested builder usage" do
+    it "builds nested repetition-sequence structures" do
       # Outer repetition
-      outer_builder = Parsanol::RepetitionBuilder.new(context, estimated_size: 3)
+      outer_builder = Parsanol::RepetitionBuilder.new(context,
+                                                      estimated_size: 3)
 
       # Inner sequences
       3.times do
         inner_builder = Parsanol::SequenceBuilder.new(context, size: 2)
-        inner_builder.add_element('a')
-        inner_builder.add_element('b')
+        inner_builder.add_element("a")
+        inner_builder.add_element("b")
         outer_builder.add_element(inner_builder.build)
       end
 
@@ -132,11 +133,11 @@ describe 'ResultBuilder Integration' do
       # Each element should be a sequence
       result.to_a[1..3].each do |elem|
         expect(elem).to be_a(Parsanol::LazyResult)
-        expect(elem.to_a).to eq([:sequence, 'a', 'b'])
+        expect(elem.to_a).to eq([:sequence, "a", "b"])
       end
     end
 
-    it 'builds repetition with hash elements' do
+    it "builds repetition with hash elements" do
       builder = Parsanol::RepetitionBuilder.new(context, estimated_size: 2)
 
       hash_builder1 = Parsanol::HashBuilder.new(context)
@@ -152,10 +153,10 @@ describe 'ResultBuilder Integration' do
     end
   end
 
-  describe 'buffer lifecycle management' do
-    it 'releases buffers properly' do
+  describe "buffer lifecycle management" do
+    it "releases buffers properly" do
       builder = Parsanol::RepetitionBuilder.new(context, estimated_size: 5)
-      builder.add_element('test')
+      builder.add_element("test")
 
       # Get buffer reference
       buffer = builder.instance_variable_get(:@buffer)
@@ -166,10 +167,10 @@ describe 'ResultBuilder Integration' do
       expect(builder.instance_variable_get(:@buffer)).to be_nil
     end
 
-    it 'buffers are reused from pool' do
+    it "buffers are reused from pool" do
       # Create and release first builder
       builder1 = Parsanol::RepetitionBuilder.new(context, estimated_size: 8)
-      builder1.add_element('a')
+      builder1.add_element("a")
       buffer1_capacity = builder1.instance_variable_get(:@buffer).capacity
       builder1.release
 
@@ -181,9 +182,9 @@ describe 'ResultBuilder Integration' do
       expect(buffer2_capacity).to eq(buffer1_capacity)
     end
 
-    it 'handles builder release on failure' do
+    it "handles builder release on failure" do
       builder = Parsanol::RepetitionBuilder.new(context, estimated_size: 3)
-      builder.add_element('test')
+      builder.add_element("test")
 
       # Simulate failure scenario - release should work
       expect { builder.release }.not_to raise_error
@@ -193,8 +194,8 @@ describe 'ResultBuilder Integration' do
     end
   end
 
-  describe 'performance characteristics' do
-    it 'defers materialization with LazyResult' do
+  describe "performance characteristics" do
+    it "defers materialization with LazyResult" do
       builder = Parsanol::RepetitionBuilder.new(context, estimated_size: 100)
       100.times { |i| builder.add_element(i) }
       result = builder.build
@@ -212,7 +213,7 @@ describe 'ResultBuilder Integration' do
       expect(result.instance_variable_get(:@materialized)).not_to be_nil
     end
 
-    it 'handles large structures efficiently' do
+    it "handles large structures efficiently" do
       builder = Parsanol::RepetitionBuilder.new(context, estimated_size: 1000)
 
       1000.times { |i| builder.add_element(i) }
@@ -223,7 +224,7 @@ describe 'ResultBuilder Integration' do
       expect(result.to_a[-1]).to eq(999)
     end
 
-    it 'caches materialized results' do
+    it "caches materialized results" do
       builder = Parsanol::RepetitionBuilder.new(context, estimated_size: 50)
       50.times { |i| builder.add_element(i) }
       result = builder.build
@@ -237,9 +238,10 @@ describe 'ResultBuilder Integration' do
     end
   end
 
-  describe 'factory method' do
-    it 'creates appropriate builder types' do
-      rep_builder = Parsanol::ResultBuilder.for(:repetition, context, estimated_size: 5)
+  describe "factory method" do
+    it "creates appropriate builder types" do
+      rep_builder = Parsanol::ResultBuilder.for(:repetition, context,
+                                                estimated_size: 5)
       expect(rep_builder).to be_a(Parsanol::RepetitionBuilder)
 
       seq_builder = Parsanol::ResultBuilder.for(:sequence, context, size: 3)
@@ -249,17 +251,18 @@ describe 'ResultBuilder Integration' do
       expect(hash_builder).to be_a(Parsanol::HashBuilder)
     end
 
-    it 'passes options correctly' do
-      builder = Parsanol::ResultBuilder.for(:repetition, context, tag: :custom, estimated_size: 10)
+    it "passes options correctly" do
+      builder = Parsanol::ResultBuilder.for(:repetition, context, tag: :custom,
+                                                                  estimated_size: 10)
       expect(builder.instance_variable_get(:@tag)).to eq(:custom)
     end
   end
 
-  describe 'compatibility with LazyResult' do
-    it 'builders produce results compatible with existing code' do
+  describe "compatibility with LazyResult" do
+    it "builders produce results compatible with existing code" do
       builder = Parsanol::RepetitionBuilder.new(context, estimated_size: 3)
-      builder.add_element('a')
-      builder.add_element('b')
+      builder.add_element("a")
+      builder.add_element("b")
       result = builder.build
 
       # Should work as array
@@ -272,13 +275,13 @@ describe 'ResultBuilder Integration' do
       expect(mapped).to be_a(Array)
     end
 
-    it 'results are comparable to arrays' do
+    it "results are comparable to arrays" do
       builder = Parsanol::RepetitionBuilder.new(context, estimated_size: 2)
-      builder.add_element('x')
+      builder.add_element("x")
       result = builder.build
 
-      expect(result).to eq([:repetition, 'x'])
-      expect([:repetition, 'x']).to eq(result)
+      expect(result).to eq([:repetition, "x"])
+      expect(result).to eq([:repetition, "x"])
     end
   end
 end

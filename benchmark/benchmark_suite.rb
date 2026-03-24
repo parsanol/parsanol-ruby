@@ -15,14 +15,15 @@
 #   bundle exec ruby benchmark/benchmark_suite.rb --parser json --size medium
 #   bundle exec ruby benchmark/benchmark_suite.rb --all
 
-require 'bundler/setup'
-require 'benchmark/ips'
-require 'optparse'
-require 'json'
-require 'fileutils'
+require "bundler/setup"
+require "benchmark/ips"
+require "optparse"
+require "json"
+require "fileutils"
 
 class BenchmarkSuite
-  PARSERS = %w[parslet parsanol-ruby parsanol-native parsanol-parslet racc regexp].freeze
+  PARSERS = %w[parslet parsanol-ruby parsanol-native parsanol-parslet racc
+               regexp].freeze
   SIZES = %w[tiny small medium large].freeze
   INPUT_TYPES = %w[json expression express].freeze
 
@@ -36,47 +37,51 @@ class BenchmarkSuite
   def parse_options(args)
     opts = {
       parser: nil,        # Specific parser to benchmark
-      size: 'medium',     # Input size
-      input_type: 'json', # Type of input
+      size: "medium",     # Input size
+      input_type: "json", # Type of input
       all: false,         # Run all combinations
       iterations: 10,     # Warmup iterations
       time: 5,            # Benchmark time in seconds
       memory: false,      # Profile memory
-      output: 'console'   # Output format: console, json, html
+      output: "console", # Output format: console, json, html
     }
 
     OptionParser.new do |parser|
       parser.banner = "Usage: #{$0} [options]"
 
-      parser.on('-p', '--parser NAME', PARSERS, "Parser to benchmark (#{PARSERS.join(', ')})") do |p|
+      parser.on("-p", "--parser NAME", PARSERS,
+                "Parser to benchmark (#{PARSERS.join(', ')})") do |p|
         opts[:parser] = p
       end
 
-      parser.on('-s', '--size SIZE', SIZES, "Input size (#{SIZES.join(', ')})") do |s|
+      parser.on("-s", "--size SIZE", SIZES,
+                "Input size (#{SIZES.join(', ')})") do |s|
         opts[:size] = s
       end
 
-      parser.on('-t', '--type TYPE', INPUT_TYPES, "Input type (#{INPUT_TYPES.join(', ')})") do |t|
+      parser.on("-t", "--type TYPE", INPUT_TYPES,
+                "Input type (#{INPUT_TYPES.join(', ')})") do |t|
         opts[:input_type] = t
       end
 
-      parser.on('-a', '--all', 'Run all combinations') do
+      parser.on("-a", "--all", "Run all combinations") do
         opts[:all] = true
       end
 
-      parser.on('-i', '--iterations N', Integer, 'Warmup iterations') do |i|
+      parser.on("-i", "--iterations N", Integer, "Warmup iterations") do |i|
         opts[:iterations] = i
       end
 
-      parser.on('--time SECONDS', Float, 'Benchmark time') do |t|
+      parser.on("--time SECONDS", Float, "Benchmark time") do |t|
         opts[:time] = t
       end
 
-      parser.on('-m', '--memory', 'Profile memory usage') do
+      parser.on("-m", "--memory", "Profile memory usage") do
         opts[:memory] = true
       end
 
-      parser.on('-o', '--output FORMAT', %w[console json html], 'Output format') do |o|
+      parser.on("-o", "--output FORMAT", %w[console json html],
+                "Output format") do |o|
         opts[:output] = o
       end
     end.parse!(args)
@@ -113,7 +118,7 @@ class BenchmarkSuite
     print_results(results)
 
     # Save results if requested
-    save_results(results) if options[:output] != 'console'
+    save_results(results) if options[:output] != "console"
   end
 
   private
@@ -123,20 +128,20 @@ class BenchmarkSuite
 
     # Check Parslet
     begin
-      require 'parslet'
-      available << 'parslet'
+      require "parslet"
+      available << "parslet"
     rescue LoadError
       puts "WARNING: parslet not available"
     end
 
     # Check Parsanol
     begin
-      require 'parsanol'
-      available << 'parsanol-ruby'
+      require "parsanol"
+      available << "parsanol-ruby"
 
       if Parsanol::Native.available?
-        available << 'parsanol-native'
-        available << 'parsanol-parslet'
+        available << "parsanol-native"
+        available << "parsanol-parslet"
       end
     rescue LoadError => e
       puts "WARNING: parsanol not available: #{e.message}"
@@ -144,20 +149,20 @@ class BenchmarkSuite
 
     # Check RACC
     begin
-      require 'racc/parser'
-      available << 'racc'
+      require "racc/parser"
+      available << "racc"
     rescue LoadError
       puts "WARNING: racc not available"
     end
 
     # Regexp is always available
-    available << 'regexp'
+    available << "regexp"
 
     available
   end
 
   def load_input(type, size)
-    filename = File.join(__dir__, 'inputs', size, "#{type}.txt")
+    filename = File.join(__dir__, "inputs", size, "#{type}.txt")
 
     if File.exist?(filename)
       File.read(filename)
@@ -168,11 +173,11 @@ class BenchmarkSuite
 
   def generate_input(type, size)
     case type
-    when 'json'
+    when "json"
       generate_json_input(size)
-    when 'expression'
+    when "expression"
       generate_expression_input(size)
-    when 'express'
+    when "express"
       generate_express_input(size)
     else
       raise "Unknown input type: #{type}"
@@ -180,15 +185,16 @@ class BenchmarkSuite
   end
 
   def generate_json_input(size)
-    multiplier = { 'tiny' => 1, 'small' => 10, 'medium' => 100, 'large' => 1000 }[size] || 1
+    multiplier = { "tiny" => 1, "small" => 10, "medium" => 100,
+                   "large" => 1000 }[size] || 1
 
-    objects = multiplier.times.map do |i|
+    objects = Array.new(multiplier) do |i|
       {
         id: i,
         name: "item_#{i}",
         value: rand(1000),
-        tags: ['a', 'b', 'c'].sample(2),
-        nested: { x: i * 2, y: i * 3 }
+        tags: ["a", "b", "c"].sample(2),
+        nested: { x: i * 2, y: i * 3 },
       }
     end
 
@@ -196,12 +202,13 @@ class BenchmarkSuite
   end
 
   def generate_expression_input(size)
-    multiplier = { 'tiny' => 1, 'small' => 5, 'medium' => 20, 'large' => 100 }[size] || 1
+    multiplier = { "tiny" => 1, "small" => 5, "medium" => 20,
+                   "large" => 100 }[size] || 1
 
     expressions = []
     multiplier.times do
       expressions << "#{rand(100)} + #{rand(100)} * #{rand(10)}"
-      expressions << "(#{rand(50)} - #{rand(20)}) / #{rand(5) + 1}"
+      expressions << "(#{rand(50)} - #{rand(20)}) / #{rand(1..5)}"
       expressions << "#{rand(1000)} * (#{rand(100)} + #{rand(100)})"
     end
 
@@ -209,7 +216,8 @@ class BenchmarkSuite
   end
 
   def generate_express_input(size)
-    entity_count = { 'tiny' => 1, 'small' => 5, 'medium' => 20, 'large' => 100 }[size] || 1
+    entity_count = { "tiny" => 1, "small" => 5, "medium" => 20,
+                     "large" => 100 }[size] || 1
 
     schema = ["SCHEMA test_schema;"]
 
@@ -257,23 +265,23 @@ class BenchmarkSuite
       cycles: entry.iterations,
       memory_before: memory_before,
       memory_after: memory_after,
-      memory_delta: memory_after && memory_before ? memory_after - memory_before : nil
+      memory_delta: memory_after && memory_before ? memory_after - memory_before : nil,
     }
   end
 
   def create_parser(parser_name, input_type)
     case parser_name
-    when 'parslet'
+    when "parslet"
       create_parslet_parser(input_type)
-    when 'parsanol-ruby'
+    when "parsanol-ruby"
       create_parsanol_ruby_parser(input_type)
-    when 'parsanol-native'
+    when "parsanol-native"
       create_parsanol_native_parser(input_type)
-    when 'parsanol-parslet'
+    when "parsanol-parslet"
       create_parsanol_parslet_parser(input_type)
-    when 'racc'
+    when "racc"
       create_racc_parser(input_type)
-    when 'regexp'
+    when "regexp"
       create_regexp_parser(input_type)
     else
       raise "Unknown parser: #{parser_name}"
@@ -281,40 +289,40 @@ class BenchmarkSuite
   end
 
   def create_parslet_parser(input_type)
-    require 'parslet'
+    require "parslet"
 
     case input_type
-    when 'json'
-      require_relative 'parsers/json_parslet'
+    when "json"
+      require_relative "parsers/json_parslet"
       parser = JsonParsletParser.new
       ->(input) { parser.parse(input) }
-    when 'expression'
-      require_relative 'parsers/expression_parslet'
+    when "expression"
+      require_relative "parsers/expression_parslet"
       parser = ExpressionParsletParser.new
       ->(input) { parser.parse(input) }
-    when 'express'
-      require_relative 'parsers/express_parslet'
+    when "express"
+      require_relative "parsers/express_parslet"
       parser = ExpressParsletParser.new
       ->(input) { parser.parse(input) }
     end
   end
 
   def create_parsanol_ruby_parser(input_type)
-    require 'parsanol'
+    require "parsanol"
 
     case input_type
-    when 'json'
-      require_relative 'parsers/json_parsanol'
+    when "json"
+      require_relative "parsers/json_parsanol"
       parser = JsonParsanolParser.new
       parser.class.use_ruby_backend!
       ->(input) { parser.parse(input) }
-    when 'expression'
-      require_relative 'parsers/expression_parsanol'
+    when "expression"
+      require_relative "parsers/expression_parsanol"
       parser = ExpressionParsanolParser.new
       parser.class.use_ruby_backend!
       ->(input) { parser.parse(input) }
-    when 'express'
-      require_relative 'parsers/express_parsanol'
+    when "express"
+      require_relative "parsers/express_parsanol"
       parser = ExpressParsanolParser.new
       parser.class.use_ruby_backend!
       ->(input) { parser.parse(input) }
@@ -322,21 +330,21 @@ class BenchmarkSuite
   end
 
   def create_parsanol_native_parser(input_type)
-    require 'parsanol'
+    require "parsanol"
 
     case input_type
-    when 'json'
-      require_relative 'parsers/json_parsanol'
+    when "json"
+      require_relative "parsers/json_parsanol"
       parser = JsonParsanolParser.new
       parser.class.use_rust_backend!
       ->(input) { parser.parse(input) }
-    when 'expression'
-      require_relative 'parsers/expression_parsanol'
+    when "expression"
+      require_relative "parsers/expression_parsanol"
       parser = ExpressionParsanolParser.new
       parser.class.use_rust_backend!
       ->(input) { parser.parse(input) }
-    when 'express'
-      require_relative 'parsers/express_parsanol'
+    when "express"
+      require_relative "parsers/express_parsanol"
       parser = ExpressParsanolParser.new
       parser.class.use_rust_backend!
       ->(input) { parser.parse(input) }
@@ -344,19 +352,19 @@ class BenchmarkSuite
   end
 
   def create_parsanol_parslet_parser(input_type)
-    require 'parsanol/parslet'
+    require "parsanol/parslet"
 
     case input_type
-    when 'json'
-      require_relative 'parsers/json_parslet_compat'
+    when "json"
+      require_relative "parsers/json_parslet_compat"
       parser = JsonParsletCompatParser.new
       ->(input) { parser.parse(input) }
-    when 'expression'
-      require_relative 'parsers/expression_parslet_compat'
+    when "expression"
+      require_relative "parsers/expression_parslet_compat"
       parser = ExpressionParsletCompatParser.new
       ->(input) { parser.parse(input) }
-    when 'express'
-      require_relative 'parsers/express_parslet_compat'
+    when "express"
+      require_relative "parsers/express_parslet_compat"
       parser = ExpressParsletCompatParser.new
       ->(input) { parser.parse(input) }
     end
@@ -365,12 +373,12 @@ class BenchmarkSuite
   def create_racc_parser(input_type)
     # RACC requires pre-compiled parsers
     case input_type
-    when 'json'
-      require_relative 'parsers/json_racc'
+    when "json"
+      require_relative "parsers/json_racc"
       parser = JsonRaccParser.new
       ->(input) { parser.parse(input) }
-    when 'expression'
-      require_relative 'parsers/expression_racc'
+    when "expression"
+      require_relative "parsers/expression_racc"
       parser = ExpressionRaccParser.new
       ->(input) { parser.parse(input) }
     else
@@ -381,13 +389,13 @@ class BenchmarkSuite
 
   def create_regexp_parser(input_type)
     case input_type
-    when 'json'
+    when "json"
       # Simple JSON tokenization
       ->(input) { input.scan(/"[^"]*"|[\[\]{}:,]|\d+|true|false|null/) }
-    when 'expression'
+    when "expression"
       # Simple expression tokenization
       ->(input) { input.scan(/\d+|[+\-*\/()]/) }
-    when 'express'
+    when "express"
       # Simple EXPRESS tokenization
       ->(input) { input.scan(/\w+|[;:,]/) }
     end
@@ -395,7 +403,7 @@ class BenchmarkSuite
 
   def memory_usage
     `ps -o rss= -p #{Process.pid}`.to_i
-  rescue
+  rescue StandardError
     nil
   end
 
@@ -424,16 +432,16 @@ class BenchmarkSuite
   end
 
   def save_results(results)
-    timestamp = Time.now.strftime('%Y%m%d_%H%M%S')
+    timestamp = Time.now.strftime("%Y%m%d_%H%M%S")
     filename = "benchmark_#{timestamp}.json"
-    filepath = File.join(__dir__, 'reports', filename)
+    filepath = File.join(__dir__, "reports", filename)
 
     FileUtils.mkdir_p(File.dirname(filepath))
 
     data = {
       timestamp: Time.now.iso8601,
       options: options,
-      results: results
+      results: results,
     }
 
     File.write(filepath, JSON.pretty_generate(data))

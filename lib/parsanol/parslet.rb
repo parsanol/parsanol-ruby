@@ -35,7 +35,7 @@
 #           class MyParser < Parsanol::Parslet::Parser
 #           include Parsanol::Parslet
 
-require 'parsanol'
+require "parsanol"
 
 module Parsanol
   module Parslet
@@ -90,16 +90,16 @@ module Parsanol
       Parsanol.any
     end
 
-    def scope(&block)
-      Parsanol.scope(&block)
+    def scope(&)
+      Parsanol.scope(&)
     end
 
-    def dynamic(&block)
-      Parsanol.dynamic(&block)
+    def dynamic(&)
+      Parsanol.dynamic(&)
     end
 
-    def infix_expression(element, *operations, &reducer)
-      Parsanol.infix_expression(element, *operations, &reducer)
+    def infix_expression(element, *operations, &)
+      Parsanol.infix_expression(element, *operations, &)
     end
 
     # Parses a treetop-style expression string and returns the corresponding atom.

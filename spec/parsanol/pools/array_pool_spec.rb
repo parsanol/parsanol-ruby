@@ -1,46 +1,46 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require "spec_helper"
 
 describe Parsanol::Pools::ArrayPool do
-  describe '#initialize' do
-    it 'creates a pool with default size' do
+  describe "#initialize" do
+    it "creates a pool with default size" do
       pool = described_class.new
       expect(pool.size).to eq(1000)
     end
 
-    it 'creates a pool with specified size' do
+    it "creates a pool with specified size" do
       pool = described_class.new(size: 500)
       expect(pool.size).to eq(500)
     end
 
-    it 'pre-allocates Array objects by default' do
+    it "pre-allocates Array objects by default" do
       pool = described_class.new(size: 10)
       stats = pool.statistics
       expect(stats[:available]).to eq(10)
     end
 
-    it 'can disable pre-allocation' do
+    it "can disable pre-allocation" do
       pool = described_class.new(size: 10, preallocate: false)
       stats = pool.statistics
       expect(stats[:available]).to eq(0)
     end
   end
 
-  describe '#acquire' do
-    it 'returns an Array instance' do
+  describe "#acquire" do
+    it "returns an Array instance" do
       pool = described_class.new(size: 10, preallocate: false)
       array = pool.acquire
       expect(array).to be_a(Array)
     end
 
-    it 'returns an empty array' do
+    it "returns an empty array" do
       pool = described_class.new(size: 10, preallocate: true)
       array = pool.acquire
       expect(array).to be_empty
     end
 
-    it 'reuses arrays from the pool' do
+    it "reuses arrays from the pool" do
       pool = described_class.new(size: 10, preallocate: true)
       array1 = pool.acquire
       array1_id = array1.object_id
@@ -50,7 +50,7 @@ describe Parsanol::Pools::ArrayPool do
       expect(array2.object_id).to eq(array1_id)
     end
 
-    it 'creates new arrays when pool is empty' do
+    it "creates new arrays when pool is empty" do
       pool = described_class.new(size: 2, preallocate: false)
       pool.acquire
       pool.acquire
@@ -60,8 +60,8 @@ describe Parsanol::Pools::ArrayPool do
     end
   end
 
-  describe '#release' do
-    it 'returns array to pool' do
+  describe "#release" do
+    it "returns array to pool" do
       pool = described_class.new(size: 10, preallocate: false)
       array = pool.acquire
 
@@ -71,7 +71,7 @@ describe Parsanol::Pools::ArrayPool do
       expect(stats[:available]).to eq(1)
     end
 
-    it 'clears array before pooling' do
+    it "clears array before pooling" do
       pool = described_class.new(size: 10, preallocate: false)
       array = pool.acquire
       array << 1 << 2 << 3
@@ -82,12 +82,12 @@ describe Parsanol::Pools::ArrayPool do
       expect(array).to be_empty
     end
 
-    it 'ensures released arrays are reused empty' do
+    it "ensures released arrays are reused empty" do
       pool = described_class.new(size: 10, preallocate: false)
 
       # First use
       array1 = pool.acquire
-      array1 << 'a' << 'b' << 'c'
+      array1 << "a" << "b" << "c"
       pool.release(array1)
 
       # Reuse - should be empty
@@ -96,7 +96,7 @@ describe Parsanol::Pools::ArrayPool do
       expect(array2.object_id).to eq(array1.object_id)
     end
 
-    it 'discards arrays when pool is full' do
+    it "discards arrays when pool is full" do
       pool = described_class.new(size: 1, preallocate: true)
 
       new_array = [1, 2, 3]
@@ -107,11 +107,11 @@ describe Parsanol::Pools::ArrayPool do
       expect(stats[:discarded]).to eq(1)
     end
 
-    it 'handles arrays with mixed content types' do
+    it "handles arrays with mixed content types" do
       pool = described_class.new(size: 10, preallocate: false)
 
       array = pool.acquire
-      array << 1 << 'string' << :symbol << { key: 'value' }
+      array << 1 << "string" << :symbol << { key: "value" }
 
       pool.release(array)
 
@@ -119,8 +119,8 @@ describe Parsanol::Pools::ArrayPool do
     end
   end
 
-  describe 'integration with parsing patterns' do
-    it 'works for collecting repetition results' do
+  describe "integration with parsing patterns" do
+    it "works for collecting repetition results" do
       pool = described_class.new(size: 5, preallocate: false)
 
       # Simulate repetition collection
@@ -128,8 +128,8 @@ describe Parsanol::Pools::ArrayPool do
       5.times { |i| result << "item#{i}" }
 
       expect(result.size).to eq(5)
-      expect(result.first).to eq('item0')
-      expect(result.last).to eq('item4')
+      expect(result.first).to eq("item0")
+      expect(result.last).to eq("item4")
 
       pool.release(result)
 
@@ -137,7 +137,7 @@ describe Parsanol::Pools::ArrayPool do
       expect(stats[:available]).to eq(1)
     end
 
-    it 'works for building sequence results' do
+    it "works for building sequence results" do
       pool = described_class.new(size: 5, preallocate: false)
 
       # Simulate sequence building
@@ -151,7 +151,7 @@ describe Parsanol::Pools::ArrayPool do
       pool.release(sequence)
     end
 
-    it 'works for accumulating alternatives' do
+    it "works for accumulating alternatives" do
       pool = described_class.new(size: 5, preallocate: false)
 
       # Simulate alternative accumulation
@@ -165,12 +165,12 @@ describe Parsanol::Pools::ArrayPool do
     end
   end
 
-  describe 'performance characteristics' do
-    it 'shows high reuse rate with pooling' do
+  describe "performance characteristics" do
+    it "shows high reuse rate with pooling" do
       pool = described_class.new(size: 50, preallocate: false)
 
       # Create initial arrays
-      arrays = 30.times.map do |i|
+      arrays = Array.new(30) do |i|
         arr = pool.acquire
         arr << i
         arr
@@ -188,7 +188,7 @@ describe Parsanol::Pools::ArrayPool do
       expect(stats[:utilization]).to eq(50.0)
     end
 
-    it 'handles rapid acquire/release cycles' do
+    it "handles rapid acquire/release cycles" do
       pool = described_class.new(size: 10, preallocate: false)
 
       100.times do |i|
@@ -203,7 +203,7 @@ describe Parsanol::Pools::ArrayPool do
       expect(stats[:reused]).to be >= 90
     end
 
-    it 'minimizes allocations with pre-allocation' do
+    it "minimizes allocations with pre-allocation" do
       pool = described_class.new(size: 50, preallocate: true)
 
       # Use pre-allocated arrays
@@ -215,8 +215,8 @@ describe Parsanol::Pools::ArrayPool do
     end
   end
 
-  describe 'memory efficiency' do
-    it 'reuses array memory for different contents' do
+  describe "memory efficiency" do
+    it "reuses array memory for different contents" do
       pool = described_class.new(size: 5, preallocate: false)
 
       # First use
@@ -227,13 +227,13 @@ describe Parsanol::Pools::ArrayPool do
 
       # Second use - different content
       array2 = pool.acquire
-      array2 << 'a' << 'b'
+      array2 << "a" << "b"
 
       expect(array2.object_id).to eq(original_id)
       expect(array2).to eq(%w[a b])
     end
 
-    it 'prevents memory leaks from unreleased arrays' do
+    it "prevents memory leaks from unreleased arrays" do
       pool = described_class.new(size: 5, preallocate: false)
 
       # Simulate forgetting to release
@@ -248,8 +248,8 @@ describe Parsanol::Pools::ArrayPool do
     end
   end
 
-  describe 'statistics' do
-    it 'tracks array-specific operations' do
+  describe "statistics" do
+    it "tracks array-specific operations" do
       pool = described_class.new(size: 5, preallocate: false)
 
       # Create 3 arrays
@@ -277,8 +277,8 @@ describe Parsanol::Pools::ArrayPool do
     end
   end
 
-  describe 'edge cases' do
-    it 'handles empty arrays' do
+  describe "edge cases" do
+    it "handles empty arrays" do
       pool = described_class.new(size: 5, preallocate: false)
       array = pool.acquire
 
@@ -287,7 +287,7 @@ describe Parsanol::Pools::ArrayPool do
       expect(array).to be_empty
     end
 
-    it 'handles large arrays' do
+    it "handles large arrays" do
       pool = described_class.new(size: 5, preallocate: false)
       array = pool.acquire
 
@@ -298,7 +298,7 @@ describe Parsanol::Pools::ArrayPool do
       expect(array).to be_empty
     end
 
-    it 'handles nested arrays' do
+    it "handles nested arrays" do
       pool = described_class.new(size: 5, preallocate: false)
       array = pool.acquire
 
@@ -311,7 +311,7 @@ describe Parsanol::Pools::ArrayPool do
       expect(array).to be_empty
     end
 
-    it 'handles arrays with nil values' do
+    it "handles arrays with nil values" do
       pool = described_class.new(size: 5, preallocate: false)
       array = pool.acquire
 
@@ -324,8 +324,8 @@ describe Parsanol::Pools::ArrayPool do
     end
   end
 
-  describe 'concurrent usage simulation' do
-    it 'handles multiple acquire/release patterns' do
+  describe "concurrent usage simulation" do
+    it "handles multiple acquire/release patterns" do
       pool = described_class.new(size: 10, preallocate: false)
 
       # Pattern 1: Short-lived arrays
@@ -336,7 +336,7 @@ describe Parsanol::Pools::ArrayPool do
       end
 
       # Pattern 2: Long-lived arrays
-      long_lived = 3.times.map { pool.acquire }
+      long_lived = Array.new(3) { pool.acquire }
 
       # Pattern 3: More short-lived
       5.times do

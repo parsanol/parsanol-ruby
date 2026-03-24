@@ -1,18 +1,18 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-require 'parsanol/parslet'
+require "spec_helper"
+require "parsanol/parslet"
 
 # Integration tests for Phase 2.1: Fixed-Size Buffer Pre-allocation
 # Verifies that BufferPool is properly integrated into Context and accessible
-describe 'Buffer Allocation Integration' do
-  describe 'Context integration' do
-    it 'has a buffer_pool' do
+describe "Buffer Allocation Integration" do
+  describe "Context integration" do
+    it "has a buffer_pool" do
       context = Parsanol::Atoms::Context.new
       expect(context.buffer_pool).to be_a(Parsanol::Pools::BufferPool)
     end
 
-    it 'provides acquire_buffer helper' do
+    it "provides acquire_buffer helper" do
       context = Parsanol::Atoms::Context.new
       buffer = context.acquire_buffer(size: 8)
 
@@ -21,24 +21,24 @@ describe 'Buffer Allocation Integration' do
       expect(buffer).to be_empty
     end
 
-    it 'provides release_buffer helper' do
+    it "provides release_buffer helper" do
       context = Parsanol::Atoms::Context.new
       buffer = context.acquire_buffer(size: 8)
-      buffer.push('a')
-      buffer.push('b')
+      buffer.push("a")
+      buffer.push("b")
 
       result = context.release_buffer(buffer)
       expect(result).to be true
     end
 
-    it 'clears buffers on release' do
+    it "clears buffers on release" do
       context = Parsanol::Atoms::Context.new
 
       # Acquire and use buffer
       buffer = context.acquire_buffer(size: 4)
-      buffer.push('a')
-      buffer.push('b')
-      buffer.push('c')
+      buffer.push("a")
+      buffer.push("b")
+      buffer.push("c")
       context.release_buffer(buffer)
 
       # Next acquisition should get a cleared buffer
@@ -47,7 +47,7 @@ describe 'Buffer Allocation Integration' do
       expect(buffer2.size).to eq(0)
     end
 
-    it 'reuses buffers across acquire/release cycles' do
+    it "reuses buffers across acquire/release cycles" do
       context = Parsanol::Atoms::Context.new
 
       # First cycle
@@ -61,17 +61,17 @@ describe 'Buffer Allocation Integration' do
     end
   end
 
-  describe 'Buffer size class selection' do
+  describe "Buffer size class selection" do
     let(:context) { Parsanol::Atoms::Context.new }
 
-    it 'selects appropriate size classes' do
+    it "selects appropriate size classes" do
       test_cases = [
         [2, 2],
         [3, 4],
         [5, 8],
         [10, 16],
         [20, 32],
-        [50, 64]
+        [50, 64],
       ]
 
       test_cases.each do |requested, expected|
@@ -82,7 +82,7 @@ describe 'Buffer Allocation Integration' do
       end
     end
 
-    it 'handles standard size classes' do
+    it "handles standard size classes" do
       Parsanol::Pools::BufferPool::SIZE_CLASSES.each do |size|
         buffer = context.acquire_buffer(size: size)
         expect(buffer.capacity).to eq(size)
@@ -91,8 +91,8 @@ describe 'Buffer Allocation Integration' do
     end
   end
 
-  describe 'Buffer pool statistics' do
-    it 'tracks buffer creation and reuse' do
+  describe "Buffer pool statistics" do
+    it "tracks buffer creation and reuse" do
       context = Parsanol::Atoms::Context.new
       pool = context.buffer_pool
 
@@ -111,7 +111,7 @@ describe 'Buffer Allocation Integration' do
         :created,
         :reused,
         :released,
-        :utilization
+        :utilization,
       )
 
       expect(stats[8][:created]).to eq(1)
@@ -119,7 +119,7 @@ describe 'Buffer Allocation Integration' do
       expect(stats[8][:utilization]).to be > 0
     end
 
-    it 'tracks statistics per size class' do
+    it "tracks statistics per size class" do
       context = Parsanol::Atoms::Context.new
       pool = context.buffer_pool
 
@@ -139,8 +139,8 @@ describe 'Buffer Allocation Integration' do
     end
   end
 
-  describe 'Buffer lifecycle' do
-    it 'maintains buffer capacity across reuse' do
+  describe "Buffer lifecycle" do
+    it "maintains buffer capacity across reuse" do
       context = Parsanol::Atoms::Context.new
 
       # Create buffer with capacity 8
@@ -160,7 +160,7 @@ describe 'Buffer Allocation Integration' do
       expect(buffer2.size).to eq(0)
     end
 
-    it 'handles buffer growth gracefully' do
+    it "handles buffer growth gracefully" do
       context = Parsanol::Atoms::Context.new
 
       # Acquire small buffer
@@ -177,8 +177,8 @@ describe 'Buffer Allocation Integration' do
     end
   end
 
-  describe 'Multiple contexts' do
-    it 'each context has independent buffer pool' do
+  describe "Multiple contexts" do
+    it "each context has independent buffer pool" do
       context1 = Parsanol::Atoms::Context.new
       context2 = Parsanol::Atoms::Context.new
 
@@ -199,14 +199,14 @@ describe 'Buffer Allocation Integration' do
     end
   end
 
-  describe 'Buffer operations' do
+  describe "Buffer operations" do
     let(:context) { Parsanol::Atoms::Context.new }
 
-    it 'supports push operations' do
+    it "supports push operations" do
       buffer = context.acquire_buffer(size: 4)
 
-      buffer.push('a')
-      buffer.push('b')
+      buffer.push("a")
+      buffer.push("b")
 
       expect(buffer.size).to eq(2)
       expect(buffer.to_a).to eq(%w[a b])
@@ -214,7 +214,7 @@ describe 'Buffer Allocation Integration' do
       context.release_buffer(buffer)
     end
 
-    it 'supports array conversion' do
+    it "supports array conversion" do
       buffer = context.acquire_buffer(size: 8)
 
       elements = %w[x y z]
@@ -227,29 +227,29 @@ describe 'Buffer Allocation Integration' do
       context.release_buffer(buffer)
     end
 
-    it 'supports indexing' do
+    it "supports indexing" do
       buffer = context.acquire_buffer(size: 8)
 
-      buffer.push('a')
-      buffer.push('b')
-      buffer.push('c')
+      buffer.push("a")
+      buffer.push("b")
+      buffer.push("c")
 
-      expect(buffer[0]).to eq('a')
-      expect(buffer[1]).to eq('b')
-      expect(buffer[2]).to eq('c')
+      expect(buffer[0]).to eq("a")
+      expect(buffer[1]).to eq("b")
+      expect(buffer[2]).to eq("c")
 
-      buffer[1] = 'x'
-      expect(buffer[1]).to eq('x')
+      buffer[1] = "x"
+      expect(buffer[1]).to eq("x")
 
       context.release_buffer(buffer)
     end
 
-    it 'supports empty? check' do
+    it "supports empty? check" do
       buffer = context.acquire_buffer(size: 4)
 
       expect(buffer.empty?).to be true
 
-      buffer.push('a')
+      buffer.push("a")
       expect(buffer.empty?).to be false
 
       buffer.clear!
@@ -259,8 +259,8 @@ describe 'Buffer Allocation Integration' do
     end
   end
 
-  describe 'Pool capacity management' do
-    it 'handles pool overflow gracefully' do
+  describe "Pool capacity management" do
+    it "handles pool overflow gracefully" do
       context = Parsanol::Atoms::Context.new
       pool = context.buffer_pool
 
@@ -269,7 +269,7 @@ describe 'Buffer Allocation Integration' do
 
       10.times do
         buffer = context.acquire_buffer(size: 8)
-        buffer.push('data')
+        buffer.push("data")
         context.release_buffer(buffer)
       end
 
@@ -278,8 +278,8 @@ describe 'Buffer Allocation Integration' do
     end
   end
 
-  describe 'Performance characteristics' do
-    it 'buffer reuse reduces allocations' do
+  describe "Performance characteristics" do
+    it "buffer reuse reduces allocations" do
       context = Parsanol::Atoms::Context.new
       pool = context.buffer_pool
 
@@ -290,7 +290,7 @@ describe 'Buffer Allocation Integration' do
       cycles = 20
       cycles.times do
         buffer = context.acquire_buffer(size: 8)
-        buffer.push('x')
+        buffer.push("x")
         context.release_buffer(buffer)
       end
 
@@ -304,8 +304,8 @@ describe 'Buffer Allocation Integration' do
     end
   end
 
-  describe 'Context pool coexistence' do
-    it 'buffer_pool works alongside array_pool' do
+  describe "Context pool coexistence" do
+    it "buffer_pool works alongside array_pool" do
       context = Parsanol::Atoms::Context.new
 
       # Both pools should exist

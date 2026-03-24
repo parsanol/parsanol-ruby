@@ -204,7 +204,7 @@ module Parsanol
       end
 
       def on_success
-        @events << 'success'
+        @events << "success"
       end
 
       def on_error(message)
@@ -228,7 +228,7 @@ module Parsanol
       end
 
       def on_nil
-        @events << 'nil'
+        @events << "nil"
       end
 
       def on_hash_start(size = nil)

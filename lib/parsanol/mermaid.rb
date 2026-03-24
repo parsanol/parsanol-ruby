@@ -16,7 +16,7 @@ module Parsanol
   # Generates Mermaid diagram syntax from parser atoms.
   class MermaidBuilder
     def initialize
-      @lines = ['graph TD']
+      @lines = ["graph TD"]
       @node_counter = 0
       @connections = []
       @seen_rules = Set.new
@@ -24,8 +24,8 @@ module Parsanol
 
     # Entry point for parser visualization
     def visit_parser(root_atom)
-      add_node('Parser', 'root')
-      traverse(root_atom, 'Parser')
+      add_node("Parser", "root")
+      traverse(root_atom, "Parser")
       finalize
     end
 
@@ -35,7 +35,7 @@ module Parsanol
 
       @seen_rules << rule_name
 
-      node_id = add_node(rule_name.to_s.upcase, 'rule')
+      node_id = add_node(rule_name.to_s.upcase, "rule")
       connect(current_parent, node_id)
       traverse(rule_block.call, node_id)
     end
@@ -67,18 +67,18 @@ module Parsanol
 
     # Leaf nodes
     def visit_re(regexp)
-      add_node("match(#{regexp.inspect})", 'terminal', style: 'ellipse')
+      add_node("match(#{regexp.inspect})", "terminal", style: "ellipse")
     end
 
     def visit_str(string)
-      add_node("'#{string}'", 'terminal', style: 'ellipse')
+      add_node("'#{string}'", "terminal", style: "ellipse")
     end
 
     private
 
     attr_reader :current_parent
 
-    def add_node(label, _shape_type = 'rect', _style = nil)
+    def add_node(label, _shape_type = "rect", _style = nil)
       @node_counter += 1
       node_id = "node_#{@node_counter}"
       @lines << "    #{node_id}[\"#{escape_mermaid(label)}\"]"
@@ -97,7 +97,7 @@ module Parsanol
       @connections.each do |from, to|
         @lines << "    #{from} --> #{to}"
       end
-      @lines << ''
+      @lines << ""
       @lines.join("\n")
     end
 
@@ -125,7 +125,10 @@ module Parsanol
     def mermaid_for_rule(rule_name)
       builder = MermaidBuilder.new
       rule_method = method(rule_name)
-      raise NotImplementedError, "Rule '#{rule_name}' not found" unless rule_method
+      unless rule_method
+        raise NotImplementedError,
+              "Rule '#{rule_name}' not found"
+      end
 
       rule_method.call.accept(builder)
       builder.output

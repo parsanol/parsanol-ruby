@@ -72,7 +72,8 @@ module Parsanol
                      when Hash
                        grammar
                      else
-                       raise ArgumentError, "Expected GrammarBuilder or Hash, got #{grammar.class}"
+                       raise ArgumentError,
+                             "Expected GrammarBuilder or Hash, got #{grammar.class}"
                      end
 
       @imports << { grammar: grammar_data, prefix: prefix }
@@ -92,7 +93,8 @@ module Parsanol
                      when Hash
                        grammar
                      else
-                       raise ArgumentError, "Expected GrammarBuilder or Hash, got #{grammar.class}"
+                       raise ArgumentError,
+                             "Expected GrammarBuilder or Hash, got #{grammar.class}"
                      end
 
       @imports << { grammar: grammar_data, prefix: prefix, rules: rules }
@@ -106,7 +108,7 @@ module Parsanol
       {
         rules: @rules,
         root: @root,
-        imports: @imports
+        imports: @imports,
       }
     end
 
@@ -140,7 +142,7 @@ module Parsanol
       if grammar_name
         ref("#{grammar_name}:root")
       else
-        ref('root')
+        ref("root")
       end
     end
 
@@ -149,9 +151,9 @@ module Parsanol
       #
       # @yield [GrammarBuilder] Builder to configure
       # @return [Hash] Built grammar
-      def build(&block)
+      def build(&)
         builder = new
-        builder.instance_eval(&block)
+        builder.instance_eval(&)
         builder.build
       end
 
@@ -170,8 +172,8 @@ module Parsanol
     # Create a new grammar builder
     #
     # @return [GrammarBuilder] New builder
-    def grammar(&block)
-      GrammarBuilder.build(&block)
+    def grammar(&)
+      GrammarBuilder.build(&)
     end
   end
 end

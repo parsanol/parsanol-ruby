@@ -36,7 +36,7 @@ module Parsanol
         super()
 
         # Handle nil max_count (unbounded repetition)
-        if max_count && max_count.zero?
+        if max_count&.zero?
           raise ArgumentError, "Cannot repeat zero times: #{parser.inspect}"
         end
 
@@ -50,7 +50,7 @@ module Parsanol
 
         # Pre-built error messages
         @min_error = "Expected at least #{min_count} of #{parser.inspect}"
-        @extra_error = 'Extra input after last repetition'
+        @extra_error = "Extra input after last repetition"
       end
 
       # Error messages hash (for compatibility)
@@ -71,10 +71,16 @@ module Parsanol
         end
 
         # Maybe (0 or 1) - very common, optimize
-        return try_maybe(source, context, consume_all) if @min.zero? && @max == 1
+        if @min.zero? && @max == 1
+          return try_maybe(source, context,
+                           consume_all)
+        end
 
         # Exact count optimization
-        return try_exact(source, context, consume_all) if @min == @max && @max && @max <= 3
+        if @min == @max && @max && @max <= 3
+          return try_exact(source, context,
+                           consume_all)
+        end
 
         # General case
         try_general(source, context, consume_all)
@@ -88,7 +94,7 @@ module Parsanol
       # @return [String]
       def to_s_inner(prec)
         suffix = if @min.zero? && @max == 1
-                   '?'
+                   "?"
                  else
                    "{#{@min}, #{@max}}"
                  end
@@ -135,7 +141,10 @@ module Parsanol
 
       def double_match(source, context, consume_all)
         success, v1 = @parslet.apply(source, context, false)
-        return context.err_at(self, source, @min_error, source.bytepos, [v1]) unless success
+        unless success
+          return context.err_at(self, source, @min_error, source.bytepos,
+                                [v1])
+        end
 
         success, v2 = @parslet.apply(source, context, consume_all)
         return ok([@result_tag, v1, v2]) if success
@@ -145,10 +154,16 @@ module Parsanol
 
       def triple_match(source, context, consume_all)
         success, v1 = @parslet.apply(source, context, false)
-        return context.err_at(self, source, @min_error, source.bytepos, [v1]) unless success
+        unless success
+          return context.err_at(self, source, @min_error, source.bytepos,
+                                [v1])
+        end
 
         success, v2 = @parslet.apply(source, context, false)
-        return context.err_at(self, source, @min_error, source.bytepos, [v2]) unless success
+        unless success
+          return context.err_at(self, source, @min_error, source.bytepos,
+                                [v2])
+        end
 
         success, v3 = @parslet.apply(source, context, consume_all)
         return ok([@result_tag, v1, v2, v3]) if success
@@ -184,7 +199,8 @@ module Parsanol
         if occurrence < @min
           context.release_buffer(buffer)
           source.bytepos = start_pos
-          return context.err_at(self, source, @min_error, start_pos, [last_error])
+          return context.err_at(self, source, @min_error, start_pos,
+                                [last_error])
         end
 
         # Check complete consumption
@@ -236,14 +252,16 @@ module Parsanol
         # Cache successful prefix
         if occurrence.positive?
           end_pos = positions[occurrence]
-          context.store_tree_memo(cache_key, start_pos, buffer.to_a[1..], end_pos)
+          context.store_tree_memo(cache_key, start_pos, buffer.to_a[1..],
+                                  end_pos)
         end
 
         # Check minimum
         if occurrence < @min
           context.release_buffer(buffer)
           source.bytepos = start_pos
-          return context.err_at(self, source, @min_error, start_pos, [last_error])
+          return context.err_at(self, source, @min_error, start_pos,
+                                [last_error])
         end
 
         # Check consumption

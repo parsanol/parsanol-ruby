@@ -5,24 +5,24 @@
 # Originally contributed to Parslet, ported to Parsanol as an example.
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
-require 'parsanol/parslet'
-require 'parsanol/convenience'
+require "parsanol/parslet"
+require "parsanol/convenience"
 
 class EmailParser < Parsanol::Parser
   rule(:space) { match('\s').repeat(1) }
   rule(:space?) { space.maybe }
-  rule(:dash?) { match['_-'].maybe }
+  rule(:dash?) { match["_-"].maybe }
 
   rule(:at) do
-    str('@') |
-      (dash? >> (str('at') | str('AT')) >> dash?)
+    str("@") |
+      (dash? >> (str("at") | str("AT")) >> dash?)
   end
   rule(:dot) do
-    str('.') |
-      (dash? >> (str('dot') | str('DOT')) >> dash?)
+    str(".") |
+      (dash? >> (str("dot") | str("DOT")) >> dash?)
   end
 
-  rule(:word) { match('[a-z0-9]').repeat(1).as(:word) >> space? }
+  rule(:word) { match("[a-z0-9]").repeat(1).as(:word) >> space? }
   rule(:separator) { (dot.as(:dot) >> space?) | space }
   rule(:words) { word >> (separator >> word).repeat }
 
@@ -47,7 +47,7 @@ parser = EmailParser.new
 sanitizer = EmailSanitizer.new
 
 input = ARGV[0] || begin
-  default = 'a.b.c.d@gmail.com'
+  default = "a.b.c.d@gmail.com"
   warn "usage: #{$PROGRAM_NAME} \"EMAIL_ADDR\""
   $stdout.puts "since you haven't specified any EMAIL_ADDR, for testing purposes we're using #{default}"
   default

@@ -2,8 +2,8 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol/parslet'
-require 'pp'
+require "parsanol/parslet"
+require "pp"
 
 # Parses strings like "var1 and (var2 or var3)" respecting operator precedence
 # and parentheses. After that transforms the parse tree into an array of
@@ -16,16 +16,16 @@ require 'pp'
 # joined with "and".
 #
 class MyParser < Parsanol::Parser
-  rule(:space)  { match[' '].repeat(1) }
+  rule(:space)  { match[" "].repeat(1) }
   rule(:space?) { space.maybe }
 
-  rule(:lparen) { str('(') >> space? }
-  rule(:rparen) { str(')') >> space? }
+  rule(:lparen) { str("(") >> space? }
+  rule(:rparen) { str(")") >> space? }
 
-  rule(:and_operator) { str('and') >> space? }
-  rule(:or_operator)  { str('or')  >> space? }
+  rule(:and_operator) { str("and") >> space? }
+  rule(:or_operator)  { str("or")  >> space? }
 
-  rule(:var) { str('var') >> match['0-9'].repeat(1).as(:var) >> space? }
+  rule(:var) { str("var") >> match["0-9"].repeat(1).as(:var) >> space? }
 
   # The primary rule deals with parentheses.
   rule(:primary) { (lparen >> or_operation >> rparen) | var }
@@ -65,7 +65,7 @@ class Transformer < Parsanol::Transform
   end
 end
 
-pp tree = MyParser.new.parse('var1 and (var2 or var3)')
+pp tree = MyParser.new.parse("var1 and (var2 or var3)")
 # {:and=>
 #   {:left=>{:var=>"1"@3},
 #    :right=>{:or=>{:left=>{:var=>"2"@13}, :right=>{:var=>"3"@21}}}}}

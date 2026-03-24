@@ -119,7 +119,7 @@ module Parsanol
     # @param type_map [Hash] Override type mapping for this parse
     # @return [Object] Direct Ruby object
     def parse_with_types(input, type_map)
-      raise LoadError, 'ZeroCopy mode requires native extension.' unless Parsanol::Native.available?
+      raise LoadError, "ZeroCopy mode requires native extension." unless Parsanol::Native.available?
 
       grammar_json = Parsanol::Native.serialize_grammar(root)
       Parsanol::Native.parse_to_objects(grammar_json, input, type_map)

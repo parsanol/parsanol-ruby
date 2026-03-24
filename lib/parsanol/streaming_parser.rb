@@ -37,7 +37,7 @@ module Parsanol
         @native_parser = nil
       end
 
-      @buffer = String.new
+      @buffer = +""
       @position = 0
     end
 
@@ -65,7 +65,7 @@ module Parsanol
       else
         # Pure Ruby fallback - not supported
         raise NotImplementedError,
-              'Streaming parser requires native extension for full functionality.'
+              "Streaming parser requires native extension for full functionality."
       end
     end
 
@@ -106,7 +106,7 @@ module Parsanol
 
     # Reset the parser for reuse
     def reset
-      @buffer = String.new
+      @buffer = +""
       @position = 0
 
       return unless @native_parser

@@ -29,7 +29,7 @@ module Parsanol
         @display = @match.inspect[1..-2] || @match
 
         # Pre-built error messages
-        @eof_error = 'Unexpected end of input'
+        @eof_error = "Unexpected end of input"
         @no_match_error = "Failed to match #{@display}"
       end
 

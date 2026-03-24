@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'json'
+require "json"
 
 module Parsanol
   module Native
@@ -49,13 +49,14 @@ module Parsanol
         #
         def register(block, description: nil)
           # Register with Rust FFI
-          ffi_id = Native.register_callback(@next_id, description || "Ruby callback ##{@next_id}")
+          ffi_id = Native.register_callback(@next_id,
+                                            description || "Ruby callback ##{@next_id}")
 
           # Also keep a Ruby-side reference for GC safety
           @mutex.synchronize do
             @callbacks[ffi_id] = {
               block: block,
-              description: description || "Ruby callback ##{ffi_id}"
+              description: description || "Ruby callback ##{ffi_id}",
             }
           end
 
@@ -136,7 +137,7 @@ module Parsanol
           ctx = DynamicContext.new(
             context[:input],
             context[:pos],
-            context[:captures].transform_keys(&:to_sym)
+            context[:captures].transform_keys(&:to_sym),
           )
 
           # Call the block
@@ -207,7 +208,7 @@ module Parsanol
       # @return [String] The remaining input
       #
       def remaining
-        @input[@pos..] || ''
+        @input[@pos..] || ""
       end
 
       # Check if at end of input
@@ -229,7 +230,7 @@ module Parsanol
         if length
           @input[@pos + start, length]
         else
-          @input[@pos + start..]
+          @input[(@pos + start)..]
         end
       end
     end

@@ -1,29 +1,29 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-require 'parsanol/parslet'
+require "spec_helper"
+require "parsanol/parslet"
 
-describe 'Position Pooling Integration' do
-  describe 'Source integration' do
+describe "Position Pooling Integration" do
+  describe "Source integration" do
     let(:source) { Parsanol::Source.new("hello\nworld\n") }
 
-    it 'has a position_pool' do
+    it "has a position_pool" do
       expect(source.position_pool).to be_a(Parsanol::Pools::PositionPool)
     end
 
-    it 'creates pooled positions' do
+    it "creates pooled positions" do
       pos1 = source.position(0)
       expect(pos1).to be_a(Parsanol::Position)
       expect(pos1.bytepos).to eq(0)
     end
 
-    it 'position method works without arguments' do
+    it "position method works without arguments" do
       source.bytepos = 5
       pos = source.position
       expect(pos.bytepos).to eq(5)
     end
 
-    it 'positions can be reused from pool' do
+    it "positions can be reused from pool" do
       pos1 = source.position(0)
       id1 = pos1.object_id
 
@@ -37,7 +37,7 @@ describe 'Position Pooling Integration' do
     end
   end
 
-  describe 'Error reporting with pooled positions' do
+  describe "Error reporting with pooled positions" do
     def catch_failed_parse
       yield
       nil
@@ -45,33 +45,33 @@ describe 'Position Pooling Integration' do
       e
     end
 
-    it 'generates error messages correctly' do
+    it "generates error messages correctly" do
       parser = Class.new(Parsanol::Parser) do
         root :num
-        rule(:num) { match('[0-9]').repeat(1) }
+        rule(:num) { match("[0-9]").repeat(1) }
       end.new
 
-      error = catch_failed_parse { parser.parse('abc') }
+      error = catch_failed_parse { parser.parse("abc") }
       expect(error).to be_a(Parsanol::ParseFailed)
-      expect(error.message).to include('line 1')
+      expect(error.message).to include("line 1")
     end
 
-    it 'handles multi-line input with correct line numbers' do
+    it "handles multi-line input with correct line numbers" do
       parser = Class.new(Parsanol::Parser) do
         root :lines
         rule(:lines) { line.repeat }
-        rule(:line) { match('[0-9]').repeat(1) >> str("\n") }
+        rule(:line) { match("[0-9]").repeat(1) >> str("\n") }
       end.new
 
       error = catch_failed_parse { parser.parse("123\n456\nabc\n") }
       expect(error).to be_a(Parsanol::ParseFailed)
-      expect(error.message).to include('line 3')
+      expect(error.message).to include("line 3")
     end
   end
 
-  describe 'Pool statistics and reuse' do
-    it 'shows position reuse in pool statistics' do
-      source = Parsanol::Source.new('test input for pooling')
+  describe "Pool statistics and reuse" do
+    it "shows position reuse in pool statistics" do
+      source = Parsanol::Source.new("test input for pooling")
       pool = source.position_pool
 
       # Create multiple positions
@@ -97,8 +97,8 @@ describe 'Position Pooling Integration' do
       expect(stats[:utilization]).to be > 0
     end
 
-    it 'pool handles many position creations efficiently' do
-      source = Parsanol::Source.new('a' * 1000)
+    it "pool handles many position creations efficiently" do
+      source = Parsanol::Source.new("a" * 1000)
       pool = source.position_pool
 
       # Create many positions
@@ -118,19 +118,19 @@ describe 'Position Pooling Integration' do
     end
   end
 
-  describe 'Position object correctness' do
-    it 'positions maintain correct byte and character positions' do
+  describe "Position object correctness" do
+    it "positions maintain correct byte and character positions" do
       # Test with ASCII
-      source = Parsanol::Source.new('hello world')
+      source = Parsanol::Source.new("hello world")
       pos = source.position(6)
 
       expect(pos.bytepos).to eq(6)
       expect(pos.charpos).to eq(6) # ASCII: byte == char
     end
 
-    it 'positions work with UTF-8 strings' do
+    it "positions work with UTF-8 strings" do
       # Test with UTF-8
-      source = Parsanol::Source.new('café')
+      source = Parsanol::Source.new("café")
       pos = source.position(4) # After 'caf'
 
       expect(pos.bytepos).to eq(4)
@@ -138,8 +138,8 @@ describe 'Position Pooling Integration' do
       expect(pos.charpos).to be_a(Integer)
     end
 
-    it 'positions track source string correctly' do
-      input = 'test string'
+    it "positions track source string correctly" do
+      input = "test string"
       source = Parsanol::Source.new(input)
       pos = source.position(5)
 
@@ -148,31 +148,31 @@ describe 'Position Pooling Integration' do
     end
   end
 
-  describe 'Integration with existing parser' do
+  describe "Integration with existing parser" do
     class SimpleParser < Parsanol::Parser
       root :document
       rule(:document) { word.repeat.as(:words) }
-      rule(:word) { match('[a-z]').repeat(1).as(:word) >> space.maybe }
+      rule(:word) { match("[a-z]").repeat(1).as(:word) >> space.maybe }
       rule(:space) { match('\s').repeat(1) }
     end
 
-    it 'parser works correctly with position pooling' do
+    it "parser works correctly with position pooling" do
       parser = SimpleParser.new
-      result = parser.parse('hello world')
+      result = parser.parse("hello world")
 
       expect(result).to eq({
                              words: [
-                               { word: 'hello' },
-                               { word: 'world' }
-                             ]
+                               { word: "hello" },
+                               { word: "world" },
+                             ],
                            })
     end
 
-    it 'parser generates errors with position information' do
+    it "parser generates errors with position information" do
       parser = SimpleParser.new
 
       error = begin
-        parser.parse('hello 123')
+        parser.parse("hello 123")
       rescue Parsanol::ParseFailed => e
         e
       end

@@ -45,7 +45,7 @@ module Parsanol
 
     def calculate_charpos
       # Calculate it based on platform
-      if defined?(RUBY_ENGINE) && RUBY_ENGINE == 'opal'
+      if defined?(RUBY_ENGINE) && RUBY_ENGINE == "opal"
         # In Opal, convert byte position to character position.
         # We need to calculate how many characters occupy the first @bytepos bytes.
         `

@@ -1,21 +1,22 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require "spec_helper"
 begin
-  require 'benchmark/ips'
+  require "benchmark/ips"
 rescue LoadError
   # Skip this spec file if benchmark/ips is not available
   return unless defined?(RSpec)
 
-  RSpec.describe 'Performance Regression Tests', :performance do
-    it 'requires benchmark-ips gem for performance tests' do
-      skip 'benchmark-ips gem not installed. Install with: gem install benchmark-ips'
+  RSpec.describe "Performance Regression Tests", :performance do
+    it "requires benchmark-ips gem for performance tests" do
+      skip "benchmark-ips gem not installed. Install with: gem install benchmark-ips"
     end
   end
+
   return
 end
 
-RSpec.describe 'Performance Regression Tests', :performance do
+RSpec.describe "Performance Regression Tests", :performance do
   # Baseline performance expectations (adjusted for opt-in optimization model)
   # These are conservative targets that should pass on most systems
   # Note: These thresholds are set low to accommodate CI environments
@@ -23,7 +24,7 @@ RSpec.describe 'Performance Regression Tests', :performance do
   BASELINE_IPS = {
     simple_calc: 500,       # Adjusted for CI/debug environments
     json_parse: 400,        # Adjusted for CI/debug environments
-    xml_parse: 400          # Adjusted for CI/debug environments
+    xml_parse: 400, # Adjusted for CI/debug environments
   }.freeze
 
   # NOTE: The 13.3x speedup is cumulative from all optimization phases (1-50b)
@@ -45,9 +46,9 @@ RSpec.describe 'Performance Regression Tests', :performance do
       end
 
       rule(:integer) { digit.repeat(1).as(:i) >> space? }
-      rule(:mult_op) { match['*/'].as(:o) >> space? }
-      rule(:add_op) { match['+-'].as(:o) >> space? }
-      rule(:digit) { match['0-9'] }
+      rule(:mult_op) { match["*/"].as(:o) >> space? }
+      rule(:add_op) { match["+-"].as(:o) >> space? }
+      rule(:digit) { match["0-9"] }
       rule(:space?) { match['\s'].repeat }
 
       root :addition
@@ -68,9 +69,9 @@ RSpec.describe 'Performance Regression Tests', :performance do
       end
 
       rule(:integer) { digit.repeat(1).as(:i) >> space? }
-      rule(:mult_op) { match['*/'].as(:o) >> space? }
-      rule(:add_op) { match['+-'].as(:o) >> space? }
-      rule(:digit) { match['0-9'] }
+      rule(:mult_op) { match["*/"].as(:o) >> space? }
+      rule(:add_op) { match["+-"].as(:o) >> space? }
+      rule(:digit) { match["0-9"] }
       rule(:space?) { match['\s'].repeat }
 
       root :addition
@@ -83,50 +84,50 @@ RSpec.describe 'Performance Regression Tests', :performance do
 
       rule(:spaces) { match('\s').repeat(1) }
       rule(:spaces?) { spaces.maybe }
-      rule(:comma) { spaces? >> str(',') >> spaces? }
-      rule(:digit) { match('[0-9]') }
+      rule(:comma) { spaces? >> str(",") >> spaces? }
+      rule(:digit) { match("[0-9]") }
 
       rule(:number) do
         (
-          str('-').maybe >> (
-            str('0') | (match('[1-9]') >> digit.repeat)
+          str("-").maybe >> (
+            str("0") | (match("[1-9]") >> digit.repeat)
           ) >> (
-            str('.') >> digit.repeat(1)
+            str(".") >> digit.repeat(1)
           ).maybe >> (
-            match('[eE]') >> (str('+') | str('-')).maybe >> digit.repeat(1)
+            match("[eE]") >> (str("+") | str("-")).maybe >> digit.repeat(1)
           ).maybe
         ).as(:number)
       end
 
       rule(:string) do
         str('"') >> (
-          (str('\\') >> any) | (str('"').absent? >> any)
+          (str("\\") >> any) | (str('"').absent? >> any)
         ).repeat.as(:string) >> str('"')
       end
 
       rule(:array) do
-        str('[') >> spaces? >>
+        str("[") >> spaces? >>
           (value >> (comma >> value).repeat).maybe.as(:array) >>
-          spaces? >> str(']')
+          spaces? >> str("]")
       end
 
       rule(:object) do
-        str('{') >> spaces? >>
+        str("{") >> spaces? >>
           (entry >> (comma >> entry).repeat).maybe.as(:object) >>
-          spaces? >> str('}')
+          spaces? >> str("}")
       end
 
       rule(:value) do
         string | number |
           object | array |
-          str('true').as(true) | str('false').as(false) |
-          str('null').as(:null)
+          str("true").as(true) | str("false").as(false) |
+          str("null").as(:null)
       end
 
       rule(:entry) do
         (
            string.as(:key) >> spaces? >>
-           str(':') >> spaces? >>
+           str(":") >> spaces? >>
            value.as(:val)
          ).as(:entry)
       end
@@ -148,24 +149,24 @@ RSpec.describe 'Performance Regression Tests', :performance do
       def tag(opts = {})
         close = opts[:close] || false
 
-        parslet = str('<')
-        parslet >>= str('/') if close
-        parslet >>= (str('>').absent? >> match('[a-zA-Z]')).repeat(1).as(:name)
-        parslet >> str('>')
+        parslet = str("<")
+        parslet >>= str("/") if close
+        parslet >>= (str(">").absent? >> match("[a-zA-Z]")).repeat(1).as(:name)
+        parslet >> str(">")
       end
 
       rule(:text) do
-        match('[^<>]').repeat(0)
+        match("[^<>]").repeat(0)
       end
 
       root :document
     end
   end
 
-  context 'with optimizations enabled' do
-    describe 'optimization safety' do
-      it 'optimized parser does not significantly degrade performance' do
-        input = '1 + 2 * 3 + 4'
+  context "with optimizations enabled" do
+    describe "optimization safety" do
+      it "optimized parser does not significantly degrade performance" do
+        input = "1 + 2 * 3 + 4"
 
         # Create parser instances
         optimized = calc_parser.new
@@ -179,11 +180,11 @@ RSpec.describe 'Performance Regression Tests', :performance do
 
         # Benchmark both
         unoptimized_result = Benchmark.ips(quiet: true) do |x|
-          x.report('unoptimized') { unoptimized.parse(input) }
+          x.report("unoptimized") { unoptimized.parse(input) }
         end
 
         optimized_result = Benchmark.ips(quiet: true) do |x|
-          x.report('optimized') { optimized.parse(input) }
+          x.report("optimized") { optimized.parse(input) }
         end
 
         unoptimized_ips = unoptimized_result.entries.first.ips
@@ -198,13 +199,13 @@ RSpec.describe 'Performance Regression Tests', :performance do
       end
     end
 
-    describe 'baseline performance' do
-      it 'parses calculator expressions within performance bounds' do
+    describe "baseline performance" do
+      it "parses calculator expressions within performance bounds" do
         parser = calc_parser.new
-        input = '1 + 2 * 3'
+        input = "1 + 2 * 3"
 
         result = Benchmark.ips(quiet: true) do |x|
-          x.report('calc') { parser.parse(input) }
+          x.report("calc") { parser.parse(input) }
         end
 
         actual_ips = result.entries.first.ips
@@ -216,12 +217,12 @@ RSpec.describe 'Performance Regression Tests', :performance do
                               "Expected ≥#{min_acceptable.round(0)} ips, got #{actual_ips.round(0)} ips"
       end
 
-      it 'parses JSON within performance bounds' do
+      it "parses JSON within performance bounds" do
         parser = json_parser.new
         input = '{"key": "value", "array": [1,2,3]}'
 
         result = Benchmark.ips(quiet: true) do |x|
-          x.report('json') { parser.parse(input) }
+          x.report("json") { parser.parse(input) }
         end
 
         actual_ips = result.entries.first.ips
@@ -233,12 +234,12 @@ RSpec.describe 'Performance Regression Tests', :performance do
                               "Expected ≥#{min_acceptable.round(0)} ips, got #{actual_ips.round(0)} ips"
       end
 
-      it 'parses XML within performance bounds' do
+      it "parses XML within performance bounds" do
         parser = xml_parser.new
-        input = '<tag>content</tag>'
+        input = "<tag>content</tag>"
 
         result = Benchmark.ips(quiet: true) do |x|
-          x.report('xml') { parser.parse(input) }
+          x.report("xml") { parser.parse(input) }
         end
 
         actual_ips = result.entries.first.ips
@@ -251,15 +252,16 @@ RSpec.describe 'Performance Regression Tests', :performance do
       end
     end
 
-    describe 'cache efficiency' do
-      it 'caches compiled grammar after repeated parsing' do
+    describe "cache efficiency" do
+      it "caches compiled grammar after repeated parsing" do
         unless Parsanol::Native.available?
-          raise LoadError, "Native parser not available - cache efficiency tests require native extension"
+          raise LoadError,
+                "Native parser not available - cache efficiency tests require native extension"
         end
 
         parser = Class.new(Parsanol::Parser) do
           optimize_rules!
-          rule(:digits) { match('[0-9]').repeat(3) }
+          rule(:digits) { match("[0-9]").repeat(3) }
           root :digits
         end.new
 
@@ -267,7 +269,7 @@ RSpec.describe 'Performance Regression Tests', :performance do
         parser.clear_grammar_cache
 
         # Parse to warm the grammar cache (native mode required to populate Rust cache)
-        10.times { parser.parse('123', mode: :native) }
+        10.times { parser.parse("123", mode: :native) }
 
         stats = parser.cache_stats
 
@@ -275,7 +277,7 @@ RSpec.describe 'Performance Regression Tests', :performance do
                                               "Expected grammar to be cached (grammar_cache_size > 0), got #{stats[:grammar_cache_size]}"
       end
 
-      it 'keeps allocations under threshold for medium inputs' do
+      it "keeps allocations under threshold for medium inputs" do
         parser = json_parser.new
         input = '{"a":1,"b":2,"c":3,"d":4,"e":5}'
 
@@ -291,14 +293,14 @@ RSpec.describe 'Performance Regression Tests', :performance do
     end
   end
 
-  context 'optimizer semantic equivalence' do
-    describe 'calculator parser' do
-      it 'produces identical parse trees with/without optimization' do
+  context "optimizer semantic equivalence" do
+    describe "calculator parser" do
+      it "produces identical parse trees with/without optimization" do
         test_cases = [
-          '1 + 2',
-          '1 * 2 + 3',
-          '10 + 20 * 30',
-          '1+2+3+4+5'
+          "1 + 2",
+          "1 * 2 + 3",
+          "10 + 20 * 30",
+          "1+2+3+4+5",
         ]
 
         test_cases.each do |input|
@@ -312,17 +314,17 @@ RSpec.describe 'Performance Regression Tests', :performance do
       end
     end
 
-    describe 'JSON parser' do
-      it 'produces identical parse trees for various JSON inputs' do
+    describe "JSON parser" do
+      it "produces identical parse trees for various JSON inputs" do
         test_cases = [
           '{"key": "value"}',
-          '[1, 2, 3]',
+          "[1, 2, 3]",
           '{"a": [1, 2], "b": {"c": 3}}',
-          'null',
-          'true',
-          'false',
-          '123',
-          '"string"'
+          "null",
+          "true",
+          "false",
+          "123",
+          '"string"',
         ]
 
         test_cases.each do |input|
@@ -338,12 +340,12 @@ RSpec.describe 'Performance Regression Tests', :performance do
       end
     end
 
-    describe 'XML parser' do
-      it 'produces identical parse trees for various XML inputs' do
+    describe "XML parser" do
+      it "produces identical parse trees for various XML inputs" do
         test_cases = [
-          '<tag>content</tag>',
-          '<a><b>text</b></a>',
-          '<root><child>data</child></root>'
+          "<tag>content</tag>",
+          "<a><b>text</b></a>",
+          "<root><child>data</child></root>",
         ]
 
         test_cases.each do |input|
@@ -363,10 +365,10 @@ RSpec.describe 'Performance Regression Tests', :performance do
   # Helper methods
   private
 
-  def count_allocations(&block)
+  def count_allocations
     GC.start
     before = GC.stat(:total_allocated_objects)
-    block.call
+    yield
     after = GC.stat(:total_allocated_objects)
     after - before
   end

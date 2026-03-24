@@ -1,34 +1,36 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-require 'open3'
+require "spec_helper"
+require "open3"
 
 # Strip positions from the output, so that we can compare it with the expected output.
 # (Some other specs utilize the inspect of inner objects outside example/*.rb expections)
 # The behavior of comparison of #inspect as done in parselet behaves differently
 # in Opal and MRI.
 
-describe 'Regression on' do
-  Dir['example/*.rb'].each do |example|
+describe "Regression on" do
+  Dir["example/*.rb"].each do |example|
     context example do
       # Generates a product path for a given example file.
       def product_path(str, ext)
         str
-          .gsub('.rb', ".#{ext}")
-          .gsub('example/', 'example/output/')
+          .gsub(".rb", ".#{ext}")
+          .gsub("example/", "example/output/")
       end
 
-      it 'runs successfully' do
+      it "runs successfully" do
         # Skip if output files don't exist (new examples may not have expected outputs yet)
-        skip "No output file found for #{example}" unless Dir["example/output/#{File.basename(example, '.rb')}.*"].any?
+        skip "No output file found for #{example}" unless Dir["example/output/#{File.basename(
+          example, '.rb'
+        )}.*"].any?
 
         # Skip examples that have missing dependencies
         skip_missing_deps = %w[
           example/optimized_erb.rb
         ]
-        skip 'Missing dependencies' if skip_missing_deps.include?(example)
+        skip "Missing dependencies" if skip_missing_deps.include?(example)
 
-        if RUBY_ENGINE == 'opal'
+        if RUBY_ENGINE == "opal"
 
           skip_examples = %w[
             example/calc.rb
@@ -46,29 +48,31 @@ describe 'Regression on' do
             system("opal -srubygems -ropal-parser -rnodejs -Ilib -I. #{example} >_stdout 2>_stderr")
 
             handle_map = {
-              '_stdout' => :out,
-              '_stderr' => :err
+              "_stdout" => :out,
+              "_stderr" => :err,
             }
             expectation_found = handle_map.any? do |io, ext|
               name = product_path(example, ext)
 
               if File.exist?(name)
                 actual_output = File.read(io).strip
-                expected_output = File.read(name).strip.gsub(/:(\w+)(=>|,|\]|\})/, '"\1"\2').gsub('1.0e+23', '1e+23').gsub(/@\d+/, '').strip
+                expected_output = File.read(name).strip.gsub(/:(\w+)(=>|,|\]|\})/, '"\1"\2').gsub("1.0e+23", "1e+23").gsub(
+                  /@\d+/, ""
+                ).strip
                 expect(strip_positions(actual_output)).to eq(strip_positions(expected_output))
                 true
               end
             end
           ensure
-            File.unlink('_stdout')
-            File.unlink('_stderr')
+            File.unlink("_stdout")
+            File.unlink("_stderr")
           end
         else
           _, stdout, stderr = Open3.popen3("ruby #{example}")
 
           handle_map = {
             stdout => :out,
-            stderr => :err
+            stderr => :err,
           }
           expectation_found = handle_map.any? do |io, ext|
             name = product_path(example, ext)
@@ -84,7 +88,7 @@ describe 'Regression on' do
 
         unless expectation_found
           raise "Example doesn't have either an .err or an .out file. " \
-                'Please create in examples/output!'
+                "Please create in examples/output!"
         end
       end
     end

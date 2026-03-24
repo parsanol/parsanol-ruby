@@ -5,9 +5,9 @@
 # self-dependent grammars.
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
-require 'parsanol/parslet'
-require 'parsanol/convenience'
-require 'pp'
+require "parsanol/parslet"
+require "parsanol/convenience"
+require "pp"
 
 class CapturingParser < Parsanol::Parser
   root :document
@@ -17,8 +17,8 @@ class CapturingParser < Parsanol::Parser
   rule(:document) { scope { doc_start >> text >> doc_end } }
 
   # Start of a document is a heredoc marker. This is captured in :marker
-  rule(:doc_start) { str('<') >> marker >> newline }
-  rule(:marker) { match['A-Z'].repeat(1).capture(:marker) }
+  rule(:doc_start) { str("<") >> marker >> newline }
+  rule(:marker) { match["A-Z"].repeat(1).capture(:marker) }
 
   # The content of a document can be either lines of text or another
   # document, introduced by <HERE, where HERE is the doc marker.

@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require 'json'
-require 'digest'
+require "json"
+require "digest"
 
-require 'parsanol/native/types'
-require 'parsanol/native/parser'
-require 'parsanol/native/serializer'
-require 'parsanol/native/batch_decoder'
+require "parsanol/native/types"
+require "parsanol/native/parser"
+require "parsanol/native/serializer"
+require "parsanol/native/batch_decoder"
 
 module Parsanol
   module Native
-    VERSION = '0.1.0'
+    VERSION = "0.1.0"
 
     class << self
       # Check if native extension is available
@@ -53,7 +53,8 @@ module Parsanol
         # The batch format doesn't preserve :repetition/:sequence tags, so we use
         # the direct FFI path. Apply the Ruby transformer to handle tags correctly.
         raw_ast = _parse_raw(grammar_json, input)
-        BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice, grammar_atom)
+        BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice,
+                                        grammar_atom)
       end
 
       # Parse and return RAW AST without transformation.
@@ -76,11 +77,11 @@ module Parsanol
         raise LoadError, "Native parser not available" unless available?
 
         # Handle both grammar atoms and pre-serialized JSON strings
-        if grammar.is_a?(String)
-          grammar_json = grammar
-        else
-          grammar_json = Parser.serialize_grammar(grammar)
-        end
+        grammar_json = if grammar.is_a?(String)
+                         grammar
+                       else
+                         Parser.serialize_grammar(grammar)
+                       end
 
         # Use batch_raw format for raw AST (no transformation)
         slice_class = Parsanol::Slice
@@ -112,11 +113,6 @@ module Parsanol
         BatchDecoder.decode(batch_data, input, slice_class)
       end
 
-      # Get the Slice class
-      private def get_slice_class
-        Parsanol::Slice
-      end
-
       # Serialize a Ruby grammar to JSON (cached).
       #
       # @param root_atom [Parsanol::Atoms::Base] Root atom of the grammar
@@ -139,6 +135,7 @@ module Parsanol
       # @return [nil]
       def clear_grammar_cache
         raise LoadError, "Native parser not available" unless available?
+
         _clear_grammar_cache
       end
 
@@ -147,6 +144,7 @@ module Parsanol
       # @return [Integer] Number of cached grammars
       def grammar_cache_size
         raise LoadError, "Native parser not available" unless available?
+
         _grammar_cache_size
       end
 
@@ -155,6 +153,7 @@ module Parsanol
       # @return [Integer] Maximum cache capacity
       def grammar_cache_capacity
         raise LoadError, "Native parser not available" unless available?
+
         _grammar_cache_capacity
       end
 
@@ -167,17 +166,24 @@ module Parsanol
         end
         stats
       end
+
+      private
+
+      # Get the Slice class
+      def get_slice_class
+        Parsanol::Slice
+      end
     end
   end
 end
 
 # Attempt to load native extension
 begin
-  ruby_version = RUBY_VERSION.split('.').take(2).join('.')
+  ruby_version = RUBY_VERSION.split(".").take(2).join(".")
   require "parsanol/#{ruby_version}/parsanol_native"
 rescue LoadError
   begin
-    require 'parsanol/parsanol_native'
+    require "parsanol/parsanol_native"
   rescue LoadError
     # Native extension not built yet
   end

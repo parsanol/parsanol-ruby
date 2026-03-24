@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../buffer'
+require_relative "../buffer"
 
 module Parsanol
   module Pools
@@ -124,7 +124,7 @@ module Parsanol
             reused: stats[:reused],
             released: stats[:released],
             discarded: stats[:discarded],
-            utilization: utilization.round(2)
+            utilization: utilization.round(2),
           }
         end
         result

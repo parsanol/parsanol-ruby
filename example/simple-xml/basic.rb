@@ -5,8 +5,8 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'pp'
-require 'parsanol/parslet'
+require "pp"
+require "parsanol/parslet"
 
 class XML < Parsanol::Parser
   root :document
@@ -21,14 +21,14 @@ class XML < Parsanol::Parser
   def tag(opts = {})
     close = opts[:close] || false
 
-    parslet = str('<')
-    parslet >>= str('/') if close
-    parslet >>= (str('>').absent? >> match('[a-zA-Z]')).repeat(1).as(:name)
-    parslet >> str('>')
+    parslet = str("<")
+    parslet >>= str("/") if close
+    parslet >>= (str(">").absent? >> match("[a-zA-Z]")).repeat(1).as(:name)
+    parslet >> str(">")
   end
 
   rule(:text) do
-    match('[^<>]').repeat(0)
+    match("[^<>]").repeat(0)
   end
 end
 
@@ -43,12 +43,12 @@ def check(xml)
     rule(
       o: { name: simple(:tag) },
       c: { name: simple(:tag) },
-      i: simple(:t)
-    ) { 'verified' }
+      i: simple(:t),
+    ) { "verified" }
   end
 
   t.apply(r)
 end
 
-pp check('<a><b>some text in the tags</b></a>')
-pp check('<b><b>some text in the tags</b></a>')
+pp check("<a><b>some text in the tags</b></a>")
+pp check("<b><b>some text in the tags</b></a>")

@@ -124,7 +124,8 @@ module Parsanol
         when :json
           parse_json(input, kwargs)
         else
-          raise ArgumentError, "Unknown mode: #{mode}. Valid modes: :ruby, :native, :json"
+          raise ArgumentError,
+                "Unknown mode: #{mode}. Valid modes: :ruby, :native, :json"
         end
       end
     end
@@ -185,13 +186,15 @@ module Parsanol
       case mode
       when :ruby
         # Call base class parse directly (send needed since parse is defined in parent)
-        Parsanol::Atoms::Base.instance_method(:parse).bind(self).call(input, opts)
+        Parsanol::Atoms::Base.instance_method(:parse).bind_call(self, input,
+                                                                opts)
       when :native
         parse_native(input, opts)
       when :json
         parse_json(input, opts)
       else
-        raise ArgumentError, "Unknown mode: #{mode}. Valid modes: :ruby, :native, :json"
+        raise ArgumentError,
+              "Unknown mode: #{mode}. Valid modes: :ruby, :native, :json"
       end
     end
 

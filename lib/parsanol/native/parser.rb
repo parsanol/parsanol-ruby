@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'digest'
+require "digest"
 
 module Parsanol
   module Native
@@ -17,11 +17,11 @@ module Parsanol
 
           @cached_available = begin
             # Try versioned path first (released gem), then non-versioned (local dev)
-            ruby_version = RUBY_VERSION.split('.').take(2).join('.')
+            ruby_version = RUBY_VERSION.split(".").take(2).join(".")
             begin
               require "parsanol/#{ruby_version}/parsanol_native"
             rescue LoadError
-              require 'parsanol/parsanol_native'
+              require "parsanol/parsanol_native"
             end
             Parsanol::Native.is_available
           rescue LoadError
@@ -54,7 +54,7 @@ module Parsanol
         def cache_stats
           {
             hash_cache_size: GRAMMAR_HASH_CACHE.size,
-            grammar_cache_size: GRAMMAR_CACHE.size
+            grammar_cache_size: GRAMMAR_CACHE.size,
           }
         end
 
@@ -70,6 +70,7 @@ module Parsanol
           if visited[obj_id]
             return [:cycle, atom.class.name]
           end
+
           visited[obj_id] = true
 
           case atom
@@ -89,7 +90,8 @@ module Parsanol
           when ::Parsanol::Atoms::Named
             [:named, atom.name.to_s, atom_structure(atom.parslet, visited)]
           when ::Parsanol::Atoms::Lookahead
-            [:lookahead, atom.positive, atom_structure(atom.bound_parslet, visited)]
+            [:lookahead, atom.positive,
+             atom_structure(atom.bound_parslet, visited)]
           else
             [:unknown, atom.class.name]
           end

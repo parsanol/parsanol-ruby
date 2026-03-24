@@ -51,7 +51,8 @@ module Parsanol
         when 2
           try_two(options[0], options[1], source, context, consume_all)
         when 3
-          try_three(options[0], options[1], options[2], source, context, consume_all)
+          try_three(options[0], options[1], options[2], source, context,
+                    consume_all)
         else
           try_many(options, source, context, consume_all)
         end
@@ -64,7 +65,7 @@ module Parsanol
       # @param prec [Integer] precedence
       # @return [String]
       def to_s_inner(prec)
-        @alternatives.map { |a| a.to_s(prec) }.join(' / ')
+        @alternatives.map { |a| a.to_s(prec) }.join(" / ")
       end
 
       # FIRST set is union of all alternatives' FIRST sets.

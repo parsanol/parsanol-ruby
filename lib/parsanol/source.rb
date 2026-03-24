@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require 'stringio'
-require 'strscan'
+require "stringio"
+require "strscan"
 
-require 'parsanol/position'
-require 'parsanol/source/line_cache'
-require 'parsanol/pools/slice_pool'
-require 'parsanol/pools/position_pool'
+require "parsanol/position"
+require "parsanol/source/line_cache"
+require "parsanol/pools/slice_pool"
+require "parsanol/pools/position_pool"
 
 module Parsanol
   # Encapsulates input source for parsing operations. Provides position tracking,
@@ -33,14 +33,19 @@ module Parsanol
     # @raise [ArgumentError] if input doesn't respond to to_str
     #
     def initialize(input)
-      raise ArgumentError, 'Source requires a string-like object (responds to to_str)' unless input.respond_to?(:to_str)
+      unless input.respond_to?(:to_str)
+        raise ArgumentError,
+              "Source requires a string-like object (responds to to_str)"
+      end
 
       # Core scanner for input traversal
       @scanner = StringScanner.new(input)
       @raw_string = input.to_str
 
       # Regex cache: maps count n to /(.|$){n}/m pattern
-      @regex_cache = Hash.new { |h, count| h[count] = Regexp.new("(.|$){#{count}}", Regexp::MULTILINE) }
+      @regex_cache = Hash.new do |h, count|
+        h[count] = Regexp.new("(.|$){#{count}}", Regexp::MULTILINE)
+      end
 
       # Line ending cache for position-to-line/column mapping
       @line_data = LineCache.new
@@ -173,7 +178,7 @@ module Parsanol
       @position_pool.acquire_with(
         string: @raw_string,
         bytepos: effective,
-        charpos: char_pos
+        charpos: char_pos,
       )
     end
   end

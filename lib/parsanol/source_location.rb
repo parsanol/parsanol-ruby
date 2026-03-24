@@ -74,7 +74,7 @@ module Parsanol
 
       SourceSpan.new(
         start_pos: [@start, other.start].min_by(&:offset),
-        end_pos: [@end, other.end].max_by(&:offset)
+        end_pos: [@end, other.end].max_by(&:offset),
       )
     end
 

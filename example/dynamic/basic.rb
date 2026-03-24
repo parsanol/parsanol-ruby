@@ -7,10 +7,10 @@
 # itself depends on the input or previously captured values.
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
-require 'parsanol/parslet'
-require 'pp'
+require "parsanol/parslet"
+require "pp"
 
-puts 'Dynamic Atoms Example'
+puts "Dynamic Atoms Example"
 puts "====================\n"
 
 # ===========================================================================
@@ -19,11 +19,11 @@ puts "====================\n"
 puts "--- Example 1: Constant Callback ---\n"
 
 # Always returns the same parser
-parser = dynamic { str('hello') }
+parser = dynamic { str("hello") }
 
-input = 'hello world'
+input = "hello world"
 result = parser.parse(input)
-puts '  Parsed successfully'
+puts "  Parsed successfully"
 puts "  Matched: #{result.inspect}"
 
 # ===========================================================================
@@ -41,27 +41,27 @@ class LanguageParser < Parsanol::Parser
       remaining = context.remaining
 
       # Look at the beginning of remaining to detect context
-      if remaining.start_with?('def ')
-        puts '    -> Detected Ruby context'
-        str('def')
-      elsif remaining.start_with?('lambda ')
-        puts '    -> Detected Python context'
-        str('lambda')
+      if remaining.start_with?("def ")
+        puts "    -> Detected Ruby context"
+        str("def")
+      elsif remaining.start_with?("lambda ")
+        puts "    -> Detected Python context"
+        str("lambda")
       else
         puts "    -> No context, using 'function'"
-        str('function')
+        str("function")
       end
     end
   end
 
-  rule(:statement) { keyword >> str(' ') >> match('[a-z]+') }
+  rule(:statement) { keyword >> str(" ") >> match("[a-z]+") }
   root :statement
 end
 
 test_cases = [
-  ['def method', 'Ruby'],
-  ['lambda x', 'Python'],
-  ['function foo', 'JavaScript']
+  ["def method", "Ruby"],
+  ["lambda x", "Python"],
+  ["function foo", "JavaScript"],
 ]
 
 test_cases.each do |input, lang|
@@ -91,22 +91,22 @@ class PositionParser < Parsanol::Parser
 
       if pos.zero?
         # First position: keyword
-        str('let') | str('const') | str('var')
+        str("let") | str("const") | str("var")
       elsif pos < input_length / 2
         # First half: identifier
-        match('[a-zA-Z_][a-zA-Z0-9_]*')
+        match("[a-zA-Z_][a-zA-Z0-9_]*")
       else
         # Second half: value
-        match('\d+') | match('[a-z]+')
+        match('\d+') | match("[a-z]+")
       end
     end
   end
 
-  rule(:stmt) { token >> str(' ') >> token >> str('=') >> token }
+  rule(:stmt) { token >> str(" ") >> token >> str("=") >> token }
   root :stmt
 end
 
-input = 'let x=42'
+input = "let x=42"
 puts "  Parsing: #{input.inspect}"
 parser = PositionParser.new
 begin
@@ -124,8 +124,8 @@ puts "\n--- Example 4: Capture-Aware Callback ---\n"
 class CaptureAwareParser < Parsanol::Parser
   include Parsanol::Parslet
 
-  rule(:type) { match('[a-z]+').capture(:type) }
-  rule(:name) { match('[a-z]+').capture(:name) }
+  rule(:type) { match("[a-z]+").capture(:type) }
+  rule(:name) { match("[a-z]+").capture(:name) }
 
   rule(:value) do
     dynamic do |_source, context|
@@ -133,22 +133,22 @@ class CaptureAwareParser < Parsanol::Parser
       puts "    -> Type capture: #{type.inspect}"
 
       case type
-      when 'int' then match('\d+')
-      when 'str' then match('[a-z]+')
-      when 'bool' then str('true') | str('false')
-      else match('[a-z]+')
+      when "int" then match('\d+')
+      when "str" then match("[a-z]+")
+      when "bool" then str("true") | str("false")
+      else match("[a-z]+")
       end.capture(:value)
     end
   end
 
-  rule(:declaration) { type >> str(':') >> name >> str('=') >> value }
+  rule(:declaration) { type >> str(":") >> name >> str("=") >> value }
   root :declaration
 end
 
 test_cases = [
-  ['int:count=42', 'int'],
-  ['str:message=hello', 'str'],
-  ['bool:enabled=true', 'bool']
+  ["int:count=42", "int"],
+  ["str:message=hello", "str"],
+  ["bool:enabled=true", "bool"],
 ]
 
 test_cases.each_key do |input|
@@ -156,7 +156,7 @@ test_cases.each_key do |input|
   parser = CaptureAwareParser.new
   begin
     result = parser.parse(input)
-    puts '  ✓ Parsed successfully'
+    puts "  ✓ Parsed successfully"
     puts "    type: #{result[:type].inspect}"
     puts "    name: #{result[:name].inspect}"
     puts "    value: #{result[:value].inspect}"
@@ -181,10 +181,10 @@ class ConfigurableParser < Parsanol::Parser
     dynamic do |_source, _context|
       if @strict_mode
         # Strict: lowercase only
-        match('[a-z][a-z0-9_]*')
+        match("[a-z][a-z0-9_]*")
       else
         # Lenient: any identifier
-        match('[a-zA-Z_][a-zA-Z0-9_]*')
+        match("[a-zA-Z_][a-zA-Z0-9_]*")
       end
     end
   end
@@ -192,7 +192,7 @@ class ConfigurableParser < Parsanol::Parser
   root :identifier
 end
 
-puts '  Strict mode (lowercase only):'
+puts "  Strict mode (lowercase only):"
 parser = ConfigurableParser.new
 parser.strict_mode = true
 
@@ -218,28 +218,28 @@ end
 # Summary
 # ===========================================================================
 puts "\n--- Benefits of Dynamic Atoms ---"
-puts '* Context-sensitive parsing at runtime'
-puts '* Access to position, input, and captures'
-puts '* Plugin architecture support'
-puts '* Configuration-driven grammars'
+puts "* Context-sensitive parsing at runtime"
+puts "* Access to position, input, and captures"
+puts "* Plugin architecture support"
+puts "* Configuration-driven grammars"
 
 puts "\n--- Backend Compatibility ---"
-puts '* Packrat:  Native support (direct callback invocation)'
-puts '* Bytecode: Packrat fallback (slower)'
-puts '* Streaming: Packrat fallback (slower)'
+puts "* Packrat:  Native support (direct callback invocation)"
+puts "* Bytecode: Packrat fallback (slower)"
+puts "* Streaming: Packrat fallback (slower)"
 
 puts "\n--- Performance Notes ---"
-puts '* Native (Packrat): ~5% overhead per dynamic atom'
-puts '* Callback should be fast - avoid I/O or heavy computation'
+puts "* Native (Packrat): ~5% overhead per dynamic atom"
+puts "* Callback should be fast - avoid I/O or heavy computation"
 
 puts "\n--- DSL Helper ---"
-puts '  dynamic { |source, context| parslet }  # Block returns parser'
+puts "  dynamic { |source, context| parslet }  # Block returns parser"
 
 puts "\n--- API Summary ---"
-puts '  dynamic do |source, context|'
-puts '    context.pos           # Current position'
-puts '    context.captures[:n]  # Access captured values'
-puts '    context.input         # Full input string'
-puts '    context.remaining     # Remaining input from current position'
-puts '    # Return a parslet atom'
-puts '  end'
+puts "  dynamic do |source, context|"
+puts "    context.pos           # Current position"
+puts "    context.captures[:n]  # Access captured values"
+puts "    context.input         # Full input string"
+puts "    context.remaining     # Remaining input from current position"
+puts "    # Return a parslet atom"
+puts "  end"

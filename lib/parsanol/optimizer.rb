@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require_relative 'ast_visitor'
-require_relative 'optimizers/quantifier_optimizer'
-require_relative 'optimizers/sequence_optimizer'
-require_relative 'optimizers/choice_optimizer'
-require_relative 'optimizers/lookahead_optimizer'
-require_relative 'optimizers/cut_inserter'
+require_relative "ast_visitor"
+require_relative "optimizers/quantifier_optimizer"
+require_relative "optimizers/sequence_optimizer"
+require_relative "optimizers/choice_optimizer"
+require_relative "optimizers/lookahead_optimizer"
+require_relative "optimizers/cut_inserter"
 
 # Grammar-level optimizations for Parslet parsers
 # These optimizations transform the parser AST to reduce runtime overhead

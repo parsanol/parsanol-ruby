@@ -63,7 +63,8 @@ module Parsanol
         when 2
           match_pair(components[0], components[1], source, context, consume_all)
         when 3
-          match_triple(components[0], components[1], components[2], source, context, consume_all)
+          match_triple(components[0], components[1], components[2], source,
+                       context, consume_all)
         else
           match_general(components, source, context, consume_all)
         end
@@ -76,7 +77,7 @@ module Parsanol
       # @param prec [Integer] precedence
       # @return [String]
       def to_s_inner(prec)
-        @parslets.map { |p| p.to_s(prec) }.join(' ')
+        @parslets.map { |p| p.to_s(prec) }.join(" ")
       end
 
       # FIRST set is first element's FIRST set (with epsilon propagation).

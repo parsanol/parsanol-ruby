@@ -13,15 +13,15 @@
 
 module ParsletCompatibilityHelper
   def use_original_parslet?
-    ENV['PARSANOL_BACKEND'] == 'parslet'
+    ENV["PARSANOL_BACKEND"] == "parslet"
   end
 
   def parslet_module
     @parslet_module ||= if use_original_parslet?
-                          require 'parslet'
+                          require "parslet"
                           Parslet
                         else
-                          require 'parsanol/parslet'
+                          require "parsanol/parslet"
                           Parsanol::Parslet
                         end
   end
@@ -60,12 +60,12 @@ RSpec.configure do |config|
 
   config.before(:suite) do
     # Pre-load the appropriate module
-    if ENV['PARSANOL_BACKEND'] == 'parslet'
-      puts 'Running tests with original Parslet'
-      require 'parslet'
+    if ENV["PARSANOL_BACKEND"] == "parslet"
+
+      require "parslet"
     else
-      puts 'Running tests with Parsanol::Parslet compatibility layer'
-      require 'parsanol/parslet'
+
+      require "parsanol/parslet"
     end
   end
 end

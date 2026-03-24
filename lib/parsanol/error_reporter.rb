@@ -50,7 +50,7 @@ module Parsanol
       #
       def err(atom, source, message, children = nil)
         raise NotImplementedError,
-              'Error reporters must implement #err(atom, source, message, children)'
+              "Error reporters must implement #err(atom, source, message, children)"
       end
 
       # Report an error at a specific position.
@@ -66,7 +66,7 @@ module Parsanol
       #
       def err_at(atom, source, message, pos, children = nil)
         raise NotImplementedError,
-              'Error reporters must implement #err_at(atom, source, message, pos, children)'
+              "Error reporters must implement #err_at(atom, source, message, pos, children)"
       end
 
       # Called when an expression successfully parses.
@@ -95,6 +95,6 @@ module Parsanol
   end
 end
 
-require 'parsanol/error_reporter/tree'
-require 'parsanol/error_reporter/deepest'
-require 'parsanol/error_reporter/contextual'
+require "parsanol/error_reporter/tree"
+require "parsanol/error_reporter/deepest"
+require "parsanol/error_reporter/contextual"

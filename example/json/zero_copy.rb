@@ -12,7 +12,7 @@
 
 $LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../lib"
 
-require 'parsanol'
+require "parsanol"
 
 # NOTE: This example requires:
 # 1. ZeroCopy extension support for parse_to_objects
@@ -31,7 +31,7 @@ module Json
 
   class Null < Value
     def to_ruby = nil
-    def to_s = 'null'
+    def to_s = "null"
   end
 
   class Bool < Value
@@ -42,7 +42,7 @@ module Json
     end
 
     def to_ruby = @value
-    def to_s = @value ? 'true' : 'false'
+    def to_s = @value ? "true" : "false"
   end
 
   class Number < Value
@@ -122,9 +122,9 @@ class JsonParser < Parsanol::Parser
   end
 
   rule(:object) do
-    str('{') >> space? >>
+    str("{") >> space? >>
       (entry >> (comma >> entry).repeat).maybe.as(:object) >>
-      space? >> str('}')
+      space? >> str("}")
   end
 
   rule(:entry) do
@@ -132,35 +132,35 @@ class JsonParser < Parsanol::Parser
   end
 
   rule(:array) do
-    str('[') >> space? >>
+    str("[") >> space? >>
       (value >> (comma >> value).repeat).maybe.as(:array) >>
-      space? >> str(']')
+      space? >> str("]")
   end
 
   rule(:string) do
     str('"') >> (
-      (str('\\') >> any) | (str('"').absent? >> any)
+      (str("\\") >> any) | (str('"').absent? >> any)
     ).repeat.as(:string) >> str('"')
   end
 
   rule(:number) do
     (
-      str('-').maybe >>
-      (str('0') | (match('[1-9]') >> digit.repeat)) >>
-      (str('.') >> digit.repeat(1)).maybe >>
-      (match('[eE]') >> (str('+') | str('-')).maybe >> digit.repeat(1)).maybe
+      str("-").maybe >>
+      (str("0") | (match("[1-9]") >> digit.repeat)) >>
+      (str(".") >> digit.repeat(1)).maybe >>
+      (match("[eE]") >> (str("+") | str("-")).maybe >> digit.repeat(1)).maybe
     ).as(:number)
   end
 
-  rule(:true_value) { str('true').as(true) }
-  rule(:false_value) { str('false').as(false) }
-  rule(:null_value) { str('null').as(:null) }
+  rule(:true_value) { str("true").as(true) }
+  rule(:false_value) { str("false").as(false) }
+  rule(:null_value) { str("null").as(:null) }
 
-  rule(:digit) { match('[0-9]') }
+  rule(:digit) { match("[0-9]") }
   rule(:space) { match('\s').repeat(1) }
   rule(:space?) { space.maybe }
-  rule(:comma) { space? >> str(',') >> space? }
-  rule(:colon) { str(':') }
+  rule(:comma) { space? >> str(",") >> space? }
+  rule(:colon) { str(":") }
 
   # Output type mapping (planned feature)
   # output_types(
@@ -199,11 +199,11 @@ def simulate_parse(input)
   input = input.strip
 
   case input
-  when 'null'
+  when "null"
     Json::Null.new
-  when 'true'
+  when "true"
     Json::Bool.new(true)
-  when 'false'
+  when "false"
     Json::Bool.new(false)
   when /^"(.*)"$/
     Json::String.new(Regexp.last_match(1))
@@ -216,7 +216,7 @@ def simulate_parse(input)
     return Json::Array.new([]) if inner.empty?
 
     # Simple split for demonstration
-    elements = inner.split(',').map { |e| simulate_parse(e.strip) }
+    elements = inner.split(",").map { |e| simulate_parse(e.strip) }
     Json::Array.new(elements)
   when /^\{(.*)\}$/
     inner = Regexp.last_match(1).strip
@@ -235,59 +235,59 @@ end
 
 # Example usage
 if __FILE__ == $PROGRAM_NAME
-  puts '=' * 60
-  puts 'JSON Parser Example - ZeroCopy: Mirrored Objects'
-  puts '=' * 60
+  puts "=" * 60
+  puts "JSON Parser Example - ZeroCopy: Mirrored Objects"
+  puts "=" * 60
   puts
-  puts 'NOTE: This example shows the planned API for ZeroCopy.'
-  puts 'The native extension support for parse_to_objects is coming soon.'
+  puts "NOTE: This example shows the planned API for ZeroCopy."
+  puts "The native extension support for parse_to_objects is coming soon."
   puts
 
   test_cases = [
-    ['"hello"', 'hello'],
-    ['42', 42],
-    ['true', true],
-    ['null', nil],
-    ['[1, 2, 3]', [1, 2, 3]],
-    ['{"a": 1}', { 'a' => 1 }]
+    ['"hello"', "hello"],
+    ["42", 42],
+    ["true", true],
+    ["null", nil],
+    ["[1, 2, 3]", [1, 2, 3]],
+    ['{"a": 1}', { "a" => 1 }],
   ]
 
   test_cases.each do |input, expected|
     puts
-    puts '-' * 40
+    puts "-" * 40
     puts "Input: #{input}"
     begin
       result = parse_json(input)
-      status = result == expected ? '✓ PASS' : '✗ FAIL'
+      status = result == expected ? "✓ PASS" : "✗ FAIL"
       puts "Expected: #{expected.inspect}, Got: #{result.inspect} - #{status}"
     rescue StandardError => e
       puts "Error: #{e.message}"
-      puts '✗ FAIL'
+      puts "✗ FAIL"
     end
   end
 
   # Show type safety benefit
   puts
-  puts '-' * 40
-  puts 'Type Safety Example:'
+  puts "-" * 40
+  puts "Type Safety Example:"
   json_obj = simulate_parse('{"name": "Alice", "age": 30}')
   puts "Parsed object type: #{json_obj.class}"
   puts "Name field type: #{json_obj['name'].class}"
   puts "Age field type: #{json_obj['age'].class}"
 
   puts
-  puts '=' * 60
-  puts 'ZeroCopy Benefits for JSON:'
-  puts '- FASTEST: No serialization overhead'
-  puts '- Type-safe: Each JSON value type is a different class'
-  puts '- Methods: Can add custom methods to Json::Object, etc.'
-  puts '- Zero-copy: Direct construction from Rust'
+  puts "=" * 60
+  puts "ZeroCopy Benefits for JSON:"
+  puts "- FASTEST: No serialization overhead"
+  puts "- Type-safe: Each JSON value type is a different class"
+  puts "- Methods: Can add custom methods to Json::Object, etc."
+  puts "- Zero-copy: Direct construction from Rust"
   puts
-  puts 'When to use ZeroCopy for JSON:'
-  puts '- High-throughput JSON parsing'
-  puts '- When you need typed access to values'
-  puts '- When you want custom methods on JSON objects'
-  puts '=' * 60
+  puts "When to use ZeroCopy for JSON:"
+  puts "- High-throughput JSON parsing"
+  puts "- When you need typed access to values"
+  puts "- When you want custom methods on JSON objects"
+  puts "=" * 60
 end
 
 # Rust code that would be needed (for reference):

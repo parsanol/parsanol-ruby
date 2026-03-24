@@ -21,26 +21,26 @@ module Parsanol
     end
 
     # Load atom implementations
-    require 'parsanol/atoms/can_flatten'
-    require 'parsanol/atoms/context'
-    require 'parsanol/atoms/dsl'
-    require 'parsanol/atoms/base'
-    require 'parsanol/atoms/custom'
-    require 'parsanol/atoms/ignored'
-    require 'parsanol/atoms/named'
-    require 'parsanol/atoms/lookahead'
-    require 'parsanol/atoms/cut'
-    require 'parsanol/atoms/alternative'
-    require 'parsanol/atoms/sequence'
-    require 'parsanol/atoms/repetition'
-    require 'parsanol/atoms/re'
-    require 'parsanol/atoms/str'
-    require 'parsanol/atoms/entity'
-    require 'parsanol/atoms/capture'
-    require 'parsanol/atoms/dynamic'
-    require 'parsanol/atoms/scope'
-    require 'parsanol/atoms/infix'
+    require "parsanol/atoms/can_flatten"
+    require "parsanol/atoms/context"
+    require "parsanol/atoms/dsl"
+    require "parsanol/atoms/base"
+    require "parsanol/atoms/custom"
+    require "parsanol/atoms/ignored"
+    require "parsanol/atoms/named"
+    require "parsanol/atoms/lookahead"
+    require "parsanol/atoms/cut"
+    require "parsanol/atoms/alternative"
+    require "parsanol/atoms/sequence"
+    require "parsanol/atoms/repetition"
+    require "parsanol/atoms/re"
+    require "parsanol/atoms/str"
+    require "parsanol/atoms/entity"
+    require "parsanol/atoms/capture"
+    require "parsanol/atoms/dynamic"
+    require "parsanol/atoms/scope"
+    require "parsanol/atoms/infix"
     # Load visitor pattern (must be after all atom classes)
-    require 'parsanol/atoms/visitor'
+    require "parsanol/atoms/visitor"
   end
 end

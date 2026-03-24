@@ -11,7 +11,7 @@
 #     rule(:indented_block) { IndentAtom.new(4) >> statement }
 #   end
 
-require 'parsanol'
+require "parsanol"
 
 class IndentAtom < Parsanol::Atoms::Custom
   # Create a new indentation matcher
@@ -35,7 +35,7 @@ class IndentAtom < Parsanol::Atoms::Custom
 
       # Consume one space
       char = source.consume(1)
-      break unless char == ' '
+      break unless char == " "
 
       indent += 1
     end
@@ -43,7 +43,7 @@ class IndentAtom < Parsanol::Atoms::Custom
     if indent == @expected_indent
       # Success - return the matched indentation as a slice
       # Use source.slice to create a proper Slice object
-      [true, source.slice(start_pos, ' ' * indent)]
+      [true, source.slice(start_pos, " " * indent)]
     else
       # Failure - restore position for backtracking
       source.bytepos = start_pos
@@ -62,18 +62,18 @@ if __FILE__ == $PROGRAM_NAME
   class IndentedParser < Parsanol::Parser
     rule(:line) { indent >> content }
     rule(:indent) { IndentAtom.new(2) }
-    rule(:content) { match['a-z'].repeat(1) }
+    rule(:content) { match["a-z"].repeat(1) }
     root(:line)
   end
 
   parser = IndentedParser.new
 
   # This should parse - exactly 2 spaces of indentation
-  puts parser.parse('  hello').inspect
+  puts parser.parse("  hello").inspect
 
   # This will fail - wrong indentation
   begin
-    puts parser.parse('    hello').inspect
+    puts parser.parse("    hello").inspect
   rescue Parsanol::ParseFailed => e
     puts "Failed as expected: #{e.message}"
   end
