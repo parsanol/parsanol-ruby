@@ -253,7 +253,9 @@ RSpec.describe 'Performance Regression Tests', :performance do
 
     describe 'cache efficiency' do
       it 'caches compiled grammar after repeated parsing' do
-        raise LoadError, "Native parser not available - cache efficiency tests require native extension" unless Parsanol::Native.available?
+        unless Parsanol::Native.available?
+          raise LoadError, "Native parser not available - cache efficiency tests require native extension"
+        end
 
         parser = Class.new(Parsanol::Parser) do
           optimize_rules!
@@ -270,7 +272,7 @@ RSpec.describe 'Performance Regression Tests', :performance do
         stats = parser.cache_stats
 
         expect(stats[:grammar_cache_size]).to be > 0,
-                              "Expected grammar to be cached (grammar_cache_size > 0), got #{stats[:grammar_cache_size]}"
+                                              "Expected grammar to be cached (grammar_cache_size > 0), got #{stats[:grammar_cache_size]}"
       end
 
       it 'keeps allocations under threshold for medium inputs' do
