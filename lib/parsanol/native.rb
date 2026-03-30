@@ -57,6 +57,27 @@ module Parsanol
                                         grammar_atom)
       end
 
+      # Memory-bounded parsing without packrat cache.
+      #
+      # This creates a fresh arena and empty cache per call, bounding memory
+      # to AST size rather than input × atoms. Use for large files.
+      #
+      # @param grammar [Parsanol::Atoms::Base] Ruby grammar definition
+      # @param input [String] Input string to parse
+      # @return [Hash, Array, Parsanol::Slice] Transformed AST
+      def parse_fresh(grammar, input)
+        raise LoadError, "Native parser not available" unless available?
+
+        grammar_json = if grammar.is_a?(String)
+                        grammar
+                      else
+                        Parser.serialize_grammar(grammar)
+                      end
+
+        raw_ast = _parse_fresh_raw(grammar_json, input)
+        BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice, grammar)
+      end
+
       # Parse and return RAW AST without transformation.
       #
       # This returns the raw Parslet intermediate format before any transformation.

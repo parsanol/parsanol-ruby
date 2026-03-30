@@ -323,9 +323,26 @@ module Parsanol
               all_items_are_hashes = non_hash_items.empty?
 
               if all_items_are_hashes
-                # Merge all inner hashes into merged_hash
-                item.each do |sub_item|
-                  merged_hash.merge!(sub_item) if sub_item.is_a?(Hash)
+                # Check if merging would overwrite existing keys in merged_hash.
+                # If so, this is a repetition pattern (item >> (sep >> item).repeat)
+                # and should be kept as array, not merged.
+                # Example: merged_hash={namedTypeOrRename: A}, array=[{namedTypeOrRename: B}]
+                # → should produce [{namedTypeOrRename: A}, {namedTypeOrRename: B}]
+                existing_keys = merged_hash.keys
+                shares_keys = item.any? do |sub_item|
+                  sub_item.is_a?(Hash) && (sub_item.keys & existing_keys).any?
+                end
+
+                if shares_keys
+                  has_non_empty_array = true
+                  item.each do |sub_item|
+                    hash_count += 1 if sub_item.is_a?(Hash)
+                  end
+                  total_items += 1
+                else
+                  item.each do |sub_item|
+                    merged_hash.merge!(sub_item) if sub_item.is_a?(Hash)
+                  end
                 end
               else
                 # Non-empty repetition with non-hash items - mark that we should keep as array

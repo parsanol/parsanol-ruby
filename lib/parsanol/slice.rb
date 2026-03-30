@@ -67,6 +67,10 @@ module Parsanol
 
     alias length size
 
+    def empty?
+      content.empty?
+    end
+
     def +(other)
       self.class.new(@byte_position, content + other.to_s, @input)
     end
