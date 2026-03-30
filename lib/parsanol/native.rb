@@ -69,10 +69,10 @@ module Parsanol
         raise LoadError, "Native parser not available" unless available?
 
         grammar_json = if grammar.is_a?(String)
-                        grammar
-                      else
-                        Parser.serialize_grammar(grammar)
-                      end
+                         grammar
+                       else
+                         Parser.serialize_grammar(grammar)
+                       end
 
         raw_ast = _parse_fresh_raw(grammar_json, input)
         BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice, grammar)

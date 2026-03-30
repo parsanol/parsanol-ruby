@@ -330,7 +330,7 @@ module Parsanol
                 # → should produce [{namedTypeOrRename: A}, {namedTypeOrRename: B}]
                 existing_keys = merged_hash.keys
                 shares_keys = item.any? do |sub_item|
-                  sub_item.is_a?(Hash) && (sub_item.keys & existing_keys).any?
+                  sub_item.is_a?(Hash) && sub_item.keys.intersect?(existing_keys)
                 end
 
                 if shares_keys

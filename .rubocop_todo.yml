@@ -131,6 +131,8 @@ Metrics/AbcSize:
 # AllowedMethods: refine
 Metrics/BlockLength:
   Max: 49
+  Exclude:
+    - 'lib/parsanol/native/transformer.rb'
 
 # Offense count: 5
 # Configuration parameters: CountBlocks, CountModifierForms.
@@ -146,6 +148,8 @@ Metrics/CyclomaticComplexity:
 # Configuration parameters: CountComments, CountAsOne, AllowedMethods, AllowedPatterns.
 Metrics/MethodLength:
   Max: 201
+  Exclude:
+    - 'lib/parsanol/native/transformer.rb'
 
 # Offense count: 3
 # Configuration parameters: CountKeywordArgs, MaxOptionalParameters.
