@@ -406,6 +406,40 @@ RSpec.describe "Parslet API Compatibility" do
         ruby_result = parser.parse("a,b,c")
         expect(result).to eq(ruby_result)
       end
+
+      it "handles repetition with separator and colliding keys (no .as wrapper)" do
+        # Regression: item >> (sep >> item).repeat WITHOUT .as(:rest)
+        # The first item and repetition items share the same key (:name),
+        # which caused flatten_sequence to filter out colliding keys,
+        # producing only 1 item instead of 2.
+        #
+        # This is the exact pattern used in EXPRESS USE clauses:
+        #   namedTypeOrRename >> (op_comma >> namedTypeOrRename).repeat
+
+        parser = Class.new(Parsanol::Parser) do
+          include Parsanol
+
+          rule(:item) { match("[a-z]").as(:name) }
+          rule(:separator) { str(",") }
+          rule(:list) { (item >> (separator >> item).repeat).as(:items) }
+
+          root(:list)
+        end.new
+
+        result = Parsanol::Native::Parser.parse(parser.root, "a,b")
+
+        expect(result).to be_a(Hash)
+        expect(result[:items]).to be_an(Array)
+        expect(result[:items].length).to eq(2)
+
+        # Both items must have :name key
+        expect(result[:items][0]).to eq({ name: "a" })
+        expect(result[:items][1]).to eq({ name: "b" })
+
+        # Cross-validate with Ruby parser
+        ruby_result = parser.parse("a,b")
+        expect(result).to eq(ruby_result)
+      end
     end
   end
 end
