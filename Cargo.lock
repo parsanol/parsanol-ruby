@@ -305,8 +305,8 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "parsanol"
-version = "0.4.1"
-source = "git+https://github.com/parsanol/parsanol-rs?branch=fix/shared-input-slice-oom#b3fea3850ee0d8841cfae3e7334ce829cd0ccbc5"
+version = "0.5.0"
+source = "git+https://github.com/parsanol/parsanol-rs?branch=main#99a5a2f3fa292ce506cda9ea7a6d5403abd5e8a0"
 dependencies = [
  "ahash",
  "getrandom 0.3.4",
@@ -322,8 +322,8 @@ dependencies = [
 
 [[package]]
 name = "parsanol-derive"
-version = "0.4.1"
-source = "git+https://github.com/parsanol/parsanol-rs?branch=fix/shared-input-slice-oom#b3fea3850ee0d8841cfae3e7334ce829cd0ccbc5"
+version = "0.5.0"
+source = "git+https://github.com/parsanol/parsanol-rs?branch=main#99a5a2f3fa292ce506cda9ea7a6d5403abd5e8a0"
 dependencies = [
  "proc-macro2",
  "quote",
