@@ -28,7 +28,7 @@ rb-sys = { version = "0.9.124", features = ["global-allocator"] }
 magnus = { version = "0.9" }
 
 # parsanol parser library (from git for latest features)
-parsanol = { git = "https://github.com/parsanol/parsanol-rs", branch = "main", features = ["ruby"] }
+parsanol = { git = "https://github.com/parsanol/parsanol-rs", rev = "99a5a2f3fa292ce506cda9ea7a6d5403abd5e8a0", features = ["ruby"] }
 
 # Logging
 log = "0.4"
