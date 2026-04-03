@@ -25,18 +25,5 @@ module Parsanol
       EMPTY_ARRAY = [].freeze
       EMPTY_HASH = {}.freeze
     end
-
-    # Symbol cache to avoid repeated string-to-symbol conversions
-    # This is a class variable to share across all transformations
-    @@symbol_cache = {}
-
-    # Convert string key to symbol with caching
-    # @param key [String, Symbol] The key to convert
-    # @return [Symbol] The symbol version of the key
-    def self.cached_symbol(key)
-      return key if key.is_a?(Symbol)
-
-      @@symbol_cache[key] ||= key.to_sym
-    end
   end
 end

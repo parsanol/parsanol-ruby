@@ -10,8 +10,6 @@ require "parsanol/native/batch_decoder"
 
 module Parsanol
   module Native
-    VERSION = "0.1.0"
-
     class << self
       # Check if native extension is available
       def available?
@@ -189,11 +187,6 @@ module Parsanol
       end
 
       private
-
-      # Get the Slice class
-      def get_slice_class
-        Parsanol::Slice
-      end
     end
   end
 end
