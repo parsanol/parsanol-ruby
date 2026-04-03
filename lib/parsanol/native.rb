@@ -51,8 +51,7 @@ module Parsanol
         # The batch format doesn't preserve :repetition/:sequence tags, so we use
         # the direct FFI path. Apply the Ruby transformer to handle tags correctly.
         raw_ast = _parse_raw(grammar_json, input)
-        BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice,
-                                        grammar_atom)
+        BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice)
       end
 
       # Memory-bounded parsing without packrat cache.
@@ -73,7 +72,7 @@ module Parsanol
                        end
 
         raw_ast = _parse_fresh_raw(grammar_json, input)
-        BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice, grammar)
+        BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice)
       end
 
       # Parse and return RAW AST without transformation.

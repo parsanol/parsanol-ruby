@@ -114,7 +114,7 @@ module Parsanol
       as_json.to_json(*)
     end
 
-    def as_json(_options = {})
+    def as_json
       result = { "value" => content, "offset" => offset, "length" => length }
       if @input
         line, column = line_and_column

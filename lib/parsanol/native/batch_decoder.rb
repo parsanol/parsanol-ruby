@@ -57,9 +57,8 @@ module Parsanol
         #   pre-decoded Ruby value from _parse_raw
         # @param input [String] Original input string (for Slice references)
         # @param slice_class [Class] The Slice class to use
-        # @param grammar_atom [Parsanol::Atoms::Base] The grammar atom (unused, kept for API compat)
         # @return [Object] Transformed Ruby AST
-        def decode_and_flatten(data, input, slice_class, _grammar_atom)
+        def decode_and_flatten(data, input, slice_class)
           # Check if data is batch data (flat u64 array) or already a Ruby value
           if data.is_a?(Integer) || (data.is_a?(Array) && data.first.is_a?(Integer))
             # Batch data (flat u64 array) - decode first, then transform

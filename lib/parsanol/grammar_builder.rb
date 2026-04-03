@@ -115,7 +115,7 @@ module Parsanol
     # Convert to JSON for native parser
     #
     # @return [String] JSON representation
-    def to_json(*_args)
+    def to_json
       build.to_json
     end
 

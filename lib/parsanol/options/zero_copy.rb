@@ -89,11 +89,10 @@ module Parsanol
     # Parse input and return direct Ruby objects (no serialization)
     #
     # @param input [String] The input string to parse
-    # @param options [Hash] Parse options (ignored for zero-copy)
     # @return [Object] Direct Ruby object (type depends on grammar)
     # @raise [LoadError] If native extension not available
     # @raise [Parsanol::ParseFailed] If parsing fails
-    def parse(input, _options = {})
+    def parse(input)
       unless Parsanol::Native.available?
         raise LoadError,
               "ZeroCopy mode requires native extension for direct FFI object construction. " \
