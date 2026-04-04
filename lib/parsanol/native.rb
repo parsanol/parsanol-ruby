@@ -39,13 +39,11 @@ module Parsanol
         raise LoadError, "Native parser not available" unless available?
 
         # Handle both grammar atoms and pre-serialized JSON strings
-        if grammar.is_a?(String)
-          grammar_json = grammar
-          grammar_atom = nil
-        else
-          grammar_json = Parser.serialize_grammar(grammar)
-          grammar_atom = grammar
-        end
+        grammar_json = if grammar.is_a?(String)
+                         grammar
+                       else
+                         Parser.serialize_grammar(grammar)
+                       end
 
         # Use _parse_raw which returns properly tagged Ruby arrays via transform_ast.
         # The batch format doesn't preserve :repetition/:sequence tags, so we use
@@ -184,8 +182,6 @@ module Parsanol
         end
         stats
       end
-
-      private
     end
   end
 end
