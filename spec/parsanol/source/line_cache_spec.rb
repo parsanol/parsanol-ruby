@@ -2,35 +2,35 @@
 
 require "spec_helper"
 
-describe Parsanol::Source::RangeSearch do
-  describe "<- #lbound" do
+describe Parsanol::Source::IntervalLookup do
+  describe "<- #lower_bound_index" do
     context "for a simple array" do
       let(:ary) { [10, 20, 30, 40, 50] }
 
       before { ary.extend described_class }
 
       it "returns correct answers for numbers not in the array" do
-        ary.lbound(5).should
-        ary.lbound(15).should
-        ary.lbound(25).should
-        ary.lbound(35).should
-        ary.lbound(45).should == 4
+        ary.lower_bound_index(5).should
+        ary.lower_bound_index(15).should
+        ary.lower_bound_index(25).should
+        ary.lower_bound_index(35).should
+        ary.lower_bound_index(45).should == 4
       end
 
       it "returns correct answers for numbers in the array" do
-        ary.lbound(10).should
-        ary.lbound(20).should
-        ary.lbound(30).should
-        ary.lbound(40).should == 4
+        ary.lower_bound_index(10).should
+        ary.lower_bound_index(20).should
+        ary.lower_bound_index(30).should
+        ary.lower_bound_index(40).should == 4
       end
 
       it "covers right edge case" do
-        ary.lbound(50).should be_nil
-        ary.lbound(51).should be_nil
+        ary.lower_bound_index(50).should be_nil
+        ary.lower_bound_index(51).should be_nil
       end
 
       it "covers left edge case" do
-        ary.lbound(0).should == 0
+        ary.lower_bound_index(0).should == 0
       end
     end
 
@@ -40,7 +40,7 @@ describe Parsanol::Source::RangeSearch do
       before { ary.extend described_class }
 
       it "returns nil" do
-        ary.lbound(1).should be_nil
+        ary.lower_bound_index(1).should be_nil
       end
     end
   end

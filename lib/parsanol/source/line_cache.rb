@@ -97,13 +97,6 @@ module Parsanol
           return hi if hi <= lo
         end
       end
-
-      # Legacy method name for backward compatibility
-      alias find_mid midpoint_index
-      alias lbound lower_bound_index
     end
-
-    # Legacy constant name for backward compatibility
-    RangeSearch = IntervalLookup
   end
 end
