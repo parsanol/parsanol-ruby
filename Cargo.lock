@@ -382,16 +382,16 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "rb-sys"
-version = "0.9.124"
-source = "git+https://github.com/oxidize-rb/rb-sys.git?rev=b42b5fba0424fcc6778fed9a01e05215eaa53f85#b42b5fba0424fcc6778fed9a01e05215eaa53f85"
+version = "0.9.126"
+source = "git+https://github.com/oxidize-rb/rb-sys.git?rev=daa12b6521a0c442a705d7f9a929029119aab1d6#daa12b6521a0c442a705d7f9a929029119aab1d6"
 dependencies = [
  "rb-sys-build",
 ]
 
 [[package]]
 name = "rb-sys-build"
-version = "0.9.124"
-source = "git+https://github.com/oxidize-rb/rb-sys.git?rev=b42b5fba0424fcc6778fed9a01e05215eaa53f85#b42b5fba0424fcc6778fed9a01e05215eaa53f85"
+version = "0.9.126"
+source = "git+https://github.com/oxidize-rb/rb-sys.git?rev=daa12b6521a0c442a705d7f9a929029119aab1d6#daa12b6521a0c442a705d7f9a929029119aab1d6"
 dependencies = [
  "bindgen",
  "lazy_static",
