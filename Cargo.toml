@@ -12,4 +12,4 @@ debug = true
 [patch.crates-io]
 magnus = { git = "https://github.com/matsadler/magnus", rev = "4e46772" }
 magnus-macros = { git = "https://github.com/matsadler/magnus", rev = "4e46772" }
-rb-sys = { git = "https://github.com/oxidize-rb/rb-sys.git", rev = "b42b5fba0424fcc6778fed9a01e05215eaa53f85" }
+rb-sys = { git = "https://github.com/oxidize-rb/rb-sys.git", rev = "daa12b6521a0c442a705d7f9a929029119aab1d6" }
