@@ -126,6 +126,7 @@ jobs:
             exclude: [arm-linux, x64-mingw32]
           stable-ruby-versions: |
             exclude: [head]
+            include: [3.2]
 
   build:
     name: Build native gems
