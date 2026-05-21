@@ -26,4 +26,17 @@ describe Parsanol::Atoms::Sequence do
       end
     end
   end
+
+  describe "diagnostics" do
+    it "does not format the sequence on a successful match" do
+      atom = str("a")
+      def atom.to_s(*)
+        raise "diagnostic formatting should be lazy"
+      end
+
+      parser = described_class.new(atom)
+
+      expect(parser.parse("a")).to eq("a")
+    end
+  end
 end

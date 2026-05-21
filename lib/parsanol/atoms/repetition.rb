@@ -49,13 +49,13 @@ module Parsanol
         @max_internal = max_count || Float::INFINITY
 
         # Pre-built error messages
-        @min_error = "Expected at least #{min_count} of #{parser.inspect}"
+        @min_error = nil
         @extra_error = "Extra input after last repetition"
       end
 
       # Error messages hash (for compatibility)
       def error_msgs
-        { minrep: @min_error, unconsumed: @extra_error }
+        { minrep: min_error, unconsumed: @extra_error }
       end
 
       # Executes the repetition.
@@ -136,39 +136,39 @@ module Parsanol
         success, value = @parslet.apply(source, context, consume_all)
         return ok([@result_tag, value]) if success
 
-        context.err_at(self, source, @min_error, source.bytepos, [value])
+        context.err_at(self, source, min_error(context), source.bytepos, [value])
       end
 
       def double_match(source, context, consume_all)
         success, v1 = @parslet.apply(source, context, false)
         unless success
-          return context.err_at(self, source, @min_error, source.bytepos,
+          return context.err_at(self, source, min_error(context), source.bytepos,
                                 [v1])
         end
 
         success, v2 = @parslet.apply(source, context, consume_all)
         return ok([@result_tag, v1, v2]) if success
 
-        context.err_at(self, source, @min_error, source.bytepos, [v2])
+        context.err_at(self, source, min_error(context), source.bytepos, [v2])
       end
 
       def triple_match(source, context, consume_all)
         success, v1 = @parslet.apply(source, context, false)
         unless success
-          return context.err_at(self, source, @min_error, source.bytepos,
+          return context.err_at(self, source, min_error(context), source.bytepos,
                                 [v1])
         end
 
         success, v2 = @parslet.apply(source, context, false)
         unless success
-          return context.err_at(self, source, @min_error, source.bytepos,
+          return context.err_at(self, source, min_error(context), source.bytepos,
                                 [v2])
         end
 
         success, v3 = @parslet.apply(source, context, consume_all)
         return ok([@result_tag, v1, v2, v3]) if success
 
-        context.err_at(self, source, @min_error, source.bytepos, [v3])
+        context.err_at(self, source, min_error(context), source.bytepos, [v3])
       end
 
       # General repetition with buffer pooling
@@ -199,7 +199,7 @@ module Parsanol
         if occurrence < @min
           context.release_buffer(buffer)
           source.bytepos = start_pos
-          return context.err_at(self, source, @min_error, start_pos,
+          return context.err_at(self, source, min_error(context), start_pos,
                                 [last_error])
         end
 
@@ -260,7 +260,7 @@ module Parsanol
         if occurrence < @min
           context.release_buffer(buffer)
           source.bytepos = start_pos
-          return context.err_at(self, source, @min_error, start_pos,
+          return context.err_at(self, source, min_error(context), start_pos,
                                 [last_error])
         end
 
@@ -271,6 +271,12 @@ module Parsanol
         end
 
         ok(Parsanol::LazyResult.new(buffer, context))
+      end
+
+      def min_error(context = nil)
+        return nil if context && !context.reporting_errors?
+
+        @min_error ||= "Expected at least #{@min} of #{@parslet.inspect}"
       end
     end
   end

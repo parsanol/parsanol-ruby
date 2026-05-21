@@ -48,9 +48,15 @@ module Parsanol
         #   })
         #
         def register(block, description: nil)
+          callback_id = @mutex.synchronize do
+            current_id = @next_id
+            @next_id += 1
+            current_id
+          end
+
           # Register with Rust FFI
-          ffi_id = Native.register_callback(@next_id,
-                                            description || "Ruby callback ##{@next_id}")
+          ffi_id = Native.register_callback(callback_id,
+                                            description || "Ruby callback ##{callback_id}")
 
           # Also keep a Ruby-side reference for GC safety
           @mutex.synchronize do

@@ -90,8 +90,8 @@ module Parsanol
     def rule(name, opts = {}, &definition)
       undef_method name if method_defined? name
       define_method(name) do
-        @rule_cache ||= {}
-        return @rule_cache[name] if @rule_cache.key?(name)
+        rules = rule_cache[:__parsanol_rules__] ||= {}
+        return rules[name] if rules.key?(name)
 
         wrapper = proc {
           atom = instance_eval(&definition)
@@ -106,9 +106,13 @@ module Parsanol
           atom
         }
 
-        @rule_cache[name] = Atoms::Entity.new(name, opts[:label], &wrapper)
+        rules[name] = Atoms::Entity.new(name, opts[:label], &wrapper)
       end
     end
+  end
+
+  def rule_cache
+    @rule_cache ||= {}
   end
 
   # Helper class for bracket notation character class matching.

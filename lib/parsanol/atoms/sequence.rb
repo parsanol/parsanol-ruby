@@ -20,12 +20,12 @@ module Parsanol
         @parslets = components
 
         # Pre-built error message
-        @fail_msg = "Failed to match sequence (#{inspect})"
+        @fail_msg = nil
       end
 
       # Error messages hash (for compatibility)
       def error_msgs
-        { failed: @fail_msg }
+        { failed: fail_msg }
       end
 
       # Appends a parser to this sequence with flattening.
@@ -100,7 +100,7 @@ module Parsanol
       # Single element sequence
       def match_single(parser, source, context, consume_all)
         success, value = parser.apply(source, context, consume_all)
-        return context.err(self, source, @fail_msg, [value]) unless success
+        return context.err(self, source, fail_msg(context), [value]) unless success
 
         ok([:sequence, value])
       end
@@ -108,10 +108,10 @@ module Parsanol
       # Two-element sequence with buffer pooling
       def match_pair(p1, p2, source, context, consume_all)
         success, v1 = p1.apply(source, context, false)
-        return context.err(self, source, @fail_msg, [v1]) unless success
+        return context.err(self, source, fail_msg(context), [v1]) unless success
 
         success, v2 = p2.apply(source, context, consume_all)
-        return context.err(self, source, @fail_msg, [v2]) unless success
+        return context.err(self, source, fail_msg(context), [v2]) unless success
 
         buffer = context.acquire_buffer(size: 3)
         buffer.push(:sequence)
@@ -123,13 +123,13 @@ module Parsanol
       # Three-element sequence with buffer pooling
       def match_triple(p1, p2, p3, source, context, consume_all)
         success, v1 = p1.apply(source, context, false)
-        return context.err(self, source, @fail_msg, [v1]) unless success
+        return context.err(self, source, fail_msg(context), [v1]) unless success
 
         success, v2 = p2.apply(source, context, false)
-        return context.err(self, source, @fail_msg, [v2]) unless success
+        return context.err(self, source, fail_msg(context), [v2]) unless success
 
         success, v3 = p3.apply(source, context, consume_all)
-        return context.err(self, source, @fail_msg, [v3]) unless success
+        return context.err(self, source, fail_msg(context), [v3]) unless success
 
         buffer = context.acquire_buffer(size: 4)
         buffer.push(:sequence)
@@ -153,7 +153,7 @@ module Parsanol
 
           unless success
             context.release_buffer(buffer)
-            return context.err(self, source, @fail_msg, [value])
+            return context.err(self, source, fail_msg(context), [value])
           end
 
           buffer.push(value)
@@ -189,6 +189,12 @@ module Parsanol
         end
 
         result
+      end
+
+      def fail_msg(context = nil)
+        return nil if context && !context.reporting_errors?
+
+        @fail_msg ||= "Failed to match sequence (#{inspect})"
       end
     end
   end

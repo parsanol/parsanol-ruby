@@ -24,4 +24,17 @@ describe Parsanol::Atoms::Repetition do
       end
     end
   end
+
+  describe "diagnostics" do
+    it "does not format the repeated parser on a successful match" do
+      atom = str("a")
+      def atom.inspect
+        raise "diagnostic formatting should be lazy"
+      end
+
+      parser = described_class.new(atom, 1, nil)
+
+      expect(parser.parse("a")).to eq("a")
+    end
+  end
 end
