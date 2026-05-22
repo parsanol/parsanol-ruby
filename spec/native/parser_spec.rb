@@ -137,26 +137,6 @@ RSpec.describe Parsanol::Native::Parser do
       expect(result1).to eq(result2)
       expect(described_class.cache_stats[:grammar_cache_size]).to eq(1)
     end
-
-    it "loads native dynamic support through the native entrypoint" do
-      expect(Parsanol::Native.const_defined?(:Dynamic)).to be(true)
-    end
-
-    it "registers unique callback IDs for dynamic atoms" do
-      skip "Native extension not available" unless described_class.available?
-
-      Parsanol::Native::Dynamic.clear
-      atom1 = dynamic { str("a") }
-      atom2 = dynamic { str("b") }
-
-      expect do
-        Parsanol::GrammarSerializer.serialize(atom1)
-        Parsanol::GrammarSerializer.serialize(atom2)
-      end.not_to raise_error
-      expect(Parsanol::Native::Dynamic.count).to be >= 2
-    ensure
-      Parsanol::Native::Dynamic.clear if defined?(Parsanol::Native::Dynamic) && described_class.available?
-    end
   end
 
   describe ".clear_cache" do

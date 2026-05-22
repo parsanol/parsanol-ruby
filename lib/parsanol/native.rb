@@ -5,7 +5,6 @@ require "digest"
 
 require "parsanol/native/types"
 require "parsanol/native/parser"
-require "parsanol/native/dynamic"
 require "parsanol/native/serializer"
 require "parsanol/native/batch_decoder"
 

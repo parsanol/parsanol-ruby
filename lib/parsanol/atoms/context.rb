@@ -25,7 +25,7 @@ module Parsanol
         "ErbParser" => 800,          # ERB benefits earlier
         "CalcParser" => 2000,        # Calculator has low repetition
         "SentenceParser" => 5000,    # Linear grammar, minimal benefit
-        :parser_default => 0,        # Recursive parser classes need memoization even on short input
+        :parser_default => 0,
         :default => 1000,
       }.freeze
 
@@ -102,8 +102,15 @@ module Parsanol
         # Skip caching for atoms that don't benefit from it
         return atom.try(src, self, must_consume_all) unless atom.cached?
 
+        # Determine if caching should be active (lazy initialization)
+        if @caching_active.nil?
+          total_len = src.bytepos + src.chars_left
+          @input_len = total_len
+          @caching_active = total_len >= @adaptive_threshold
+        end
+
         # For small inputs, skip caching overhead
-        return atom.try(src, self, must_consume_all) unless caching_active?(src)
+        return atom.try(src, self, must_consume_all) unless @caching_active
 
         # Use interval-based caching if enabled
         return try_with_interval(atom, src, must_consume_all) if @use_intervals
@@ -145,14 +152,6 @@ module Parsanol
         end
 
         outcome
-      end
-
-      def caching_active?(src)
-        return @caching_active unless @caching_active.nil?
-
-        total_len = src.bytepos + src.chars_left
-        @input_len = total_len
-        @caching_active = total_len >= @adaptive_threshold
       end
 
       # GPeg-style interval-based caching for incremental parsing.
@@ -212,10 +211,6 @@ module Parsanol
         return [false, @reporter.err(*)] if @reporter
 
         ERROR_RESULT
-      end
-
-      def reporting_errors?
-        !@reporter.nil?
       end
 
       # Reports a successful parse.

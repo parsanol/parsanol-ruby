@@ -63,12 +63,7 @@ module Parsanol
       # @return [Array(Boolean, Object)] outcome pair
       def apply(input, context, consume_all = false)
         position_before = input.bytepos
-        outcome =
-          if context.caching_active?(input) && cached?
-            context.try_with_cache(self, input, consume_all)
-          else
-            try(input, context, consume_all)
-          end
+        outcome = context.try_with_cache(self, input, consume_all)
         succeeded = outcome.first
 
         return handle_failure(input, position_before, outcome) unless succeeded

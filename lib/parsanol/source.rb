@@ -69,17 +69,6 @@ module Parsanol
     end
     alias match matches?
 
-    def starts_with_at?(byte_pos, string, byte_size = string.bytesize)
-      @raw_string.byteslice(byte_pos, byte_size) == string
-    end
-
-    def consume_bytes(byte_size)
-      current_pos = @scanner.pos
-      content = @raw_string.byteslice(current_pos, byte_size)
-      @scanner.pos = current_pos + byte_size
-      @slice_pool.acquire_with(current_pos, content, @line_data)
-    end
-
     # Consumes n characters from input and returns them as a pooled Slice.
     #
     # @param count [Integer] number of characters to consume

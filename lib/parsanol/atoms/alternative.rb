@@ -20,6 +20,7 @@ module Parsanol
       def initialize(*options)
         super()
         @alternatives = options
+        @choice_error = "Expected one of #{options.inspect}"
       end
 
       # Adds an alternative with flattening.
@@ -86,7 +87,7 @@ module Parsanol
         success, value2 = a2.apply(source, context, consume_all)
         return [success, value2] if success
 
-        context.err(self, source, choice_error(context), [value1, value2])
+        context.err(self, source, @choice_error, [value1, value2])
       end
 
       # Three-alternative fast path
@@ -100,7 +101,7 @@ module Parsanol
         success, value3 = a3.apply(source, context, consume_all)
         return [success, value3] if success
 
-        context.err(self, source, choice_error(context), [value1, value2, value3])
+        context.err(self, source, @choice_error, [value1, value2, value3])
       end
 
       # General case for N alternatives
@@ -115,13 +116,7 @@ module Parsanol
           errors << value
         end
 
-        context.err(self, source, choice_error(context), errors)
-      end
-
-      def choice_error(context)
-        return nil unless context.reporting_errors?
-
-        "Expected one of #{@alternatives.inspect}"
+        context.err(self, source, @choice_error, errors)
       end
     end
   end

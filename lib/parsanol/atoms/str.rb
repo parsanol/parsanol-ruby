@@ -75,40 +75,34 @@ module Parsanol
 
       # Fast path for single-character strings.
       def single_char_match(source, context)
-        pos = source.pos
-        if source.starts_with_at?(pos, @single_char, @byte_size)
-          return ok(source.consume_bytes(@byte_size))
-        end
-
         if source.chars_left < 1
           return context.err(self, source,
                              @early_eof_msg)
         end
 
-        context.err_at(self, source, mismatch_error(source, context, pos), pos)
+        pos = source.pos
+        slice = source.consume(1)
+
+        return ok(slice) if slice.content == @single_char
+
+        source.bytepos = pos
+        context.err_at(self, source, [@mismatch_msg, slice], pos)
       end
 
       # Standard path for multi-character strings.
       def multi_char_match(source, context)
-        pos = source.pos
-        if source.starts_with_at?(pos, @str, @byte_size)
-          return ok(source.consume_bytes(@byte_size))
-        end
-
         if source.chars_left < @char_count
           return context.err(self, source,
                              @early_eof_msg)
         end
 
-        context.err_at(self, source, mismatch_error(source, context, pos), pos)
-      end
-
-      def mismatch_error(source, context, pos)
-        return nil unless context.reporting_errors?
-
+        pos = source.pos
         slice = source.consume(@char_count)
+
+        return ok(slice) if slice.content == @str
+
         source.bytepos = pos
-        [@mismatch_msg, slice]
+        context.err_at(self, source, [@mismatch_msg, slice], pos)
       end
     end
   end
