@@ -25,10 +25,17 @@ class BenchmarkRunner
     parsanol-native
     parsanol-ffi-hash
     parsanol-ffi-json
+    parsanol-cache-default
+    parsanol-cache-1000
   ].freeze
 
   SIZES = %w[tiny small medium large].freeze
-  INPUT_TYPES = %w[json expression express].freeze
+  DEFAULT_INPUT_TYPES = %w[json expression express].freeze
+  INPUT_TYPES = (DEFAULT_INPUT_TYPES + %w[cache_threshold]).freeze
+  CACHE_THRESHOLD_APPROACHES = %w[
+    parsanol-cache-default
+    parsanol-cache-1000
+  ].freeze
 
   def initialize(args)
     @options = parse_options(args)
@@ -43,6 +50,7 @@ class BenchmarkRunner
       output_dir: File.join(__dir__, "reports"),
       verbose: false,
       show_diagram: true,
+      input_type: nil,
     }.tap do |opts|
       OptionParser.new do |parser|
         parser.banner = "Usage: #{$0} [options]"
@@ -54,6 +62,11 @@ class BenchmarkRunner
         parser.on("-p", "--parser NAME", APPROACHES,
                   "Test only this parser") do |p|
           opts[:parser] = p
+        end
+
+        parser.on("-t", "--type TYPE", INPUT_TYPES,
+                  "Test only this input type") do |t|
+          opts[:input_type] = t
         end
 
         parser.on("-v", "--verbose", "Show detailed output") do
@@ -100,10 +113,11 @@ class BenchmarkRunner
 
     # Determine sizes to test
     sizes = @options[:quick] ? %w[tiny small medium] : SIZES
+    input_types = selected_input_types
 
     # Run benchmarks
     sizes.each do |size|
-      INPUT_TYPES.each do |type|
+      input_types.each do |type|
         run_benchmark_set(parsers_to_test, type, size)
       end
     end
@@ -157,6 +171,7 @@ class BenchmarkRunner
     begin
       require "parsanol"
       available << "parsanol-ruby"
+      available.concat(CACHE_THRESHOLD_APPROACHES) if @options[:input_type] == "cache_threshold"
       log "✓ parsanol-ruby available (Approach 2: Parsanol Ruby backend)"
     rescue LoadError => e
       log "✗ parsanol-ruby not available: #{e.message}"
@@ -206,6 +221,9 @@ class BenchmarkRunner
   end
 
   def run_benchmark_set(parsers, type, size)
+    parsers = parsers_for_type(parsers, type)
+    return if parsers.empty?
+
     input_file = File.join(__dir__, "inputs", size, "#{type}.txt")
 
     unless File.exist?(input_file)
@@ -285,9 +303,28 @@ class BenchmarkRunner
       create_parsanol_ffi_hash_parser(type)
     when "parsanol-ffi-json"
       create_parsanol_ffi_json_parser(type)
+    when "parsanol-cache-default"
+      create_cache_threshold_parser(type, :current)
+    when "parsanol-cache-1000"
+      create_cache_threshold_parser(type, :old)
     else
       raise "Unknown parser: #{parser_name}"
     end
+  end
+
+  def parsers_for_type(parsers, type)
+    if type == "cache_threshold"
+      parsers & CACHE_THRESHOLD_APPROACHES
+    else
+      parsers - CACHE_THRESHOLD_APPROACHES
+    end
+  end
+
+  def selected_input_types
+    return [@options[:input_type]] if @options[:input_type]
+    return ["cache_threshold"] if CACHE_THRESHOLD_APPROACHES.include?(@options[:parser])
+
+    DEFAULT_INPUT_TYPES
   end
 
   def create_parslet_parser(type)
@@ -385,6 +422,19 @@ class BenchmarkRunner
       ->(input) { Parsanol::Native.parse_to_json(grammar_json, input) }
     else
       raise "parsanol-ffi-json not implemented for #{type}"
+    end
+  end
+
+  def create_cache_threshold_parser(type, threshold)
+    raise "cache threshold benchmark only supports cache_threshold input" unless type == "cache_threshold"
+
+    require_relative "parsers/cache_threshold_parsanol"
+
+    case threshold
+    when :current
+      CacheThresholdParsanolBenchmark.current_parser_default
+    when :old
+      CacheThresholdParsanolBenchmark.old_parser_fallback
     end
   end
 

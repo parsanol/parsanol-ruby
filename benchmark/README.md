@@ -14,6 +14,9 @@ bundle exec ruby benchmark/run_all.rb
 # Run with verbose output
 bundle exec ruby benchmark/run_all.rb --verbose
 
+# Run only the cache threshold comparison
+bundle exec ruby benchmark/run_all.rb --type cache_threshold --quick --no-diagram
+
 # Generate and view report
 bundle exec ruby benchmark/run_all.rb --output reports
 ```
@@ -44,6 +47,7 @@ Input types:
 - **json**: JSON objects with nested structures
 - **expression**: Mathematical expressions
 - **express**: EXPRESS schema language
+- **cache_threshold**: Recursive parser-class grammar for comparing cache thresholds
 
 ## Running Benchmarks
 
@@ -73,6 +77,7 @@ bundle exec ruby benchmark/run_all.rb --quick
 ```
 -q, --quick          Skip large inputs for faster run
 -p, --parser NAME    Test only this parser (parslet, parsanol-parslet, parsanol-native, regexp)
+-t, --type TYPE      Test only this input type
 -v, --verbose        Show detailed output
 -o, --output DIR     Output directory for reports
 ```
