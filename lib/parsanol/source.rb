@@ -107,6 +107,14 @@ module Parsanol
       @scanner.rest_size
     end
 
+    # Returns the unconsumed input from the current position without advancing.
+    #
+    # @return [String] remaining input
+    #
+    def remaining
+      @scanner.rest
+    end
+
     # Counts characters from current position until a target string.
     # Returns chars_left if target is not found.
     #

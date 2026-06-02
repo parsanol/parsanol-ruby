@@ -83,7 +83,7 @@ module Parsanol
           threshold = PARSER_CACHE_LIMITS.fetch(name,
                                                 PARSER_CACHE_LIMITS[:parser_default])
         end
-        threshold ||= PARSER_CACHE_LIMITS[:default]
+        threshold = PARSER_CACHE_LIMITS[:default] if threshold.nil?
 
         @adaptive_threshold = threshold
         @input_len = nil
@@ -211,6 +211,11 @@ module Parsanol
         return [false, @reporter.err(*)] if @reporter
 
         ERROR_RESULT
+      end
+
+      # @return [Boolean] true when this context is collecting diagnostic errors
+      def reporting?
+        !@reporter.nil?
       end
 
       # Reports a successful parse.

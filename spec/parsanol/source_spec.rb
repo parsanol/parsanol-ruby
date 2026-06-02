@@ -29,6 +29,15 @@ describe Parsanol::Source do
       end
     end
 
+    describe "<- #remaining" do
+      it "returns unconsumed input without advancing" do
+        source.consume(3)
+
+        expect(source.remaining).to eq(str[3..])
+        expect(source.pos).to eq(3)
+      end
+    end
+
     describe "<- #pos" do
       subject { source.pos }
 
