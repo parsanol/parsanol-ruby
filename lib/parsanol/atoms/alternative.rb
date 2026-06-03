@@ -236,6 +236,7 @@ module Parsanol
         return [nil, []] if seen[object_id]
 
         seen[object_id] = true
+        marked = true
 
         if atom.instance_of?(Parsanol::Atoms::Str)
           [atom.str, literal_reporting_prefixes(atom.str)]
@@ -250,7 +251,9 @@ module Parsanol
           [nil, []]
         end
       ensure
-        seen.delete(object_id) if object_id
+        # Only clear markers set by this frame; an early return for an already
+        # seen atom must not remove an ancestor's recursion guard.
+        seen.delete(object_id) if marked
       end
 
       def literal_reporting_prefixes(literal)

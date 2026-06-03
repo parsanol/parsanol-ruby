@@ -435,6 +435,8 @@ class BenchmarkRunner
       CacheThresholdParsanolBenchmark.current_parser_default
     when :old
       CacheThresholdParsanolBenchmark.old_parser_fallback
+    else
+      raise "Unknown cache threshold benchmark mode: #{threshold}"
     end
   end
 

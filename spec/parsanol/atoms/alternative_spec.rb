@@ -220,5 +220,14 @@ describe Parsanol::Atoms::Alternative do
 
       expect(parser.parse("item05")).to eq("item05")
     end
+
+    it "does not clear ancestor recursion markers for seen entities" do
+      recursive = Parsanol::Atoms::Entity.new(:recursive) { str("x") }
+      marker = recursive.object_id
+      seen = { marker => true }
+
+      expect(large_literal_choice.send(:static_literal_prefixes, recursive, seen)).to eq([nil, []])
+      expect(seen.fetch(marker)).to be(true)
+    end
   end
 end
