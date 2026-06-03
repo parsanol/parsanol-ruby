@@ -116,7 +116,7 @@ module Parsanol
         return try_with_interval(atom, src, must_consume_all) if @use_intervals
 
         pos = src.bytepos
-        key = atom.object_id
+        key = scoped_cache_key(atom, must_consume_all)
 
         # Periodic cache eviction to prevent unbounded growth
         if pos > @furthest_pos
@@ -131,9 +131,10 @@ module Parsanol
         end
 
         # Check for cache hit
-        if @memo[pos].key?(key)
-          @hit_stats[key] += 1
-          outcome, delta = @memo[pos][key]
+        cached_key = cached_entry_key(@memo[pos], atom, must_consume_all)
+        if cached_key
+          @hit_stats[cached_key] += 1
+          outcome, delta = @memo[pos][cached_key]
           src.bytepos = pos + delta
           return outcome
         end
@@ -143,10 +144,12 @@ module Parsanol
         outcome = atom.try(src, self, must_consume_all)
         delta = src.bytepos - pos
 
-        # Only cache if beneficial (heuristic)
-        attempts = @hit_stats[key] + @miss_stats[key]
-        if attempts <= @min_hits_for_cache || @hit_stats[key].positive?
-          @memo[pos][key] =
+        # Successful prefix parses affect ordered-choice compatibility, so cache
+        # them consistently. Failures still use the selective cache heuristic.
+        store_key = store_cache_key(atom, must_consume_all, outcome)
+        attempts = @hit_stats[store_key] + @miss_stats[key]
+        if outcome.first || attempts <= @min_hits_for_cache || @hit_stats[store_key].positive?
+          @memo[pos][store_key] =
             [outcome,
              delta]
         end
@@ -163,13 +166,12 @@ module Parsanol
       #
       def try_with_interval(atom, src, must_consume_all)
         pos = src.bytepos
-        key = atom.object_id
-
-        tree = @interval_trees[key]
-        cached = tree.query_exact(pos, pos)
+        key = scoped_cache_key(atom, must_consume_all)
+        cached_key, cached = cached_interval_entry(atom, pos,
+                                                   must_consume_all)
 
         if cached
-          @hit_stats[key] += 1
+          @hit_stats[cached_key] += 1
           outcome, delta = cached
           src.bytepos = pos + delta
           return outcome
@@ -180,8 +182,10 @@ module Parsanol
         delta = src.bytepos - pos
         end_pos = pos + delta
 
-        attempts = @hit_stats[key] + @miss_stats[key]
-        if attempts <= @min_hits_for_cache || @hit_stats[key].positive?
+        store_key = store_cache_key(atom, must_consume_all, outcome)
+        attempts = @hit_stats[store_key] + @miss_stats[key]
+        if outcome.first || attempts <= @min_hits_for_cache || @hit_stats[store_key].positive?
+          tree = @interval_trees[store_key]
           tree.insert(pos, end_pos,
                       [outcome, delta])
         end
@@ -333,6 +337,48 @@ module Parsanol
       end
 
       private
+
+      def cached_entry_key(cache, atom, must_consume_all)
+        shared_key = shared_cache_key(atom)
+        return shared_key if cache.key?(shared_key)
+
+        strict_key = strict_cache_key(atom)
+        return strict_key if must_consume_all && cache.key?(strict_key)
+
+        nil
+      end
+
+      def cached_interval_entry(atom, pos, must_consume_all)
+        shared_key = shared_cache_key(atom)
+        cached = @interval_trees[shared_key].query_exact(pos, pos)
+        return [shared_key, cached] if cached
+
+        return [nil, nil] unless must_consume_all
+
+        strict_key = strict_cache_key(atom)
+        cached = @interval_trees[strict_key].query_exact(pos, pos)
+        return [strict_key, cached] if cached
+
+        [nil, nil]
+      end
+
+      def store_cache_key(atom, must_consume_all, outcome)
+        return shared_cache_key(atom) if outcome.first
+
+        scoped_cache_key(atom, must_consume_all)
+      end
+
+      def scoped_cache_key(atom, must_consume_all)
+        must_consume_all ? strict_cache_key(atom) : shared_cache_key(atom)
+      end
+
+      def strict_cache_key(atom)
+        -atom.object_id
+      end
+
+      def shared_cache_key(atom)
+        atom.object_id
+      end
 
       # Lookup cached result (uses object_id for speed)
       def lookup(atom, pos)

@@ -39,5 +39,34 @@ describe "Result of a Parsanol#parse" do
         end
       end
     end
+
+    it "reuses cached prefix successes for strict named subexpressions" do
+      parser_class = Class.new(Parsanol::Parser) do
+        rule(:space) { str(" ").repeat(1) }
+        rule(:space?) { space.maybe }
+        rule(:operator) { str("=").as(:operator) }
+        rule(:operand) { str("|x|").as(:factor) | str("R").as(:rhs) }
+        rule(:element) { operand | operator }
+        rule(:expression) do
+          (element >> space? >> expression.as(:prime) >> str("!")) |
+            element |
+            (element >> space? >> expression.as(:expr)) |
+            (element >> space? >> expression.as(:expr) >> space? >>
+              expression.as(:expression).maybe)
+        end
+        root :expression
+      end
+
+      expect(strip_positions(parser_class.new.parse("|x|=R"))).to eq(
+        factor: "|x|",
+        expr: { operator: "=" },
+        expression: { rhs: "R" },
+      )
+    end
+
+    it "still enforces full consumption at the named boundary" do
+      expect { str("a").as(:letter).parse("ab") }
+        .to raise_error(Parsanol::ParseFailed)
+    end
   end
 end
