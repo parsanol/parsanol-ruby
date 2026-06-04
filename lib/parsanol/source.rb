@@ -48,12 +48,12 @@ module Parsanol
       end
 
       # Line ending cache for position-to-line/column mapping
-      @line_data = LineCache.new
-      @line_data.scan_for_line_endings(0, input)
+      @line_data = LineCache.new(input)
 
       # Object pools for memory efficiency
       # SlicePool: reduces Slice allocations during matching
-      @slice_pool = Parsanol::Pools::SlicePool.new(size: 5000)
+      @slice_pool = Parsanol::Pools::SlicePool.new(size: 5000,
+                                                   preallocate: false)
 
       # PositionPool: reduces Position allocations for error reporting
       @position_pool = Parsanol::Pools::PositionPool.new(size: 1000)
@@ -113,6 +113,22 @@ module Parsanol
     #
     def remaining
       @scanner.rest
+    end
+
+    # Returns up to byte_count bytes from the current position without advancing.
+    #
+    # @param byte_count [Integer] maximum bytes to read
+    # @return [String] bounded input preview
+    #
+    def peek(byte_count)
+      return @scanner.peek(byte_count) if @scanner.respond_to?(:peek)
+
+      rest = @scanner.rest
+      if rest.respond_to?(:byteslice)
+        rest.byteslice(0, byte_count) || +""
+      else
+        rest[0, byte_count] || +""
+      end
     end
 
     # Counts characters from current position until a target string.

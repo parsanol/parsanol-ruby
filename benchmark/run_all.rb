@@ -306,7 +306,7 @@ class BenchmarkRunner
     when "parsanol-cache-default"
       create_cache_threshold_parser(type, :current)
     when "parsanol-cache-1000"
-      create_cache_threshold_parser(type, :old)
+      create_cache_threshold_parser(type, :conservative)
     else
       raise "Unknown parser: #{parser_name}"
     end
@@ -433,8 +433,8 @@ class BenchmarkRunner
     case threshold
     when :current
       CacheThresholdParsanolBenchmark.current_parser_default
-    when :old
-      CacheThresholdParsanolBenchmark.old_parser_fallback
+    when :conservative
+      CacheThresholdParsanolBenchmark.conservative_cache
     else
       raise "Unknown cache threshold benchmark mode: #{threshold}"
     end

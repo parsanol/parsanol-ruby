@@ -76,6 +76,12 @@ describe Parsanol::Atoms::Alternative do
       choice_from(item_literals.map { |literal| str(literal) })
     end
 
+    def case_insensitive_word(word)
+      word.chars
+        .map { |char| match("[#{char.upcase}#{char.downcase}]") }
+        .reduce(:>>)
+    end
+
     def indexed_candidates(parser, input)
       source = Parsanol::Source.new(input)
       context = Parsanol::Atoms::Context.new(nil)
@@ -103,6 +109,31 @@ describe Parsanol::Atoms::Alternative do
       expect { parser.parse("unknown") }.to raise_error(Parsanol::ParseFailed)
 
       expect(indexed_candidates(parser, "unknown")).to eq([])
+    end
+
+    it "does not index small choices" do
+      parser = choice_from(%w[aa bb cc dd].map { |literal| str(literal) })
+
+      expect(indexed_candidates(parser, "cc")).to be_nil
+    end
+
+    it "builds an index once the branch threshold is reached" do
+      parser = choice_from(Array.new(16) { |idx| str(format("item%02d", idx)) })
+
+      expect(indexed_candidates(parser, "item02")).to eq([2])
+    end
+
+    it "does not materialize the full remaining input while selecting indexed branches" do
+      parser = large_literal_choice
+      source = Parsanol::Source.new("item21#{'x' * 10_000}")
+      context = Parsanol::Atoms::Context.new(nil)
+
+      def source.remaining
+        raise "unexpected full remaining input read"
+      end
+
+      expect(parser.send(:indexed_options, source, context)).to eq([21])
+      expect(source.pos).to eq(0)
     end
 
     it "does not raise from an unselected lazy entity while building the index" do
@@ -142,6 +173,53 @@ describe Parsanol::Atoms::Alternative do
       expect(parser.parse("z")).to eq("z")
     end
 
+    it "keeps broad regex branches unsafe" do
+      patterns = %w[[A-Z] [0-9] [_] [a-z]]
+      parser = choice_from(
+        Array.new(16) { |idx| match(patterns[idx % patterns.size]) },
+      )
+
+      expect(indexed_candidates(parser, "A")).to be_nil
+    end
+
+    it "keeps fixed case-insensitive regex prefixes unsafe" do
+      words = %w[ABS ACOS SIN SIZEOF TAN COS SEC CSC COT LOG EXP MIN MAX GCD LCM DIM]
+      parser = choice_from(
+        words.map do |word|
+          case_insensitive_word(word).as(word.downcase.to_sym)
+        end,
+      )
+
+      expect(indexed_candidates(parser, "aCoS")).to be_nil
+      expect(indexed_candidates(parser, "sIN")).to be_nil
+      expect(parser.parse("aCoS")).to eq({ acos: "aCoS" })
+      expect(parser.parse("sIN")).to eq({ sin: "sIN" })
+    end
+
+    it "keeps nullable-leading regex prefixes unsafe" do
+      words = %w[ABS ACOS SIN SIZEOF TAN COS SEC CSC COT LOG EXP MIN MAX GCD LCM DIM]
+      parser = choice_from(
+        words.map do |word|
+          match[" "].repeat >> case_insensitive_word(word).as(word.downcase.to_sym)
+        end,
+      )
+
+      expect(indexed_candidates(parser, "aCoS")).to be_nil
+      expect(indexed_candidates(parser, "  aCoS")).to be_nil
+      expect(parser.parse("  aCoS")).to eq({ acos: "aCoS" })
+    end
+
+    it "keeps nullable-leading literal prefixes unsafe" do
+      operators = %w[* / + - = < > & | ^ % @ ! ? : ,]
+      parser = choice_from(
+        operators.map { |operator| match[" "].repeat >> str(operator).as(:operator) },
+      )
+
+      expect(indexed_candidates(parser, "+")).to be_nil
+      expect(indexed_candidates(parser, " +")).to be_nil
+      expect(parser.parse(" +")).to eq({ operator: "+" })
+    end
+
     it "handles multibyte literal prefixes" do
       parser = choice_from(Array.new(32) { |idx| str("変#{idx}") })
 
@@ -171,6 +249,15 @@ describe Parsanol::Atoms::Alternative do
       cause = catch_failed_parse { parser.parse("item00?") }
 
       expect(cause.ascii_tree).to include('Expected "!", but got "?"')
+    end
+
+    it "keeps detailed child errors for indexed sequence-led partial-prefix failures" do
+      parser = choice_from(
+        item_literals.first(16).map { |literal| str(literal) >> str("!") },
+      )
+      cause = catch_failed_parse { parser.parse("item0X") }
+
+      expect(cause.ascii_tree).to include('Expected "item00", but got "item0X"')
     end
 
     it "keeps detailed child errors for indexed literal partial-prefix failures" do

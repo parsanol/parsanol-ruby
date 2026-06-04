@@ -10,11 +10,14 @@ module Parsanol
     # Caches line ending positions for quick line/column resolution.
     # Uses binary search for efficient position lookup.
     class LineCache
-      def initialize
+      def initialize(buffer = nil, start_offset = 0)
         # Array of byte offsets where each line ends
         @breaks = []
         @breaks.extend(IntervalLookup)
         @max_scanned = nil
+        @buffer = buffer
+        @start_offset = start_offset
+        @fully_scanned = false
       end
 
       # Converts a byte offset to [line_number, column_number].
@@ -23,6 +26,8 @@ module Parsanol
       # @param position [Integer, #bytepos] the byte offset to convert
       # @return [Array<Integer, Integer>] [line, column] tuple
       def line_and_column(position)
+        scan_buffer_once
+
         position = position.bytepos if position.respond_to?(:bytepos)
 
         line_idx = @breaks.lower_bound_index(position)
@@ -47,16 +52,27 @@ module Parsanol
         return unless buffer
 
         scanner = StringScanner.new(buffer)
-        return unless scanner.exist?(/\n/)
+        if scanner.exist?(/\n/)
+          # Skip already-scanned content
+          scanner.pos = @max_scanned - start_offset if @max_scanned && start_offset < @max_scanned
 
-        # Skip already-scanned content
-        scanner.pos = @max_scanned - start_offset if @max_scanned && start_offset < @max_scanned
-
-        # Record all newline positions
-        while scanner.skip_until(/\n/)
-          @max_scanned = start_offset + scanner.pos
-          @breaks << @max_scanned
+          # Record all newline positions
+          while scanner.skip_until(/\n/)
+            @max_scanned = start_offset + scanner.pos
+            @breaks << @max_scanned
+          end
         end
+
+        @max_scanned = [@max_scanned || start_offset, start_offset + buffer.bytesize].max
+        @fully_scanned = true if buffer.equal?(@buffer) && start_offset == @start_offset
+      end
+
+      private
+
+      def scan_buffer_once
+        return if @fully_scanned || !@buffer
+
+        scan_for_line_endings(@start_offset, @buffer)
       end
     end
 

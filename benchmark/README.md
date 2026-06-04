@@ -47,7 +47,7 @@ Input types:
 - **json**: JSON objects with nested structures
 - **expression**: Mathematical expressions
 - **express**: EXPRESS schema language
-- **cache_threshold**: Recursive parser-class grammar for comparing cache thresholds
+- **cache_threshold**: Recursive parser-class grammar for comparing default and conservative cache thresholds
 
 ## Running Benchmarks
 

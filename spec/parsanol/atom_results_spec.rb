@@ -40,7 +40,7 @@ describe "Result of a Parsanol#parse" do
       end
     end
 
-    it "reuses cached prefix successes for strict named subexpressions" do
+    it "keeps cached prefix successes scoped from strict named subexpressions" do
       parser_class = Class.new(Parsanol::Parser) do
         rule(:space) { str(" ").repeat(1) }
         rule(:space?) { space.maybe }
@@ -55,12 +55,21 @@ describe "Result of a Parsanol#parse" do
               expression.as(:expression).maybe)
         end
         root :expression
+
+        define_method(:run_with_context) do |input, reporter, consume_all|
+          context = Parsanol::Atoms::Context.new(
+            reporter,
+            parser_class: self.class,
+            adaptive_cache_threshold: 0,
+          )
+
+          apply(input, context, consume_all)
+        end
       end
 
       expect(strip_positions(parser_class.new.parse("|x|=R"))).to eq(
         factor: "|x|",
-        expr: { operator: "=" },
-        expression: { rhs: "R" },
+        expr: { operator: "=", expr: { rhs: "R" } },
       )
     end
 

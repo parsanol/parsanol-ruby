@@ -18,10 +18,12 @@ module Parsanol
     # Inspired by packrat parsing memoization and incremental parsing techniques.
     #
     class Context
-      # Per-parser cache size thresholds based on profiling different grammar types
-      # Different grammars benefit from caching at different input sizes
+      # Per-parser cache size thresholds based on profiling different grammar types.
+      # Recursive parser classes can need memoization even for tiny inputs; plain
+      # atom-level contexts keep the conservative default to avoid small-parse overhead.
       PARSER_CACHE_LIMITS = {
         "JsonParser" => 10_000,      # JSON needs large inputs to benefit
+        "JsonParsanolParser" => 10_000,
         "ErbParser" => 800,          # ERB benefits earlier
         "CalcParser" => 2000,        # Calculator has low repetition
         "SentenceParser" => 5000,    # Linear grammar, minimal benefit
@@ -56,7 +58,8 @@ module Parsanol
         @evict_interval = 100
 
         # Object pools for reducing allocations
-        @array_pool = Parsanol::Pools::ArrayPool.new(size: 10_000)
+        @array_pool = Parsanol::Pools::ArrayPool.new(size: 10_000,
+                                                     preallocate: false)
         @buffer_pool = Parsanol::Pools::BufferPool.new(pool_size: 100)
 
         # Selective memoization tracking
@@ -144,12 +147,9 @@ module Parsanol
         outcome = atom.try(src, self, must_consume_all)
         delta = src.bytepos - pos
 
-        # Successful prefix parses affect ordered-choice compatibility, so cache
-        # them consistently. Failures still use the selective cache heuristic.
-        store_key = store_cache_key(atom, must_consume_all, outcome)
-        attempts = @hit_stats[store_key] + @miss_stats[key]
-        if outcome.first || attempts <= @min_hits_for_cache || @hit_stats[store_key].positive?
-          @memo[pos][store_key] =
+        attempts = @hit_stats[key] + @miss_stats[key]
+        if outcome.first || attempts <= @min_hits_for_cache || @hit_stats[key].positive?
+          @memo[pos][key] =
             [outcome,
              delta]
         end
@@ -182,10 +182,9 @@ module Parsanol
         delta = src.bytepos - pos
         end_pos = pos + delta
 
-        store_key = store_cache_key(atom, must_consume_all, outcome)
-        attempts = @hit_stats[store_key] + @miss_stats[key]
-        if outcome.first || attempts <= @min_hits_for_cache || @hit_stats[store_key].positive?
-          tree = @interval_trees[store_key]
+        attempts = @hit_stats[key] + @miss_stats[key]
+        if outcome.first || attempts <= @min_hits_for_cache || @hit_stats[key].positive?
+          tree = @interval_trees[key]
           tree.insert(pos, end_pos,
                       [outcome, delta])
         end
@@ -339,33 +338,18 @@ module Parsanol
       private
 
       def cached_entry_key(cache, atom, must_consume_all)
-        shared_key = shared_cache_key(atom)
-        return shared_key if cache.key?(shared_key)
-
-        strict_key = strict_cache_key(atom)
-        return strict_key if must_consume_all && cache.key?(strict_key)
+        key = scoped_cache_key(atom, must_consume_all)
+        return key if cache.key?(key)
 
         nil
       end
 
       def cached_interval_entry(atom, pos, must_consume_all)
-        shared_key = shared_cache_key(atom)
-        cached = @interval_trees[shared_key].query_exact(pos, pos)
-        return [shared_key, cached] if cached
-
-        return [nil, nil] unless must_consume_all
-
-        strict_key = strict_cache_key(atom)
-        cached = @interval_trees[strict_key].query_exact(pos, pos)
-        return [strict_key, cached] if cached
+        key = scoped_cache_key(atom, must_consume_all)
+        cached = @interval_trees[key].query_exact(pos, pos)
+        return [key, cached] if cached
 
         [nil, nil]
-      end
-
-      def store_cache_key(atom, must_consume_all, outcome)
-        return shared_cache_key(atom) if outcome.first
-
-        scoped_cache_key(atom, must_consume_all)
       end
 
       def scoped_cache_key(atom, must_consume_all)

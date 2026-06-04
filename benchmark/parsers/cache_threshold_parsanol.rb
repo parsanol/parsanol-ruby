@@ -80,7 +80,7 @@ class CacheThresholdParsanolParser < Parsanol::Parser
 end
 
 module CacheThresholdParsanolBenchmark
-  OLD_PARSER_FALLBACK_THRESHOLD = 1000
+  CONSERVATIVE_CACHE_THRESHOLD = 1000
 
   module_function
 
@@ -89,9 +89,9 @@ module CacheThresholdParsanolBenchmark
     ->(input) { parse_with_context(parser, input) }
   end
 
-  def old_parser_fallback
+  def conservative_cache
     parser = CacheThresholdParsanolParser.new
-    ->(input) { parse_with_context(parser, input, OLD_PARSER_FALLBACK_THRESHOLD) }
+    ->(input) { parse_with_context(parser, input, CONSERVATIVE_CACHE_THRESHOLD) }
   end
 
   def parse_with_context(parser, input, threshold = nil)

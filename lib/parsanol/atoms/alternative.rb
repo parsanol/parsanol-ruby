@@ -152,19 +152,15 @@ module Parsanol
         indexes = index[:always].dup
         prefixes = index[:prefixes]
         reporting_prefixes = index[:reporting_prefixes] if context.reporting?
-        max_prefix_length = index[:max_prefix_length]
+        max_prefix_bytes = index[:max_prefix_bytes]
         current_prefix = +""
-        scanned = 0
 
-        source.remaining.each_char do |char|
-          break if scanned >= max_prefix_length
-
+        source.peek(max_prefix_bytes).each_char do |char|
           current_prefix << char
           matches = prefixes[current_prefix]
           indexes.concat(matches) if matches
           reporting_matches = reporting_prefixes&.[](current_prefix)
           indexes.concat(reporting_matches) if reporting_matches
-          scanned += 1
         end
 
         indexes.uniq!
@@ -187,7 +183,7 @@ module Parsanol
         reporting = {}
         always = []
         indexed_count = 0
-        max_prefix_length = 0
+        max_prefix_bytes = 0
 
         @alternatives.each_with_index do |alt, idx|
           prefix, reporting_prefixes = static_literal_prefixes(alt)
@@ -202,7 +198,7 @@ module Parsanol
             add_to_index(reporting, reporting_prefix, idx)
           end
           indexed_count += 1
-          max_prefix_length = [max_prefix_length, prefix.length].max
+          max_prefix_bytes = [max_prefix_bytes, prefix.bytesize].max
         end
 
         return nil if indexed_count < INDEX_MIN_BRANCHES
@@ -210,7 +206,7 @@ module Parsanol
         {
           prefixes: freeze_prefix_index(prefixes),
           reporting_prefixes: freeze_prefix_index(reporting),
-          max_prefix_length: max_prefix_length,
+          max_prefix_bytes: max_prefix_bytes,
           always: always.freeze,
         }.freeze
       end
@@ -274,9 +270,12 @@ module Parsanol
         reporting_prefixes = []
 
         atom.parslets.each do |part|
-          part_prefix, = static_literal_prefixes(part, seen)
+          part_prefix, part_reporting_prefixes = static_literal_prefixes(part, seen)
           break if part_prefix.nil?
 
+          part_reporting_prefixes.each do |reporting_prefix|
+            reporting_prefixes << "#{prefix}#{reporting_prefix}"
+          end
           prefix << part_prefix
           reporting_prefixes << prefix.dup
         end
