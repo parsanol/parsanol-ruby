@@ -32,11 +32,11 @@ describe Parsanol::Context do
     end
 
     it "allows inspection" do
-      expect(obj.inspect).to match(/@a=1/)
+      expect(obj.inspect).to include("@a=1")
     end
 
     it "allows conversion to string" do
-      expect(obj.to_s).to match(/Parsanol::Context:0x/)
+      expect(obj.to_s).to include("Parsanol::Context:0x")
     end
 
     context "when the context is enhanced" do

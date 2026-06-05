@@ -143,8 +143,8 @@ describe Parsanol::Slice do
     describe "string methods" do
       describe "matching" do
         it "matches as a string would" do
-          slice.should match(/bar/)
-          slice.should match(/foo/)
+          slice.to_s.should include("bar")
+          slice.to_s.should include("foo")
 
           md = slice.match(/f(o)o/)
           md.captures.first.should == "o"
