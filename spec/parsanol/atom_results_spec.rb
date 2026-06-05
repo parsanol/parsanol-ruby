@@ -40,7 +40,7 @@ describe "Result of a Parsanol#parse" do
       end
     end
 
-    it "keeps cached prefix successes scoped from strict named subexpressions" do
+    it "shares built-in prefix successes for Parslet-compatible recursion" do
       parser_class = Class.new(Parsanol::Parser) do
         rule(:space) { str(" ").repeat(1) }
         rule(:space?) { space.maybe }
@@ -69,7 +69,8 @@ describe "Result of a Parsanol#parse" do
 
       expect(strip_positions(parser_class.new.parse("|x|=R"))).to eq(
         factor: "|x|",
-        expr: { operator: "=", expr: { rhs: "R" } },
+        expr: { operator: "=" },
+        expression: { rhs: "R" },
       )
     end
 

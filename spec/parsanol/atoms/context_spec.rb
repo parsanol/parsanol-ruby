@@ -135,6 +135,11 @@ describe Parsanol::Atoms::Context do
     end
   end
 
+  def expect_prefix_success_cache_boundary_to_fail(parser_class)
+    expect { parser_class.new.parse("xy") }
+      .to raise_error(Parsanol::ParseFailed)
+  end
+
   def expect_consume_all_success_boundary_to_parse(parser_class)
     expect(parser_class.new.parse("xy")).to eq("xy")
   end
@@ -193,8 +198,8 @@ describe Parsanol::Atoms::Context do
       )
     end
 
-    it "does not reuse prefix successes for consume-all attempts" do
-      expect_consume_all_success_boundary_to_parse(
+    it "reuses built-in prefix successes for consume-all attempts" do
+      expect_prefix_success_cache_boundary_to_fail(
         consume_all_success_parser_class,
       )
     end

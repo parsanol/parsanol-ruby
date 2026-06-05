@@ -341,6 +341,12 @@ module Parsanol
         key = scoped_cache_key(atom, must_consume_all)
         return key if cache.key?(key)
 
+        if must_consume_all && share_prefix_success_cache?(atom)
+          shared_key = shared_cache_key(atom)
+          entry = cache[shared_key]
+          return shared_key if entry && entry[0].first
+        end
+
         nil
       end
 
@@ -362,6 +368,14 @@ module Parsanol
 
       def shared_cache_key(atom)
         atom.object_id
+      end
+
+      # Entity, Named, and Ignored delegate to wrapped atoms before this cache
+      # lookup, so only cache-participating built-ins belong in this whitelist.
+      def share_prefix_success_cache?(atom)
+        atom.instance_of?(Parsanol::Atoms::Alternative) ||
+          atom.instance_of?(Parsanol::Atoms::Repetition) ||
+          atom.instance_of?(Parsanol::Atoms::Sequence)
       end
 
       # Lookup cached result (uses object_id for speed)
