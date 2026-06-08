@@ -112,8 +112,11 @@ module Parsanol
           @caching_active = total_len >= @adaptive_threshold
         end
 
-        # For small inputs, skip caching overhead
-        return atom.try(src, self, must_consume_all) unless @caching_active
+        # For small inputs, keep normal memoization off, but still preserve the
+        # Parslet-compatible prefix-success reuse that affects ordered choice.
+        unless @caching_active
+          return try_with_prefix_success_cache(atom, src, must_consume_all)
+        end
 
         # Use interval-based caching if enabled
         return try_with_interval(atom, src, must_consume_all) if @use_intervals
@@ -341,11 +344,9 @@ module Parsanol
         key = scoped_cache_key(atom, must_consume_all)
         return key if cache.key?(key)
 
-        if must_consume_all && share_prefix_success_cache?(atom)
-          shared_key = shared_cache_key(atom)
-          entry = cache[shared_key]
-          return shared_key if entry && entry[0].first
-        end
+        shared_key = prefix_success_lookup_key(atom, must_consume_all)
+        entry = cache[shared_key] if shared_key
+        return shared_key if successful_prefix_entry?(entry)
 
         nil
       end
@@ -355,7 +356,41 @@ module Parsanol
         cached = @interval_trees[key].query_exact(pos, pos)
         return [key, cached] if cached
 
+        shared_key = prefix_success_lookup_key(atom, must_consume_all)
+        shared = cached_interval_starting_at(shared_key, pos) if shared_key
+        return [shared_key, shared] if successful_prefix_entry?(shared)
+
         [nil, nil]
+      end
+
+      def cached_interval_starting_at(key, pos)
+        @interval_trees[key].query_starting_at(pos).first
+      end
+
+      def try_with_prefix_success_cache(atom, src, must_consume_all)
+        pos = src.bytepos
+        shared_key = shared_cache_key(atom)
+
+        if prefix_success_lookup_key(atom, must_consume_all)
+          entry = @memo[pos][shared_key]
+          if successful_prefix_entry?(entry)
+            outcome, delta = entry
+            src.bytepos = pos + delta
+            return outcome
+          end
+        end
+
+        outcome = atom.try(src, self, must_consume_all)
+
+        if !must_consume_all && outcome.first && share_prefix_success_cache?(atom)
+          delta = src.bytepos - pos
+          # This path intentionally keeps only shared prefix successes while
+          # full memoization is inactive. That preserves Parslet ordered-choice
+          # semantics without turning small parses into fully memoized parses.
+          @memo[pos][shared_key] = [outcome, delta]
+        end
+
+        outcome
       end
 
       def scoped_cache_key(atom, must_consume_all)
@@ -368,6 +403,16 @@ module Parsanol
 
       def shared_cache_key(atom)
         atom.object_id
+      end
+
+      def prefix_success_lookup_key(atom, must_consume_all)
+        return nil unless must_consume_all && share_prefix_success_cache?(atom)
+
+        shared_cache_key(atom)
+      end
+
+      def successful_prefix_entry?(entry)
+        entry && entry[0].first
       end
 
       # Entity, Named, and Ignored delegate to wrapped atoms before this cache

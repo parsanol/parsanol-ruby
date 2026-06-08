@@ -74,7 +74,8 @@ describe Parsanol::Atoms::Context do
     )
   end
 
-  def consume_all_success_parser_class(interval_cache: false)
+  def consume_all_success_parser_class(interval_cache: false,
+                                       adaptive_cache_threshold: 0)
     Class.new(Parsanol::Parser) do
       rule(:a) { str("x") | str("xy") }
       rule(:top) { (a >> str("z")) | a }
@@ -84,7 +85,7 @@ describe Parsanol::Atoms::Context do
         context = Parsanol::Atoms::Context.new(
           reporter,
           parser_class: self.class,
-          adaptive_cache_threshold: 0,
+          adaptive_cache_threshold: adaptive_cache_threshold,
           interval_cache: interval_cache,
         )
 
@@ -204,8 +205,14 @@ describe Parsanol::Atoms::Context do
       )
     end
 
-    it "does not reuse interval-cache prefix successes for consume-all attempts" do
-      expect_consume_all_success_boundary_to_parse(
+    it "reuses built-in prefix successes when adaptive caching is inactive" do
+      expect_prefix_success_cache_boundary_to_fail(
+        consume_all_success_parser_class(adaptive_cache_threshold: 10_000),
+      )
+    end
+
+    it "reuses interval-cache prefix successes for consume-all attempts" do
+      expect_prefix_success_cache_boundary_to_fail(
         consume_all_success_parser_class(interval_cache: true),
       )
     end

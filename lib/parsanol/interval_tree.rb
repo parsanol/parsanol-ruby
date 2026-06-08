@@ -72,6 +72,15 @@ module Parsanol
       find_exact(@root, low, high)
     end
 
+    # Query for intervals that start at a specific position.
+    # @param low [Integer] Start position to match
+    # @return [Array<Object>] Data for intervals whose start equals low
+    def query_starting_at(low)
+      results = []
+      query_starting_recursive(@root, low, results)
+      results
+    end
+
     # Delete all intervals that overlap with [low, high)
     # Returns array of deleted data
     # @param low [Integer] Start position (inclusive)
@@ -150,6 +159,14 @@ module Parsanol
       else
         find_exact(node.right, low, high)
       end
+    end
+
+    def query_starting_recursive(node, low, results)
+      return if node.nil?
+
+      query_starting_recursive(node.left, low, results) if low <= node.low
+      results << node.data if node.low == low
+      query_starting_recursive(node.right, low, results) if low >= node.low
     end
 
     # Delete overlapping intervals recursively
