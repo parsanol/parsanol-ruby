@@ -77,7 +77,19 @@ module Parsanol
     # @return [Array<Object>] Data for intervals whose start equals low
     def query_starting_at(low)
       results = []
-      query_starting_recursive(@root, low, results)
+      node = @root
+
+      while node
+        if low < node.low
+          node = node.left
+        elsif low > node.low
+          node = node.right
+        else
+          results << node.data
+          node = node.right
+        end
+      end
+
       results
     end
 
@@ -149,24 +161,18 @@ module Parsanol
 
     # Find exact interval match
     def find_exact(node, low, high)
-      return nil if node.nil?
+      while node
+        return node.data if node.low == low && node.high == high
 
-      return node.data if node.low == low && node.high == high
-
-      # Search in appropriate subtree
-      if low < node.low
-        find_exact(node.left, low, high)
-      else
-        find_exact(node.right, low, high)
+        # Search in appropriate subtree
+        node = if low < node.low
+                 node.left
+               else
+                 node.right
+               end
       end
-    end
 
-    def query_starting_recursive(node, low, results)
-      return if node.nil?
-
-      query_starting_recursive(node.left, low, results) if low <= node.low
-      results << node.data if node.low == low
-      query_starting_recursive(node.right, low, results) if low >= node.low
+      nil
     end
 
     # Delete overlapping intervals recursively

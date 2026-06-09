@@ -226,6 +226,13 @@ describe Parsanol::Atoms::Alternative do
       expect(parser.parse("変20")).to eq("変20")
     end
 
+    it "fails normally when an ASCII prefix preview cuts multibyte input" do
+      parser = choice_from(Array.new(16) { |idx| str((?a.ord + idx).chr) })
+
+      expect { parser.parse("変", prefix: true) }
+        .to raise_error(Parsanol::ParseFailed)
+    end
+
     it "keeps empty literals as candidates" do
       parser = choice_from(
         [str("")] + item_literals.map { |literal| str(literal) },

@@ -48,6 +48,14 @@ describe Parsanol::IntervalTree do
       expect(tree.query_starting_at(5)).to contain_exactly("data3")
       expect(tree.query_starting_at(10)).to be_empty
     end
+
+    it "finds duplicate starts without scanning lower-start subtrees" do
+      tree.insert(10, 20, "data1")
+      tree.insert(5, 10, "lower-start")
+      tree.insert(10, 15, "data2")
+
+      expect(tree.query_starting_at(10)).to contain_exactly("data1", "data2")
+    end
   end
 
   describe "#query_overlapping" do

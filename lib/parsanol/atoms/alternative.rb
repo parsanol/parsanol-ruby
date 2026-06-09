@@ -155,7 +155,7 @@ module Parsanol
         max_prefix_bytes = index[:max_prefix_bytes]
         current_prefix = +""
 
-        source.peek(max_prefix_bytes).each_char do |char|
+        valid_prefix_preview(source.peek(max_prefix_bytes)).each_char do |char|
           current_prefix << char
           matches = prefixes[current_prefix]
           indexes.concat(matches) if matches
@@ -217,6 +217,19 @@ module Parsanol
 
       def freeze_prefix_index(prefixes)
         prefixes.transform_values(&:freeze).freeze
+      end
+
+      def valid_prefix_preview(preview)
+        return preview if preview.valid_encoding?
+
+        bytesize = preview.bytesize
+        while bytesize.positive?
+          bytesize -= 1
+          trimmed = preview.byteslice(0, bytesize)
+          return trimmed if trimmed.valid_encoding?
+        end
+
+        +""
       end
 
       def choice_error
