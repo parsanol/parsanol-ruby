@@ -94,6 +94,16 @@ describe Parsanol::Atoms::Alternative do
       expect { choice_from(atoms) }.not_to raise_error
     end
 
+    it "does not let custom inspect crash failure reporting" do
+      parser = inspect_raising_str_class.new("aa") | str("bb")
+
+      expect { parser.parse("cc") }
+        .to raise_error(Parsanol::ParseFailed) { |error|
+          expect(error.message).to include("Expected one of")
+          expect(error.message).not_to include("unexpected inspect")
+        }
+    end
+
     it "skips literal branches that cannot match the current input" do
       parser = large_literal_choice
 

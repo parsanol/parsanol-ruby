@@ -171,7 +171,7 @@ class BenchmarkRunner
     begin
       require "parsanol"
       available << "parsanol-ruby"
-      available.concat(CACHE_THRESHOLD_APPROACHES) if @options[:input_type] == "cache_threshold"
+      available.concat(CACHE_THRESHOLD_APPROACHES) if cache_threshold_selected?
       log "✓ parsanol-ruby available (Approach 2: Parsanol Ruby backend)"
     rescue LoadError => e
       log "✗ parsanol-ruby not available: #{e.message}"
@@ -325,6 +325,11 @@ class BenchmarkRunner
     return ["cache_threshold"] if CACHE_THRESHOLD_APPROACHES.include?(@options[:parser])
 
     DEFAULT_INPUT_TYPES
+  end
+
+  def cache_threshold_selected?
+    @options[:input_type] == "cache_threshold" ||
+      CACHE_THRESHOLD_APPROACHES.include?(@options[:parser])
   end
 
   def create_parslet_parser(type)

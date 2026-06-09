@@ -234,10 +234,22 @@ module Parsanol
 
       def choice_error
         @choice_error ||= if @alternatives.size <= CHOICE_ERROR_DETAIL_LIMIT
-                            "Expected one of #{@alternatives.inspect}"
+                            "Expected one of #{alternatives_inspect}"
                           else
                             "Expected one of #{@alternatives.size} alternatives"
                           end
+      end
+
+      def alternatives_inspect
+        @alternatives.inspect
+      rescue StandardError
+        "[#{@alternatives.map { |atom| atom_inspect(atom) }.join(', ')}]"
+      end
+
+      def atom_inspect(atom)
+        atom.inspect
+      rescue StandardError
+        atom.class.name || atom.class.to_s
       end
 
       def static_literal_prefixes(atom, seen = {})
