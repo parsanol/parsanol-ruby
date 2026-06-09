@@ -168,6 +168,14 @@ describe Parsanol::Atoms::Context do
       expect(calls_after_two_attempts(context, "x")).to eq(1)
     end
 
+    it "reuses positive-length interval-cache entries at the same start position" do
+      context = described_class.new(nil,
+                                    adaptive_cache_threshold: 0,
+                                    interval_cache: true)
+
+      expect(calls_after_two_attempts(context, "x")).to eq(1)
+    end
+
     it "keeps named parser thresholds ahead of the parser default" do
       stub_const("JsonParser", Class.new(Parsanol::Parser) do
         rule(:value) { str("x") }

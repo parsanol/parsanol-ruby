@@ -309,7 +309,7 @@ module Parsanol
       def query_tree_memo(key, start_pos)
         return nil unless @use_intervals
 
-        tree = @interval_trees[key]
+        tree = @interval_trees[tree_memo_cache_key(key)]
         matches = tree.query_overlapping(start_pos, start_pos + 1)
         found = matches.find { |interval, _| interval[0] == start_pos }
         found ? found[1] : nil
@@ -325,7 +325,8 @@ module Parsanol
       def store_tree_memo(key, start_pos, values, end_pos)
         return unless @use_intervals
 
-        @interval_trees[key].insert(start_pos, end_pos, [values, end_pos])
+        @interval_trees[tree_memo_cache_key(key)].insert(start_pos, end_pos,
+                                                         [values, end_pos])
       end
 
       # Marks a cut position for aggressive cache eviction.
@@ -356,15 +357,24 @@ module Parsanol
         cached = @interval_trees[key].query_exact(pos, pos)
         return [key, cached] if cached
 
+        cached = cached_interval_success_starting_at(key, pos)
+        return [key, cached] if cached
+
         shared_key = prefix_success_lookup_key(atom, must_consume_all)
-        shared = cached_interval_starting_at(shared_key, pos) if shared_key
-        return [shared_key, shared] if successful_prefix_entry?(shared)
+        shared = cached_interval_success_starting_at(shared_key, pos) if shared_key
+        return [shared_key, shared] if shared
 
         [nil, nil]
       end
 
-      def cached_interval_starting_at(key, pos)
-        @interval_trees[key].query_starting_at(pos).first
+      def cached_interval_success_starting_at(key, pos)
+        @interval_trees[key].query_starting_at(pos).find do |entry|
+          successful_prefix_entry?(entry)
+        end
+      end
+
+      def tree_memo_cache_key(key)
+        [:tree_memo, key]
       end
 
       def try_with_prefix_success_cache(atom, src, must_consume_all)
@@ -412,7 +422,7 @@ module Parsanol
       end
 
       def successful_prefix_entry?(entry)
-        entry && entry[0].first
+        entry && entry[0].is_a?(Array) && entry[0].first == true
       end
 
       # Entity, Named, and Ignored delegate to wrapped atoms before this cache
