@@ -38,6 +38,16 @@ describe Parsanol::Source do
       end
     end
 
+    it "accepts string-like input for line cache lookups" do
+      string_like = Class.new do
+        def to_str
+          "a\nb"
+        end
+      end.new
+
+      expect(described_class.new(string_like).line_and_column(2)).to eq([2, 1])
+    end
+
     describe "<- #peek(n)" do
       it "returns a bounded input preview without advancing" do
         source.consume(3)

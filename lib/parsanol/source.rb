@@ -38,9 +38,10 @@ module Parsanol
               "Source requires a string-like object (responds to to_str)"
       end
 
-      # Core scanner for input traversal
-      @scanner = StringScanner.new(input)
       @raw_string = input.to_str
+
+      # Core scanner for input traversal
+      @scanner = StringScanner.new(@raw_string)
 
       # Regex cache: maps count n to /(.|$){n}/m pattern
       @regex_cache = Hash.new do |h, count|
@@ -48,7 +49,7 @@ module Parsanol
       end
 
       # Line ending cache for position-to-line/column mapping
-      @line_data = LineCache.new(input)
+      @line_data = LineCache.new(@raw_string)
 
       # Object pools for memory efficiency
       # SlicePool: reduces Slice allocations during matching

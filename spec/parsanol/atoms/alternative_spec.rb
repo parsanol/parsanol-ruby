@@ -5,22 +5,6 @@ require "spec_helper"
 describe Parsanol::Atoms::Alternative do
   include Parsanol
 
-  let(:counting_str_class) do
-    Class.new(Parsanol::Atoms::Str) do
-      attr_reader :attempts
-
-      def initialize(text)
-        @attempts = 0
-        super
-      end
-
-      def try(source, context, consume_all)
-        @attempts += 1
-        super
-      end
-    end
-  end
-
   let(:inspect_raising_str_class) do
     Class.new(Parsanol::Atoms::Str) do
       def inspect
@@ -40,6 +24,20 @@ describe Parsanol::Atoms::Alternative do
         context.err(self, source, "custom miss")
       end
     end
+  end
+
+  def counting_str(text)
+    atom = str(text)
+    attempts = 0
+    original_try = atom.method(:try)
+
+    atom.define_singleton_method(:attempts) { attempts }
+    atom.define_singleton_method(:try) do |source, context, consume_all|
+      attempts += 1
+      original_try.call(source, context, consume_all)
+    end
+
+    atom
   end
 
   describe "| shortcut" do
@@ -292,7 +290,7 @@ describe Parsanol::Atoms::Alternative do
 
     it "indexes literal prefixes through rule entities and sequences" do
       slash = Parsanol::Atoms::Entity.new(:slash) { str("\\") }
-      atoms = item_literals.map { |literal| counting_str_class.new(literal) }
+      atoms = item_literals.map { |literal| counting_str(literal) }
       parser = choice_from(
         atoms.map { |atom| slash >> atom.as(:symbol) },
       )
