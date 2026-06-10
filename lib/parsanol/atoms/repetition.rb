@@ -181,13 +181,15 @@ module Parsanol
         buffer = context.acquire_buffer(size: estimate + 1)
         buffer.push(@result_tag)
 
-        last_error = nil
+        last_failure = nil
 
         loop do
           success, value = @parslet.apply(source, context, false)
-          last_error = value
 
-          break unless success
+          unless success
+            last_failure = value
+            break
+          end
 
           occurrence += 1
           buffer.push(value)
@@ -200,13 +202,16 @@ module Parsanol
           context.release_buffer(buffer)
           source.bytepos = start_pos
           return context.err_at(self, source, @min_error, start_pos,
-                                [last_error])
+                                last_failure && [last_failure])
         end
 
-        # Check complete consumption
+        # Check complete consumption. A max-bounded loop can end with no inner
+        # failure; only attach a child cause when one exists (a success Slice
+        # is not a Cause and would break ascii_tree rendering).
         if consume_all && source.chars_left.positive?
           context.release_buffer(buffer)
-          return context.err(self, source, @extra_error, [last_error])
+          return context.err(self, source, @extra_error,
+                             last_failure && [last_failure])
         end
 
         ok(Parsanol::LazyResult.new(buffer, context))
@@ -218,15 +223,27 @@ module Parsanol
         cache_key = object_id
 
         # Check cache
+        replayed_strict_miss = false
         cached = context.query_tree_memo(cache_key, start_pos)
         if cached
           values, end_pos = cached
           source.bytepos = end_pos
-          if consume_all && source.chars_left.positive?
-            return context.err(self, source, @extra_error)
-          end
+          if source.bytepos == end_pos
+            unless consume_all && source.chars_left.positive?
+              return ok([@result_tag] + values)
+            end
 
-          return ok([@result_tag] + values)
+            # The cached prefix cannot satisfy consume-all. Re-parse instead
+            # of erroring from the replay so diagnostics match the uncached
+            # path; remember not to re-store the entry we already have.
+            replayed_strict_miss = true
+          else
+            # Entry points past the end of the current input — stale (context
+            # reused across inputs). Evict it so the re-parsed result can be
+            # stored and found by later parses instead of being shadowed.
+            context.evict_tree_memo(cache_key, start_pos, end_pos)
+          end
+          source.bytepos = start_pos
         end
 
         # Parse and cache
@@ -237,14 +254,16 @@ module Parsanol
 
         positions = context.acquire_array
         positions << start_pos
-        last_error = nil
+        unsafe_before = context.cache_unsafe_events
+        last_failure = nil
 
         loop do
-          source.bytepos
           success, value = @parslet.apply(source, context, false)
-          last_error = value
 
-          break unless success
+          unless success
+            last_failure = value
+            break
+          end
 
           occurrence += 1
           buffer.push(value)
@@ -259,22 +278,29 @@ module Parsanol
           context.release_buffer(buffer)
           source.bytepos = start_pos
           return context.err_at(self, source, @min_error, start_pos,
-                                [last_error])
+                                last_failure && [last_failure])
         end
 
         # Cache only after the repetition itself has succeeded. A partial prefix
-        # below the minimum bound is not a valid repetition result to replay.
-        if occurrence.positive?
+        # below the minimum bound is not a valid repetition result to replay,
+        # results computed across cache-unsafe events (dynamic/capture) must be
+        # re-evaluated each time, and a strict-miss replay already has its
+        # entry stored.
+        if occurrence.positive? && !replayed_strict_miss &&
+            context.cache_unsafe_events == unsafe_before
           end_pos = positions[occurrence]
           context.store_tree_memo(cache_key, start_pos, buffer.to_a[1..],
                                   end_pos)
         end
         context.release_array(positions)
 
-        # Check consumption
+        # Check consumption. A max-bounded loop can end with no inner failure;
+        # only attach a child cause when one exists (a success Slice is not a
+        # Cause and would break ascii_tree rendering).
         if consume_all && source.chars_left.positive?
           context.release_buffer(buffer)
-          return context.err(self, source, @extra_error, [last_error])
+          return context.err(self, source, @extra_error,
+                             last_failure && [last_failure])
         end
 
         ok(Parsanol::LazyResult.new(buffer, context))

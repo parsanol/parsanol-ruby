@@ -76,6 +76,23 @@ describe Parsanol::Source::LineCache do
         subject.line_and_column(10).should
         subject.line_and_column(24).should == [5, 2]
       end
+
+      it "handles overlapping re-scans whose window ends inside scanned content" do
+        full = "ab\ncdef"
+
+        subject.scan_for_line_endings(0, full)
+        expect { subject.scan_for_line_endings(1, full[1, 3]) }.not_to raise_error
+        expect(subject.line_and_column(4)).to eq([2, 2])
+      end
+    end
+
+    context "with a one-shot buffer" do
+      it "releases the buffer reference after the lazy full scan" do
+        cache = described_class.new("a\nb")
+
+        expect(cache.line_and_column(2)).to eq([2, 1])
+        expect(cache.instance_variable_get(:@buffer)).to be_nil
+      end
     end
   end
 end

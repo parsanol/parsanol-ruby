@@ -5,12 +5,35 @@ Breaking changes:
 * Simplified API: Single `parse()` method with lazy line/column
 * Removed deprecated methods: `parse_parslet`, `parse_parslet_with_positions`,
   `parse_with_transform`, `parse_to_objects`, `parse_raw`
+* Pure-Ruby ordered choice now follows Parslet's prefix-success cache
+  semantics: a non-strict success of a choice/sequence/repetition is reused
+  for a strict (consume-all) attempt at the same position. Some grammars that
+  previously parsed on parsanol but fail on Parslet 2.0 now raise ParseFailed,
+  matching Parslet. Strict *failures* are NOT reused for prefix attempts
+  (memoization keys are scoped by parse mode), which also fixes inputs that
+  previously failed only above the adaptive caching threshold.
+* Error messages for choices with more than 16 alternatives now read
+  "Expected one of N alternatives" instead of enumerating every branch
+  (the per-branch causes remain available in the failure cause tree).
+* `Slice#hash` is now consistent with `Slice#eql?` (content-based,
+  offset-independent), fixing the equal-objects-equal-hash contract;
+  content-equal slices at different offsets now collide as Hash/Set keys.
+* `Alternative#alternatives` now returns a frozen array, so in-place mutation
+  raises FrozenError (the lazily built literal index relies on immutability);
+  compose new choices with `a | b` instead.
 
 New features:
 
 * Lazy line/column computation in `Slice#line_and_column` - computed only when accessed
 * `BatchDecoder` module for efficient batch AST processing
 * Grammar accepts Ruby atoms directly - no JSON serialization step needed
+* Literal-prefix indexing for large ordered choices (16+ branches) on the
+  pure-Ruby path; the failure-reporting pass still tries every branch so
+  error cause trees stay complete
+* Parser-class parses memoize at all input sizes by default
+  (`PARSER_CACHE_LIMITS` `:parser_default`; the named per-grammar thresholds
+  remain); thresholds are performance-only because cache-unsafe results are
+  excluded from memoization (see below)
 
 Bug fixes:
 
@@ -19,6 +42,14 @@ Bug fixes:
   - Same inner keys → Repetition pattern (keep as array)
   - Different inner keys → Wrapper pattern (merge inner hashes)
 * Correct entity extraction for grammars with multiple declarations
+* `dynamic {}` blocks and capture writes are never memoized: composite
+  results that read or write capture state are re-evaluated on every
+  attempt, at every cache threshold and regardless of the parser class name
+* Repetition interval/tree memoization actually replays cached results
+  (the lookup was previously unreachable) and stays consistent across
+  consume-all modes
+* `Buffer#clear!` clears the used slots instead of the unused tail,
+  fixing a pooled-buffer reference leak
 
 == Parsanol 1.2.2 (2026-03-07)
 

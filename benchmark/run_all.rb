@@ -23,8 +23,6 @@ class BenchmarkRunner
     parslet-ruby
     parsanol-ruby
     parsanol-native
-    parsanol-ffi-hash
-    parsanol-ffi-json
     parsanol-cache-default
     parsanol-cache-1000
   ].freeze
@@ -82,6 +80,9 @@ class BenchmarkRunner
         end
       end.parse!(args)
     end
+  rescue OptionParser::ParseError => e
+    abort "#{e.message}\nValid parsers: #{APPROACHES.join(', ')}\n" \
+          "Valid input types: #{INPUT_TYPES.join(', ')}"
   end
 
   def run
@@ -105,6 +106,11 @@ class BenchmarkRunner
 
     # Check available parsers
     available = check_available_parsers
+    if @options[:parser] && !available.include?(@options[:parser])
+      abort "ERROR: #{@options[:parser]} is not available in this environment " \
+            "(available: #{available.empty? ? 'none' : available.join(', ')})"
+    end
+
     parsers_to_test = @options[:parser] ? [@options[:parser]] : available
 
     if parsers_to_test.empty?
@@ -152,14 +158,12 @@ class BenchmarkRunner
   def print_approaches_diagram
     puts
     puts "╔═════════════════════════════════════════════════════════════════════════════════╗"
-    puts "║                    5 APPROACHES FOR JSON PARSING IN RUBY                        ║"
+    puts "║                    3 APPROACHES FOR JSON PARSING IN RUBY                        ║"
     puts "╚═════════════════════════════════════════════════════════════════════════════════╝"
     puts
     puts "  APPROACH 1: parslet-ruby      → Pure Ruby parsing (baseline)"
     puts "  APPROACH 2: parsanol-ruby     → Parsanol Ruby backend (same speed)"
     puts "  APPROACH 3: parsanol-native   → Rust parsing, AST to Ruby, Ruby JSON"
-    puts "  APPROACH 4: parsanol-ffi-hash → Rust parsing, direct Ruby Hash, Ruby JSON"
-    puts "  APPROACH 5: parsanol-ffi-json → Rust parsing + JSON serialization (FASTEST)"
     puts
     puts "  See benchmark/APPROACHES.md for detailed diagram"
     puts
@@ -207,37 +211,11 @@ class BenchmarkRunner
         if defined?(Parsanol::Native) && Parsanol::Native.available?
           available << "parsanol-native"
           log "✓ parsanol-native available (Approach 3: Rust → AST → Ruby)"
+        else
+          log "✗ parsanol-native not available (run `rake compile` to build the extension)"
         end
       rescue StandardError => e
         log "✗ parsanol-native not available: #{e.message}"
-      end
-    end
-
-    # Approach 4: Parsanol FFI Hash (Rust → Ruby Hash direct)
-    if available.include?("parsanol-native")
-      begin
-        if Parsanol::Native.respond_to?(:parse_to_objects)
-          available << "parsanol-ffi-hash"
-          log "✓ parsanol-ffi-hash available (Approach 4: Rust → Ruby Hash)"
-        else
-          log "✗ parsanol-ffi-hash not available (parse_to_objects not implemented)"
-        end
-      rescue StandardError => e
-        log "✗ parsanol-ffi-hash not available: #{e.message}"
-      end
-    end
-
-    # Approach 5: Parsanol FFI JSON (Rust → JSON string)
-    if available.include?("parsanol-native")
-      begin
-        if Parsanol::Native.respond_to?(:parse_to_json)
-          available << "parsanol-ffi-json"
-          log "✓ parsanol-ffi-json available (Approach 5: Rust → JSON)"
-        else
-          log "✗ parsanol-ffi-json not available (parse_to_json not implemented)"
-        end
-      rescue StandardError => e
-        log "✗ parsanol-ffi-json not available: #{e.message}"
       end
     end
 
@@ -323,10 +301,6 @@ class BenchmarkRunner
       create_parsanol_ruby_parser(type)
     when "parsanol-native"
       create_parsanol_native_parser(type)
-    when "parsanol-ffi-hash"
-      create_parsanol_ffi_hash_parser(type)
-    when "parsanol-ffi-json"
-      create_parsanol_ffi_json_parser(type)
     when "parsanol-cache-default"
       create_cache_threshold_parser(type, :current)
     when "parsanol-cache-1000"
@@ -424,37 +398,6 @@ class BenchmarkRunner
       require_relative "parsers/express_parsanol"
       parser = ExpressParsanolParser.new
       ->(input) { parser.parse(input, mode: :native) }
-    end
-  end
-
-  def create_parsanol_ffi_hash_parser(type)
-    require "parsanol"
-
-    case type
-    when "json"
-      # Approach 4: Rust parses, creates Ruby Hash directly
-      # Get the grammar from the parser and serialize it
-      require_relative "parsers/json_parsanol"
-      json_parser = JsonParsanolParser.new
-      grammar_json = Parsanol::Native.serialize_grammar(json_parser.root)
-      ->(input) { Parsanol::Native.parse_to_objects(grammar_json, input) }
-    else
-      raise "parsanol-ffi-hash not implemented for #{type}"
-    end
-  end
-
-  def create_parsanol_ffi_json_parser(type)
-    require "parsanol"
-
-    case type
-    when "json"
-      # Approach 5: Rust parses and serializes to JSON directly
-      require_relative "parsers/json_parsanol"
-      json_parser = JsonParsanolParser.new
-      grammar_json = Parsanol::Native.serialize_grammar(json_parser.root)
-      ->(input) { Parsanol::Native.parse_to_json(grammar_json, input) }
-    else
-      raise "parsanol-ffi-json not implemented for #{type}"
     end
   end
 

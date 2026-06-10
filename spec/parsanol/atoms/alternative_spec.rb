@@ -82,8 +82,7 @@ describe Parsanol::Atoms::Alternative do
 
     def indexed_candidates(parser, input)
       source = Parsanol::Source.new(input)
-      context = Parsanol::Atoms::Context.new(nil)
-      parser.send(:indexed_options, source, context)
+      parser.send(:indexed_options, source)
     end
 
     it "does not inspect every branch while building large choices" do
@@ -134,13 +133,12 @@ describe Parsanol::Atoms::Alternative do
     it "does not materialize the full remaining input while selecting indexed branches" do
       parser = large_literal_choice
       source = Parsanol::Source.new("item21#{'x' * 10_000}")
-      context = Parsanol::Atoms::Context.new(nil)
 
       def source.remaining
         raise "unexpected full remaining input read"
       end
 
-      expect(parser.send(:indexed_options, source, context)).to eq([21])
+      expect(parser.send(:indexed_options, source)).to eq([21])
       expect(source.pos).to eq(0)
     end
 
@@ -160,9 +158,13 @@ describe Parsanol::Atoms::Alternative do
     end
 
     it "preserves ordered-choice behavior for prefix collisions" do
-      parser = str("a").as(:short) | str("ab").as(:long)
+      parser = choice_from(
+        [str("item2").as(:short), str("item21").as(:long)] +
+          item_literals.first(15).map { |literal| str(literal).as(:other) },
+      )
 
-      expect(parser.parse("ab", prefix: true)).to eq({ short: "a" })
+      expect(indexed_candidates(parser, "item21")).to include(0, 1)
+      expect(parser.parse("item21", prefix: true)).to eq({ short: "item2" })
     end
 
     it "preserves named captures" do
@@ -306,8 +308,61 @@ describe Parsanol::Atoms::Alternative do
       )
 
       expect(parser.parse("\\item21")).to eq({ symbol: "item21" })
-      expect(atoms.sum(&:attempts)).to be < atoms.size
+      # The successful first pass selects exactly the one matching branch; a
+      # regression to sequential scanning would try branches 0..21 instead.
+      expect(atoms.sum(&:attempts)).to eq(1)
       expect(atoms[21].attempts).to eq(1)
+    end
+
+    it "keeps partially literal nested sequences as viable candidates" do
+      branch = lambda do
+        (str("aa") >> match("[0-9]")).as(:num) >> str("b").as(:tail)
+      end
+      fillers = item_literals.first(15).map { |literal| str(literal) }
+
+      indexed = choice_from([branch.call] + fillers)
+      control = choice_from([branch.call] + fillers.first(13))
+
+      expect(indexed.parse("aa5b")).to eq(control.parse("aa5b"))
+    end
+
+    it "keeps ordered choice when a nested branch is only partially literal" do
+      nested = (str("aa") >> match("[0-9]")).as(:num) >> str("b").as(:tail)
+      catch_all = match("[a-z0-9]").repeat(1).as(:word)
+      parser = choice_from(
+        [nested] + item_literals.first(15).map { |literal| str(literal) } +
+          [catch_all],
+      )
+
+      expect(parser.parse("aa5b")).to eq({ num: "aa5", tail: "b" })
+    end
+
+    it "keeps entity-wrapped partially literal sequences as viable candidates" do
+      partial = Parsanol::Atoms::Entity.new(:partial) do
+        str("aa") >> match("[0-9]")
+      end
+      branch = partial.as(:num) >> str("b").as(:tail)
+      parser = choice_from(
+        [branch] + item_literals.first(15).map { |literal| str(literal) },
+      )
+
+      expect(parser.parse("aa5b")).to eq({ num: "aa5", tail: "b" })
+    end
+
+    it "reports causes for every branch when an indexed choice fails" do
+      parser = choice_from(
+        item_literals.first(16).map { |literal| str(literal) } + [str("zzz")],
+      )
+      cause = catch_failed_parse { parser.parse("qqq") }
+
+      expect(cause.children.size).to eq(17)
+    end
+
+    it "freezes the alternatives array so the literal index cannot go stale" do
+      parser = large_literal_choice
+
+      expect(parser.alternatives).to be_frozen
+      expect { parser.alternatives << str("zzz") }.to raise_error(FrozenError)
     end
 
     it "does not recurse forever while inspecting recursive entities" do
@@ -328,7 +383,8 @@ describe Parsanol::Atoms::Alternative do
       marker = recursive.object_id
       seen = { marker => true }
 
-      expect(large_literal_choice.send(:static_literal_prefixes, recursive, seen)).to eq([nil, []])
+      expect(large_literal_choice.send(:static_literal_prefixes, recursive, seen))
+        .to eq([nil, false])
       expect(seen.fetch(marker)).to be(true)
     end
   end

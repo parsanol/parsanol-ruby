@@ -44,7 +44,10 @@ module Parsanol
       end
 
       # Scans a string buffer for line endings and caches their positions.
-      # Avoids re-scanning already processed regions.
+      # Avoids re-scanning already processed regions. Incremental callers must
+      # feed windows of one consistent input in monotonically advancing,
+      # contiguous-or-overlapping order; non-contiguous or out-of-order scans
+      # are skipped where already covered and can miss line endings in gaps.
       #
       # @param start_offset [Integer] the byte offset where buffer starts
       # @param buffer [String] the string content to scan
@@ -53,8 +56,12 @@ module Parsanol
 
         scanner = StringScanner.new(buffer)
         if scanner.exist?(/\n/)
-          # Skip already-scanned content
-          scanner.pos = @max_scanned - start_offset if @max_scanned && start_offset < @max_scanned
+          # Skip already-scanned content. @max_scanned can extend past this
+          # buffer's window (it advances to the end of every scanned buffer),
+          # so clamp to the window to keep the scanner position valid.
+          if @max_scanned && start_offset < @max_scanned
+            scanner.pos = [@max_scanned - start_offset, buffer.bytesize].min
+          end
 
           # Record all newline positions
           while scanner.skip_until(/\n/)
@@ -64,7 +71,12 @@ module Parsanol
         end
 
         @max_scanned = [@max_scanned || start_offset, start_offset + buffer.bytesize].max
-        @fully_scanned = true if buffer.equal?(@buffer) && start_offset == @start_offset
+        return unless buffer.equal?(@buffer) && start_offset == @start_offset
+
+        @fully_scanned = true
+        # The one-shot buffer is no longer needed; drop the reference so
+        # retained Slices do not pin the entire input string.
+        @buffer = nil
       end
 
       private

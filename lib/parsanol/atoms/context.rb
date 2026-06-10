@@ -94,6 +94,24 @@ module Parsanol
         @adaptive_threshold = threshold
         @input_len = nil
         @caching_active = nil
+
+        # Monotonic counter of cache-unsafe events (dynamic-atom evaluations
+        # and capture writes). A result whose computation bumped this counter
+        # depends on mutable parse state, so replaying it from any cache could
+        # change semantics — such results are never stored. This keeps cache
+        # thresholds performance-only: dynamic{} blocks are always
+        # re-evaluated, as their documentation promises.
+        @cache_unsafe_events = 0
+      end
+
+      # @return [Integer] monotonic count of cache-unsafe events so far
+      attr_reader :cache_unsafe_events
+
+      # Records that mutable parse state was read or written (dynamic atom
+      # evaluated, capture stored). Called by atoms; results computed across
+      # such events are excluded from memoization.
+      def mark_cache_unsafe!
+        @cache_unsafe_events += 1
       end
 
       # Attempts to parse using memoization. Returns cached result if available,
@@ -150,11 +168,13 @@ module Parsanol
 
         # Cache miss - execute and store
         @miss_stats[key] += 1
+        unsafe_before = @cache_unsafe_events
         outcome = atom.try(src, self, must_consume_all)
         delta = src.bytepos - pos
 
         attempts = @hit_stats[key] + @miss_stats[key]
-        if outcome.first || attempts <= @min_hits_for_cache || @hit_stats[key].positive?
+        if @cache_unsafe_events == unsafe_before &&
+            (outcome.first || attempts <= @min_hits_for_cache || @hit_stats[key].positive?)
           @memo[pos][key] =
             [outcome,
              delta]
@@ -184,12 +204,14 @@ module Parsanol
         end
 
         @miss_stats[key] += 1
+        unsafe_before = @cache_unsafe_events
         outcome = atom.try(src, self, must_consume_all)
         delta = src.bytepos - pos
         end_pos = pos + delta
 
         attempts = @hit_stats[key] + @miss_stats[key]
-        if outcome.first || attempts <= @min_hits_for_cache || @hit_stats[key].positive?
+        if @cache_unsafe_events == unsafe_before &&
+            (outcome.first || attempts <= @min_hits_for_cache || @hit_stats[key].positive?)
           tree = @interval_trees[key]
           tree.insert(pos, end_pos,
                       [outcome, delta])
@@ -330,6 +352,21 @@ module Parsanol
                                                          [values, end_pos])
       end
 
+      # Removes tree-memo entries overlapping [start_pos, end_pos) for a key.
+      # Used when a cached entry is detected stale for the current input so a
+      # freshly stored result is not shadowed by the old one.
+      #
+      # @param key [Integer] cache key
+      # @param start_pos [Integer] start position
+      # @param end_pos [Integer] end position
+      #
+      def evict_tree_memo(key, start_pos, end_pos)
+        return unless @use_intervals
+
+        @interval_trees[tree_memo_cache_key(key)].delete_overlapping(start_pos,
+                                                                     end_pos)
+      end
+
       # Marks a cut position for aggressive cache eviction.
       # Called when a cut operator succeeds.
       #
@@ -391,9 +428,12 @@ module Parsanol
           end
         end
 
+        unsafe_before = @cache_unsafe_events
         outcome = atom.try(src, self, must_consume_all)
 
-        if !must_consume_all && outcome.first && share_prefix_success_cache?(atom)
+        if !must_consume_all && outcome.first &&
+            @cache_unsafe_events == unsafe_before &&
+            share_prefix_success_cache?(atom)
           delta = src.bytepos - pos
           # This path intentionally keeps only shared prefix successes while
           # full memoization is inactive. That preserves Parslet ordered-choice

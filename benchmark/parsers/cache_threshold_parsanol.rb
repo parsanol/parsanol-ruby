@@ -103,6 +103,8 @@ module CacheThresholdParsanolBenchmark
     success, value = parser.apply(source, context, true)
     raise "parse failed: #{value.inspect}" unless success
 
-    value
+    # Mirror Base#parse's success path so the measured cost approximates real
+    # parse() throughput rather than the raw parse loop alone.
+    parser.flatten(value)
   end
 end

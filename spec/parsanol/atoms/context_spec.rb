@@ -249,4 +249,77 @@ describe Parsanol::Atoms::Context do
       )
     end
   end
+
+  describe "cache safety for mutable parse state" do
+    def capture_dynamic_parser_class(interval_cache: false)
+      Class.new(Parsanol::Parser) do
+        rule(:dyn_tail) do
+          dynamic { |_source, context| str(context.captures[:c].to_s) }
+            .repeat(1, 1)
+        end
+        rule(:branch_one) do
+          str("x").capture(:c) >> str("y") >> dyn_tail >> str("1")
+        end
+        rule(:branch_two) { str("xy").capture(:c) >> dyn_tail >> str("2") }
+        rule(:top) { branch_one | branch_two }
+        root :top
+
+        define_method(:run_with_context) do |input, reporter, consume_all|
+          context = Parsanol::Atoms::Context.new(
+            reporter,
+            parser_class: self.class,
+            adaptive_cache_threshold: 0,
+            interval_cache: interval_cache,
+          )
+
+          apply(input, context, consume_all)
+        end
+      end
+    end
+
+    it "re-evaluates dynamic atoms instead of replaying cached composite results" do
+      expect(capture_dynamic_parser_class.new.parse("xyxy2")).to eq("xyxy2")
+    end
+
+    it "re-evaluates dynamic atoms under interval caching" do
+      parser = capture_dynamic_parser_class(interval_cache: true).new
+
+      expect(parser.parse("xyxy2")).to eq("xyxy2")
+    end
+
+    it "does not memoize results computed across dynamic evaluations" do
+      dyn = Parsanol.dynamic { |_source, _context| Parsanol.str("a") }
+      wrapper = dyn.repeat(1, 1)
+      context = described_class.new(nil, adaptive_cache_threshold: 0)
+
+      expect { context.try_with_cache(wrapper, Parsanol::Source.new("aa"), false) }
+        .to change(context, :cache_unsafe_events)
+
+      memo = context.instance_variable_get(:@memo)
+      expect(memo.values.flat_map(&:keys)).to be_empty
+    end
+
+    it "does not memoize results that write captures" do
+      sequence = Parsanol.str("a").capture(:c) >> Parsanol.str("b")
+      context = described_class.new(nil, adaptive_cache_threshold: 0)
+
+      context.try_with_cache(sequence, Parsanol::Source.new("ab"), false)
+
+      memo = context.instance_variable_get(:@memo)
+      expect(memo.values.flat_map(&:keys)).to be_empty
+    end
+
+    it "does not share prefix successes that evaluated a dynamic atom" do
+      dyn = Parsanol.dynamic { |_source, _context| Parsanol.str("a") }
+      sequence = dyn.repeat(1, 1) >> Parsanol.str("b")
+      # Default threshold exceeds the input length, so this exercises the
+      # small-input prefix-success path rather than full memoization.
+      context = described_class.new(nil)
+
+      context.try_with_cache(sequence, Parsanol::Source.new("ab"), false)
+
+      memo = context.instance_variable_get(:@memo)
+      expect(memo.values.flat_map(&:keys)).to be_empty
+    end
+  end
 end

@@ -23,7 +23,9 @@ module Parsanol
       # @param options [Array<Parsanol::Atoms::Base>] alternatives
       def initialize(*options)
         super()
-        @alternatives = options
+        # Frozen so the lazily memoized literal index can never go stale:
+        # the index assumes this array is immutable after construction.
+        @alternatives = options.freeze
       end
 
       # Adds an alternative with flattening.
@@ -109,9 +111,14 @@ module Parsanol
 
       # General case for N alternatives
       def try_many(options, source, context, consume_all)
-        indexed = indexed_options(source, context)
-        if indexed
-          return try_selected(indexed, options, source, context, consume_all)
+        # The reporting pass (the re-parse after a failure) must try every
+        # branch so the failure cause tree stays complete; the literal index
+        # only prunes the fast non-reporting pass.
+        unless context.reporting?
+          indexed = indexed_options(source)
+          if indexed
+            return try_selected(indexed, options, source, context, consume_all)
+          end
         end
 
         try_all(options, source, context, consume_all)
@@ -145,13 +152,12 @@ module Parsanol
         context.err(self, source, choice_error, errors)
       end
 
-      def indexed_options(source, context)
+      def indexed_options(source)
         index = literal_index
         return nil unless index
 
         indexes = index[:always].dup
         prefixes = index[:prefixes]
-        reporting_prefixes = index[:reporting_prefixes] if context.reporting?
         max_prefix_bytes = index[:max_prefix_bytes]
         current_prefix = +""
 
@@ -159,8 +165,6 @@ module Parsanol
           current_prefix << char
           matches = prefixes[current_prefix]
           indexes.concat(matches) if matches
-          reporting_matches = reporting_prefixes&.[](current_prefix)
-          indexes.concat(reporting_matches) if reporting_matches
         end
 
         indexes.uniq!
@@ -171,7 +175,7 @@ module Parsanol
       def literal_index
         return nil if @alternatives.size < INDEX_THRESHOLD
 
-        # Benign lazy race: alternatives are immutable after initialization, so
+        # Benign lazy race: alternatives are frozen at initialization, so
         # concurrent builds produce the same index and the last assignment wins.
         return @literal_index if defined?(@literal_index)
 
@@ -180,13 +184,12 @@ module Parsanol
 
       def build_literal_index
         prefixes = {}
-        reporting = {}
         always = []
         indexed_count = 0
         max_prefix_bytes = 0
 
         @alternatives.each_with_index do |alt, idx|
-          prefix, reporting_prefixes = static_literal_prefixes(alt)
+          prefix, = static_literal_prefixes(alt)
 
           if prefix.nil? || prefix.empty?
             always << idx
@@ -194,9 +197,6 @@ module Parsanol
           end
 
           add_to_index(prefixes, prefix, idx)
-          reporting_prefixes.each do |reporting_prefix|
-            add_to_index(reporting, reporting_prefix, idx)
-          end
           indexed_count += 1
           max_prefix_bytes = [max_prefix_bytes, prefix.bytesize].max
         end
@@ -205,7 +205,6 @@ module Parsanol
 
         {
           prefixes: freeze_prefix_index(prefixes),
-          reporting_prefixes: freeze_prefix_index(reporting),
           max_prefix_bytes: max_prefix_bytes,
           always: always.freeze,
         }.freeze
@@ -252,24 +251,30 @@ module Parsanol
         atom.class.name || atom.class.to_s
       end
 
+      # Returns [prefix, exact]. prefix is a literal string every successful
+      # match of the atom is guaranteed to start with (nil when none can be
+      # proven). exact is true only when the atom matches exactly that literal
+      # and nothing else, so a parent sequence may keep appending literals
+      # from subsequent parts. A partial prefix (exact: false) is still a
+      # sound index key on its own, but nothing may be appended after it.
       def static_literal_prefixes(atom, seen = {})
         object_id = atom.object_id
-        return [nil, []] if seen[object_id]
+        return [nil, false] if seen[object_id]
 
         seen[object_id] = true
         marked = true
 
         if atom.instance_of?(Parsanol::Atoms::Str)
-          [atom.str, literal_reporting_prefixes(atom.str)]
+          [atom.str, true]
         elsif atom.instance_of?(Parsanol::Atoms::Named)
           static_literal_prefixes(atom.parslet, seen)
         elsif atom.instance_of?(Parsanol::Atoms::Entity)
           parslet = static_entity_parslet(atom)
-          parslet ? static_literal_prefixes(parslet, seen) : [nil, []]
+          parslet ? static_literal_prefixes(parslet, seen) : [nil, false]
         elsif atom.instance_of?(Parsanol::Atoms::Sequence)
           static_sequence_literal_prefixes(atom, seen)
         else
-          [nil, []]
+          [nil, false]
         end
       ensure
         # Only clear markers set by this frame; an early return for an already
@@ -277,38 +282,32 @@ module Parsanol
         seen.delete(object_id) if marked
       end
 
-      def literal_reporting_prefixes(literal)
-        prefixes = []
-        prefix = +""
-
-        literal.each_char do |char|
-          prefix << char
-          prefixes << prefix.dup
-        end
-
-        prefixes.pop
-        prefixes
-      end
-
       def static_sequence_literal_prefixes(atom, seen)
         prefix = +""
-        reporting_prefixes = []
+        exact = true
 
         atom.parslets.each do |part|
-          part_prefix, part_reporting_prefixes = static_literal_prefixes(part, seen)
-          break if part_prefix.nil?
+          part_prefix, part_exact = static_literal_prefixes(part, seen)
 
-          part_reporting_prefixes.each do |reporting_prefix|
-            reporting_prefixes << "#{prefix}#{reporting_prefix}"
+          if part_prefix.nil?
+            exact = false
+            break
           end
+
           prefix << part_prefix
-          reporting_prefixes << prefix.dup
+
+          # A partial part may match more input after its own prefix, so
+          # literals from later parts are not guaranteed to follow at this
+          # offset — appending them would over-claim and mis-prune branches.
+          unless part_exact
+            exact = false
+            break
+          end
         end
 
-        return [nil, []] if prefix.empty?
+        return [nil, false] if prefix.empty?
 
-        reporting_prefixes.pop
-        [prefix, reporting_prefixes]
+        [prefix, exact]
       end
 
       def static_entity_parslet(atom)
