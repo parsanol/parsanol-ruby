@@ -222,6 +222,10 @@ module Parsanol
         if cached
           values, end_pos = cached
           source.bytepos = end_pos
+          if consume_all && source.chars_left.positive?
+            return context.err(self, source, @extra_error)
+          end
+
           return ok([@result_tag] + values)
         end
 
@@ -249,20 +253,23 @@ module Parsanol
           break if @max && occurrence >= @max
         end
 
-        # Cache successful prefix
-        if occurrence.positive?
-          end_pos = positions[occurrence]
-          context.store_tree_memo(cache_key, start_pos, buffer.to_a[1..],
-                                  end_pos)
-        end
-
         # Check minimum
         if occurrence < @min
+          context.release_array(positions)
           context.release_buffer(buffer)
           source.bytepos = start_pos
           return context.err_at(self, source, @min_error, start_pos,
                                 [last_error])
         end
+
+        # Cache only after the repetition itself has succeeded. A partial prefix
+        # below the minimum bound is not a valid repetition result to replay.
+        if occurrence.positive?
+          end_pos = positions[occurrence]
+          context.store_tree_memo(cache_key, start_pos, buffer.to_a[1..],
+                                  end_pos)
+        end
+        context.release_array(positions)
 
         # Check consumption
         if consume_all && source.chars_left.positive?

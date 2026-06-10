@@ -310,9 +310,7 @@ module Parsanol
         return nil unless @use_intervals
 
         tree = @interval_trees[tree_memo_cache_key(key)]
-        matches = tree.query_overlapping(start_pos, start_pos + 1)
-        found = matches.find { |interval, _| interval[0] == start_pos }
-        found ? found[1] : nil
+        tree.query_starting_at(start_pos).first
       end
 
       # Stores a result in the interval cache.

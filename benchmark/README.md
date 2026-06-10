@@ -27,10 +27,13 @@ bundle exec ruby benchmark/run_all.rb --output reports
 
 | Backend | Description | How to Enable |
 |---------|-------------|---------------|
-| `parslet` | Original Parslet gem (pure Ruby) | `gem 'parslet'` |
-| `parsanol-parslet` | Parsanol Parslet compatibility layer | `require 'parsanol/parslet'` |
+| `parslet-ruby` | Original Parslet gem (pure Ruby baseline) | `gem 'parslet'` |
+| `parsanol-ruby` | Parsanol Ruby parser backend | `require 'parsanol'` |
 | `parsanol-native` | Parsanol with Rust backend | `Parsanol::Native.parse()` |
-| `regexp` | Pure regex tokenization (baseline) | N/A |
+| `parsanol-ffi-hash` | Rust parser returning Ruby objects directly | Native extension with `parse_to_objects` |
+| `parsanol-ffi-json` | Rust parser returning serialized JSON | Native extension with `parse_to_json` |
+| `parsanol-cache-default` | Cache-threshold benchmark using parser defaults | `--type cache_threshold` |
+| `parsanol-cache-1000` | Cache-threshold benchmark using conservative caching | `--type cache_threshold` |
 
 ### Test Inputs
 
@@ -76,7 +79,7 @@ bundle exec ruby benchmark/run_all.rb --quick
 
 ```
 -q, --quick          Skip large inputs for faster run
--p, --parser NAME    Test only this parser (parslet, parsanol-parslet, parsanol-native, regexp)
+-p, --parser NAME    Test only this parser (see backend names above)
 -t, --type TYPE      Test only this input type
 -v, --verbose        Show detailed output
 -o, --output DIR     Output directory for reports
@@ -94,15 +97,14 @@ Parsanol Benchmark Suite - Evidence-Based Performance Verification
 Benchmarking: json/medium
 Input size: 8190 bytes
 ----------------------------------------------------------------------
-  parslet              ...          9.3 iter/s  (±0.0%)
-  parsanol-parslet     ...         10.1 iter/s  (±0.0%)
+  parslet-ruby         ...          9.3 iter/s  (±0.0%)
+  parsanol-ruby        ...         10.1 iter/s  (±0.0%)
   parsanol-native      ...         44.4 iter/s  (±2.3%)
-  regexp               ...       1544.4 iter/s  (±1.4%)
 
 ======================================================================
-SPEEDUP FACTORS (vs parslet baseline)
+SPEEDUP FACTORS (vs parslet-ruby baseline)
 ======================================================================
-json/medium: 4.8x faster with Rust backend
+json/medium: parsanol-native is 4.8x faster
 ```
 
 ### What the Metrics Mean

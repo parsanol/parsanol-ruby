@@ -24,4 +24,50 @@ describe BenchmarkRunner do
       end
     end
   end
+
+  describe "#parsers_for_type" do
+    let(:runner) { described_class.new(["--no-diagram"]) }
+
+    it "uses only cache parsers for cache-threshold inputs" do
+      parsers = [
+        "parslet-ruby",
+        "parsanol-ruby",
+        "parsanol-cache-default",
+        "parsanol-cache-1000",
+      ]
+
+      expect(runner.send(:parsers_for_type, parsers, "cache_threshold"))
+        .to eq(["parsanol-cache-default", "parsanol-cache-1000"])
+    end
+
+    it "excludes cache parsers from normal inputs" do
+      parsers = [
+        "parslet-ruby",
+        "parsanol-ruby",
+        "parsanol-cache-default",
+        "parsanol-cache-1000",
+      ]
+
+      expect(runner.send(:parsers_for_type, parsers, "json"))
+        .to eq(["parslet-ruby", "parsanol-ruby"])
+    end
+  end
+
+  describe "#compatible_parsers_for" do
+    let(:runner) { described_class.new(["--no-diagram"]) }
+
+    it "returns compatible parsers for selected input types" do
+      parsers = ["parslet-ruby", "parsanol-cache-default"]
+
+      expect(runner.send(:compatible_parsers_for, parsers, ["cache_threshold"]))
+        .to eq(["parsanol-cache-default"])
+    end
+
+    it "returns an empty list for incompatible parser/type selections" do
+      parsers = ["parslet-ruby"]
+
+      expect(runner.send(:compatible_parsers_for, parsers, ["cache_threshold"]))
+        .to eq([])
+    end
+  end
 end

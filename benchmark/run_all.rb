@@ -107,18 +107,24 @@ class BenchmarkRunner
       return
     end
 
-    puts "Available parsers: #{available.join(', ')}"
-    puts "Testing: #{parsers_to_test.join(', ')}"
-    puts
-
     # Determine sizes to test
     sizes = @options[:quick] ? %w[tiny small medium] : SIZES
     input_types = selected_input_types
+    compatible_parsers = compatible_parsers_for(parsers_to_test, input_types)
+
+    if compatible_parsers.empty?
+      puts "ERROR: No selected parsers are compatible with: #{input_types.join(', ')}"
+      return
+    end
+
+    puts "Available parsers: #{available.join(', ')}"
+    puts "Testing: #{compatible_parsers.join(', ')}"
+    puts
 
     # Run benchmarks
     sizes.each do |size|
       input_types.each do |type|
-        run_benchmark_set(parsers_to_test, type, size)
+        run_benchmark_set(compatible_parsers, type, size)
       end
     end
 
@@ -320,6 +326,10 @@ class BenchmarkRunner
     end
   end
 
+  def compatible_parsers_for(parsers, input_types)
+    input_types.flat_map { |type| parsers_for_type(parsers, type) }.uniq
+  end
+
   def selected_input_types
     return [@options[:input_type]] if @options[:input_type]
     return ["cache_threshold"] if CACHE_THRESHOLD_APPROACHES.include?(@options[:parser])
@@ -458,9 +468,10 @@ class BenchmarkRunner
       puts
       printf "%-20s", "Input"
       parsers = type_results.flat_map { |_, v| v.keys }.uniq
-      parsers.each { |p| printf "%15s", p[0..12] }
+      column_width = [((parsers.map(&:length).max || 0) + 2), 15].max
+      parsers.each { |p| printf "%*s", column_width, p }
       puts
-      puts "-" * (20 + (parsers.size * 15))
+      puts "-" * (20 + (parsers.size * column_width))
 
       type_results.sort_by do |k, _|
         SIZES.index(k.split("/").last)
@@ -471,9 +482,9 @@ class BenchmarkRunner
         parsers.each do |parser|
           if results[parser]
             ips = results[parser][:ips]
-            printf "%14.1f", ips
+            printf "%*.1f", column_width, ips
           else
-            printf "%15s", "N/A"
+            printf "%*s", column_width, "N/A"
           end
         end
         puts
