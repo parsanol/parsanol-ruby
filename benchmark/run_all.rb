@@ -85,7 +85,13 @@ class BenchmarkRunner
   end
 
   def run
-    print_approaches_diagram if @options[:show_diagram]
+    if @options[:show_diagram]
+      if cache_threshold_selected?
+        print_cache_threshold_overview
+      else
+        print_approaches_diagram
+      end
+    end
 
     puts "=" * 70
     puts "Parsanol Benchmark Suite - Evidence-Based Performance Verification"
@@ -156,6 +162,18 @@ class BenchmarkRunner
     puts "  APPROACH 5: parsanol-ffi-json → Rust parsing + JSON serialization (FASTEST)"
     puts
     puts "  See benchmark/APPROACHES.md for detailed diagram"
+    puts
+    puts "-" * 70
+    puts
+  end
+
+  def print_cache_threshold_overview
+    puts
+    puts "Cache-threshold benchmark: compares adaptive cache defaults on the"
+    puts "pure-Ruby parser path using a synthetic recursive grammar."
+    puts
+    puts "  parsanol-cache-default → parser-class default (caches immediately)"
+    puts "  parsanol-cache-1000    → conservative atom-level threshold (1000 bytes)"
     puts
     puts "-" * 70
     puts

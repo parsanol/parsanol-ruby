@@ -74,6 +74,9 @@ module Parsanol
           require "parsanol/edit_tracker"
           @interval_trees = Hash.new { |h, k| h[k] = Parsanol::IntervalTree.new }
           @edits = Parsanol::EditTracker.new
+          # Memoized composite keys: tree-memo lookups sit on hot paths, so
+          # avoid allocating a fresh [:tree_memo, key] array per query/store.
+          @tree_memo_keys = Hash.new { |h, k| h[k] = [:tree_memo, k].freeze }
         end
 
         # Cut operator support for aggressive eviction
@@ -372,7 +375,7 @@ module Parsanol
       end
 
       def tree_memo_cache_key(key)
-        [:tree_memo, key]
+        @tree_memo_keys[key]
       end
 
       def try_with_prefix_success_cache(atom, src, must_consume_all)
