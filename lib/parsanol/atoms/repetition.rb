@@ -202,16 +202,14 @@ module Parsanol
           context.release_buffer(buffer)
           source.bytepos = start_pos
           return context.err_at(self, source, @min_error, start_pos,
-                                last_failure && [last_failure])
+                                failure_children(last_failure))
         end
 
-        # Check complete consumption. A max-bounded loop can end with no inner
-        # failure; only attach a child cause when one exists (a success Slice
-        # is not a Cause and would break ascii_tree rendering).
+        # Check complete consumption
         if consume_all && source.chars_left.positive?
           context.release_buffer(buffer)
           return context.err(self, source, @extra_error,
-                             last_failure && [last_failure])
+                             failure_children(last_failure))
         end
 
         ok(Parsanol::LazyResult.new(buffer, context))
@@ -278,7 +276,7 @@ module Parsanol
           context.release_buffer(buffer)
           source.bytepos = start_pos
           return context.err_at(self, source, @min_error, start_pos,
-                                last_failure && [last_failure])
+                                failure_children(last_failure))
         end
 
         # Cache only after the repetition itself has succeeded. A partial prefix
@@ -294,16 +292,21 @@ module Parsanol
         end
         context.release_array(positions)
 
-        # Check consumption. A max-bounded loop can end with no inner failure;
-        # only attach a child cause when one exists (a success Slice is not a
-        # Cause and would break ascii_tree rendering).
+        # Check consumption
         if consume_all && source.chars_left.positive?
           context.release_buffer(buffer)
           return context.err(self, source, @extra_error,
-                             last_failure && [last_failure])
+                             failure_children(last_failure))
         end
 
         ok(Parsanol::LazyResult.new(buffer, context))
+      end
+
+      # A max-bounded loop can end with no inner failure; only attach a child
+      # cause when one exists (a success Slice is not a Cause and would break
+      # ascii_tree rendering).
+      def failure_children(last_failure)
+        last_failure && [last_failure]
       end
     end
   end

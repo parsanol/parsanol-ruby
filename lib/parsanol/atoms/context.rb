@@ -18,17 +18,21 @@ module Parsanol
     # Inspired by packrat parsing memoization and incremental parsing techniques.
     #
     class Context
+      # Threshold for parser classes without a profiled entry below: recursive
+      # parser-class grammars can need memoization even for tiny inputs.
+      PARSER_DEFAULT_THRESHOLD = 0
+
+      # Threshold for plain atom-level contexts (no parser class): memoization
+      # only pays off past this input size, so small parses skip the overhead.
+      DEFAULT_THRESHOLD = 1000
+
       # Per-parser cache size thresholds based on profiling different grammar types.
-      # Recursive parser classes can need memoization even for tiny inputs; plain
-      # atom-level contexts keep the conservative default to avoid small-parse overhead.
       PARSER_CACHE_LIMITS = {
         "JsonParser" => 10_000,      # JSON needs large inputs to benefit
         "JsonParsanolParser" => 10_000,
         "ErbParser" => 800,          # ERB benefits earlier
         "CalcParser" => 2000,        # Calculator has low repetition
         "SentenceParser" => 5000,    # Linear grammar, minimal benefit
-        :parser_default => 0,
-        :default => 1000,
       }.freeze
 
       # Creates a new parsing context.
@@ -74,8 +78,11 @@ module Parsanol
           require "parsanol/edit_tracker"
           @interval_trees = Hash.new { |h, k| h[k] = Parsanol::IntervalTree.new }
           @edits = Parsanol::EditTracker.new
-          # Memoized composite keys: tree-memo lookups sit on hot paths, so
-          # avoid allocating a fresh [:tree_memo, key] array per query/store.
+          # Composite [:tree_memo, key] keys keep repetition tree-memo entries
+          # in a namespace separate from try_with_interval entries (raw
+          # +/-object_id integers) within the same @interval_trees hash.
+          # Memoized because tree-memo lookups sit on hot paths and would
+          # otherwise allocate a fresh array per query/store.
           @tree_memo_keys = Hash.new { |h, k| h[k] = [:tree_memo, k].freeze }
         end
 
@@ -86,10 +93,9 @@ module Parsanol
         threshold = adaptive_cache_threshold
         if threshold.nil? && parser_class
           name = parser_class.name&.split("::")&.last
-          threshold = PARSER_CACHE_LIMITS.fetch(name,
-                                                PARSER_CACHE_LIMITS[:parser_default])
+          threshold = PARSER_CACHE_LIMITS.fetch(name, PARSER_DEFAULT_THRESHOLD)
         end
-        threshold = PARSER_CACHE_LIMITS[:default] if threshold.nil?
+        threshold = DEFAULT_THRESHOLD if threshold.nil?
 
         @adaptive_threshold = threshold
         @input_len = nil
@@ -110,6 +116,9 @@ module Parsanol
       # Records that mutable parse state was read or written (dynamic atom
       # evaluated, capture stored). Called by atoms; results computed across
       # such events are excluded from memoization.
+      #
+      # @return [Integer] the updated event count
+      #
       def mark_cache_unsafe!
         @cache_unsafe_events += 1
       end
@@ -172,13 +181,7 @@ module Parsanol
         outcome = atom.try(src, self, must_consume_all)
         delta = src.bytepos - pos
 
-        attempts = @hit_stats[key] + @miss_stats[key]
-        if @cache_unsafe_events == unsafe_before &&
-            (outcome.first || attempts <= @min_hits_for_cache || @hit_stats[key].positive?)
-          @memo[pos][key] =
-            [outcome,
-             delta]
-        end
+        @memo[pos][key] = [outcome, delta] if storable_outcome?(key, outcome, unsafe_before)
 
         outcome
       end
@@ -209,12 +212,8 @@ module Parsanol
         delta = src.bytepos - pos
         end_pos = pos + delta
 
-        attempts = @hit_stats[key] + @miss_stats[key]
-        if @cache_unsafe_events == unsafe_before &&
-            (outcome.first || attempts <= @min_hits_for_cache || @hit_stats[key].positive?)
-          tree = @interval_trees[key]
-          tree.insert(pos, end_pos,
-                      [outcome, delta])
+        if storable_outcome?(key, outcome, unsafe_before)
+          @interval_trees[key].insert(pos, end_pos, [outcome, delta])
         end
 
         outcome
@@ -244,7 +243,10 @@ module Parsanol
         ERROR_RESULT
       end
 
-      # @return [Boolean] true when this context is collecting diagnostic errors
+      # Checks if this context is collecting diagnostic errors.
+      #
+      # @return [Boolean] true when an error reporter is attached
+      #
       def reporting?
         !@reporter.nil?
       end
@@ -383,9 +385,10 @@ module Parsanol
         key = scoped_cache_key(atom, must_consume_all)
         return key if cache.key?(key)
 
-        shared_key = prefix_success_lookup_key(atom, must_consume_all)
-        entry = cache[shared_key] if shared_key
-        return shared_key if successful_prefix_entry?(entry)
+        return nil unless prefix_success_fallback?(atom, must_consume_all)
+
+        shared_key = shared_cache_key(atom)
+        return shared_key if successful_prefix_entry?(cache[shared_key])
 
         nil
       end
@@ -398,9 +401,11 @@ module Parsanol
         cached = cached_interval_success_starting_at(key, pos)
         return [key, cached] if cached
 
-        shared_key = prefix_success_lookup_key(atom, must_consume_all)
-        shared = cached_interval_success_starting_at(shared_key, pos) if shared_key
-        return [shared_key, shared] if shared
+        if prefix_success_fallback?(atom, must_consume_all)
+          shared_key = shared_cache_key(atom)
+          shared = cached_interval_success_starting_at(shared_key, pos)
+          return [shared_key, shared] if shared
+        end
 
         [nil, nil]
       end
@@ -419,7 +424,7 @@ module Parsanol
         pos = src.bytepos
         shared_key = shared_cache_key(atom)
 
-        if prefix_success_lookup_key(atom, must_consume_all)
+        if prefix_success_fallback?(atom, must_consume_all)
           entry = @memo[pos][shared_key]
           if successful_prefix_entry?(entry)
             outcome, delta = entry
@@ -431,8 +436,8 @@ module Parsanol
         unsafe_before = @cache_unsafe_events
         outcome = atom.try(src, self, must_consume_all)
 
-        if !must_consume_all && outcome.first &&
-            @cache_unsafe_events == unsafe_before &&
+        if @cache_unsafe_events == unsafe_before &&
+            !must_consume_all && outcome.first &&
             share_prefix_success_cache?(atom)
           delta = src.bytepos - pos
           # This path intentionally keeps only shared prefix successes while
@@ -456,10 +461,21 @@ module Parsanol
         atom.object_id
       end
 
-      def prefix_success_lookup_key(atom, must_consume_all)
-        return nil unless must_consume_all && share_prefix_success_cache?(atom)
+      # True when a strict (consume-all) attempt may fall back to a shared
+      # prefix-success entry for this atom.
+      def prefix_success_fallback?(atom, must_consume_all)
+        must_consume_all && share_prefix_success_cache?(atom)
+      end
 
-        shared_cache_key(atom)
+      # An outcome may be memoized only when no cache-unsafe event (dynamic
+      # evaluation, capture write) happened while computing it, and the
+      # attempts heuristic deems the entry worthwhile.
+      def storable_outcome?(key, outcome, unsafe_before)
+        return false unless @cache_unsafe_events == unsafe_before
+
+        outcome.first ||
+          @hit_stats[key] + @miss_stats[key] <= @min_hits_for_cache ||
+          @hit_stats[key].positive?
       end
 
       def successful_prefix_entry?(entry)

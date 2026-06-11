@@ -10,6 +10,12 @@ module Parsanol
     # Caches line ending positions for quick line/column resolution.
     # Uses binary search for efficient position lookup.
     class LineCache
+      # Creates a line cache, optionally bound to a one-shot buffer that is
+      # scanned lazily on the first line_and_column call.
+      #
+      # @param buffer [String, nil] input to scan lazily; nil for callers that
+      #   feed windows incrementally via scan_for_line_endings
+      # @param start_offset [Integer] byte offset of the buffer's first byte
       def initialize(buffer = nil, start_offset = 0)
         # Array of byte offsets where each line ends
         @breaks = []
@@ -71,20 +77,18 @@ module Parsanol
         end
 
         @max_scanned = [@max_scanned || start_offset, start_offset + buffer.bytesize].max
-        return unless buffer.equal?(@buffer) && start_offset == @start_offset
-
-        @fully_scanned = true
-        # The one-shot buffer is no longer needed; drop the reference so
-        # retained Slices do not pin the entire input string.
-        @buffer = nil
       end
 
       private
 
+      # Scans the one-shot constructor buffer on first use, then releases it
+      # so retained Slices do not pin the entire input string.
       def scan_buffer_once
         return if @fully_scanned || !@buffer
 
         scan_for_line_endings(@start_offset, @buffer)
+        @fully_scanned = true
+        @buffer = nil
       end
     end
 

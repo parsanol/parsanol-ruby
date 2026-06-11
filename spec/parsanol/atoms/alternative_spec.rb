@@ -82,7 +82,7 @@ describe Parsanol::Atoms::Alternative do
 
     def indexed_candidates(parser, input)
       source = Parsanol::Source.new(input)
-      parser.send(:indexed_options, source)
+      parser.send(:candidate_indexes, source)
     end
 
     it "does not inspect every branch while building large choices" do
@@ -138,7 +138,7 @@ describe Parsanol::Atoms::Alternative do
         raise "unexpected full remaining input read"
       end
 
-      expect(parser.send(:indexed_options, source)).to eq([21])
+      expect(parser.send(:candidate_indexes, source)).to eq([21])
       expect(source.pos).to eq(0)
     end
 
@@ -383,7 +383,7 @@ describe Parsanol::Atoms::Alternative do
       marker = recursive.object_id
       seen = { marker => true }
 
-      expect(large_literal_choice.send(:static_literal_prefixes, recursive, seen))
+      expect(large_literal_choice.send(:static_literal_prefix, recursive, seen))
         .to eq([nil, false])
       expect(seen.fetch(marker)).to be(true)
     end

@@ -33,8 +33,8 @@ describe Parsanol::Source do
       it "returns unconsumed input without advancing" do
         source.consume(3)
 
-        expect(source.remaining).to eq(str[3..])
-        expect(source.pos).to eq(3)
+        source.remaining.should == str[3..]
+        source.pos.should == 3
       end
     end
 
@@ -45,22 +45,15 @@ describe Parsanol::Source do
         end
       end.new
 
-      expect(described_class.new(string_like).line_and_column(2)).to eq([2, 1])
+      described_class.new(string_like).line_and_column(2).should == [2, 1]
     end
 
     describe "<- #peek(n)" do
       it "returns a bounded input preview without advancing" do
         source.consume(3)
 
-        expect(source.peek(5)).to eq(str[3, 5])
-        expect(source.pos).to eq(3)
-      end
-
-      it "falls back when the scanner does not support peek" do
-        fallback_scanner = Struct.new(:rest).new("abcdef")
-        source.instance_variable_set(:@scanner, fallback_scanner)
-
-        expect(source.peek(3)).to eq("abc")
+        source.peek(5).should == str[3, 5]
+        source.pos.should == 3
       end
     end
 
@@ -242,8 +235,8 @@ describe Parsanol::Source do
     end
 
     it "peeks by byte count without advancing" do
-      expect(source.peek("é".bytesize)).to eq("é")
-      expect(source.pos).to eq(0)
+      source.peek("é".bytesize).should == "é"
+      source.pos.should == 0
     end
   end
 end

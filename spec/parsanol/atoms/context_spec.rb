@@ -186,12 +186,14 @@ describe Parsanol::Atoms::Context do
         root(:value)
       end)
 
+      threshold = Parsanol::Atoms::Context::PARSER_CACHE_LIMITS.fetch("JsonParser")
+
       [JsonParser, JsonParsanolParser].each do |parser_class|
         small_context = described_class.new(nil, parser_class: parser_class)
         large_context = described_class.new(nil, parser_class: parser_class)
 
-        expect(calls_after_two_attempts(small_context, "x" * 9999)).to eq(2)
-        expect(calls_after_two_attempts(large_context, "x" * 10_000)).to eq(1)
+        expect(calls_after_two_attempts(small_context, "x" * (threshold - 1))).to eq(2)
+        expect(calls_after_two_attempts(large_context, "x" * threshold)).to eq(1)
       end
     end
 

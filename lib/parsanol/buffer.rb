@@ -95,7 +95,7 @@ module Parsanol
     #
     def clear!
       # Clear references for GC (keep capacity)
-      0.upto(@size - 1) { |i| @storage[i] = nil }
+      @storage.fill(nil, 0, @size)
       @size = 0
       self
     end

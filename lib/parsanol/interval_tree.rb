@@ -9,6 +9,7 @@
 # Performance characteristics:
 # - Insert: O(log n)
 # - Query: O(log n + k) where k is number of overlapping intervals
+# - Query by start position: O(log n + k)
 # - Delete overlapping: O(log n + k)
 #
 module Parsanol
@@ -72,7 +73,7 @@ module Parsanol
       find_exact(@root, low, high)
     end
 
-    # Query for intervals that start at a specific position.
+    # Query for intervals that start at a specific position
     # @param low [Integer] Start position to match
     # @return [Array<Object>] Data for intervals whose start equals low
     def query_starting_at(low)

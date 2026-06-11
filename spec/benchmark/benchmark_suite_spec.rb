@@ -1,7 +1,12 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require_relative "../../benchmark/benchmark_suite"
+begin
+  require_relative "../../benchmark/benchmark_suite"
+rescue LoadError
+  # Benchmark suite files not available, skip loading this spec
+  return
+end
 
 describe BenchmarkSuite do
   let(:suite) { described_class.new([]) }

@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Synthetic recursive grammar for comparing adaptive cache thresholds
+# Used only by the cache_threshold input type in run_all.rb
+
 require "parsanol"
 
 class CacheThresholdParsanolParser < Parsanol::Parser
@@ -80,16 +83,18 @@ class CacheThresholdParsanolParser < Parsanol::Parser
 end
 
 module CacheThresholdParsanolBenchmark
-  CONSERVATIVE_CACHE_THRESHOLD = 1000
+  # The pre-parser-default threshold: atom-level contexts only memoize past
+  # this input size (kept in sync with the lib constant).
+  CONSERVATIVE_CACHE_THRESHOLD = Parsanol::Atoms::Context::DEFAULT_THRESHOLD
 
   module_function
 
-  def current_parser_default
+  def default_threshold_parser
     parser = CacheThresholdParsanolParser.new
     ->(input) { parse_with_context(parser, input) }
   end
 
-  def conservative_cache
+  def conservative_threshold_parser
     parser = CacheThresholdParsanolParser.new
     ->(input) { parse_with_context(parser, input, CONSERVATIVE_CACHE_THRESHOLD) }
   end

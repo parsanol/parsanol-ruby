@@ -122,14 +122,7 @@ module Parsanol
     # @return [String] bounded input preview
     #
     def peek(byte_count)
-      return @scanner.peek(byte_count) if @scanner.respond_to?(:peek)
-
-      rest = @scanner.rest
-      if rest.respond_to?(:byteslice)
-        rest.byteslice(0, byte_count) || +""
-      else
-        rest[0, byte_count] || +""
-      end
+      @scanner.peek(byte_count)
     end
 
     # Counts characters from current position until a target string.

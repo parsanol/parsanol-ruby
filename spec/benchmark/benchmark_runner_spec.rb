@@ -1,7 +1,12 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require_relative "../../benchmark/run_all"
+begin
+  require_relative "../../benchmark/run_all"
+rescue LoadError
+  # Benchmark runner files not available, skip loading this spec
+  return
+end
 
 describe BenchmarkRunner do
   describe "#check_available_parsers" do

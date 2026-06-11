@@ -19,21 +19,20 @@ require "optparse"
 require "time"
 
 class BenchmarkRunner
-  APPROACHES = %w[
-    parslet-ruby
-    parsanol-ruby
-    parsanol-native
-    parsanol-cache-default
-    parsanol-cache-1000
-  ].freeze
-
-  SIZES = %w[tiny small medium large].freeze
-  DEFAULT_INPUT_TYPES = %w[json expression express].freeze
-  INPUT_TYPES = (DEFAULT_INPUT_TYPES + %w[cache_threshold]).freeze
   CACHE_THRESHOLD_APPROACHES = %w[
     parsanol-cache-default
     parsanol-cache-1000
   ].freeze
+
+  APPROACHES = (%w[
+    parslet-ruby
+    parsanol-ruby
+    parsanol-native
+  ] + CACHE_THRESHOLD_APPROACHES).freeze
+
+  SIZES = %w[tiny small medium large].freeze
+  DEFAULT_INPUT_TYPES = %w[json expression express].freeze
+  INPUT_TYPES = (DEFAULT_INPUT_TYPES + %w[cache_threshold]).freeze
 
   def initialize(args)
     @options = parse_options(args)
@@ -158,7 +157,7 @@ class BenchmarkRunner
   def print_approaches_diagram
     puts
     puts "╔═════════════════════════════════════════════════════════════════════════════════╗"
-    puts "║                    3 APPROACHES FOR JSON PARSING IN RUBY                        ║"
+    puts "║                    3 APPROACHES FOR RUBY PARSING                                ║"
     puts "╚═════════════════════════════════════════════════════════════════════════════════╝"
     puts
     puts "  APPROACH 1: parslet-ruby      → Pure Ruby parsing (baseline)"
@@ -244,8 +243,9 @@ class BenchmarkRunner
 
     @results[key] = {}
 
+    name_width = parsers.map(&:length).max
     parsers.each do |parser|
-      print "  #{parser.ljust(20)} ... "
+      print "  #{parser.ljust(name_width)} ... "
       stdout_was = $stdout
       $stdout = StringIO.new if !@options[:verbose]
 
@@ -302,7 +302,7 @@ class BenchmarkRunner
     when "parsanol-native"
       create_parsanol_native_parser(type)
     when "parsanol-cache-default"
-      create_cache_threshold_parser(type, :current)
+      create_cache_threshold_parser(type, :default)
     when "parsanol-cache-1000"
       create_cache_threshold_parser(type, :conservative)
     else
@@ -364,13 +364,14 @@ class BenchmarkRunner
       parser = JsonParsanolParser.new
       ->(input) { parser.parse(input, mode: :ruby) }
     when "expression"
-      Class.new(Parsanol::Parser) do
+      parser = Class.new(Parsanol::Parser) do
         rule(:number) { match("[0-9]").repeat(1) }
         rule(:op) { match('[+\-*/]') }
         rule(:space) { match('\s').repeat(1) }
         rule(:expr) { number >> (space >> op >> space >> number).repeat }
         root :expr
-      end.new.method(:parse)
+      end.new
+      ->(input) { parser.parse(input, mode: :ruby) }
     when "express"
       require_relative "parsers/express_parsanol"
       parser = ExpressParsanolParser.new
@@ -387,13 +388,14 @@ class BenchmarkRunner
       parser = JsonParsanolParser.new
       ->(input) { parser.parse(input, mode: :native) }
     when "expression"
-      Class.new(Parsanol::Parser) do
+      parser = Class.new(Parsanol::Parser) do
         rule(:number) { match("[0-9]").repeat(1) }
         rule(:op) { match('[+\-*/]') }
         rule(:space) { match('\s').repeat(1) }
         rule(:expr) { number >> (space >> op >> space >> number).repeat }
         root :expr
-      end.new.method(:parse)
+      end.new
+      ->(input) { parser.parse(input, mode: :native) }
     when "express"
       require_relative "parsers/express_parsanol"
       parser = ExpressParsanolParser.new
@@ -401,18 +403,18 @@ class BenchmarkRunner
     end
   end
 
-  def create_cache_threshold_parser(type, threshold)
+  def create_cache_threshold_parser(type, mode)
     raise "cache threshold benchmark only supports cache_threshold input" unless type == "cache_threshold"
 
     require_relative "parsers/cache_threshold_parsanol"
 
-    case threshold
-    when :current
-      CacheThresholdParsanolBenchmark.current_parser_default
+    case mode
+    when :default
+      CacheThresholdParsanolBenchmark.default_threshold_parser
     when :conservative
-      CacheThresholdParsanolBenchmark.conservative_cache
+      CacheThresholdParsanolBenchmark.conservative_threshold_parser
     else
-      raise "Unknown cache threshold benchmark mode: #{threshold}"
+      raise "Unknown cache threshold benchmark mode: #{mode}"
     end
   end
 
