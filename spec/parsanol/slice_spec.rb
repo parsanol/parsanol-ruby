@@ -143,8 +143,10 @@ describe Parsanol::Slice do
     describe "string methods" do
       describe "matching" do
         it "matches as a string would" do
-          slice.should match(/bar/)
-          slice.should match(/foo/)
+          # Anchored patterns prove real regexp matching, which substring
+          # inclusion could not satisfy.
+          slice.should match(/\Afoo/)
+          slice.should match(/bar\z/)
 
           md = slice.match(/f(o)o/)
           md.captures.first.should == "o"
