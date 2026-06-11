@@ -38,6 +38,26 @@ describe Parsanol::IntervalTree do
     end
   end
 
+  describe "#query_starting_at" do
+    it "finds intervals by start position regardless of end position" do
+      tree.insert(0, 10, "data1")
+      tree.insert(0, 3, "data2")
+      tree.insert(5, 10, "data3")
+
+      expect(tree.query_starting_at(0)).to contain_exactly("data1", "data2")
+      expect(tree.query_starting_at(5)).to contain_exactly("data3")
+      expect(tree.query_starting_at(10)).to be_empty
+    end
+
+    it "finds duplicate starts without scanning lower-start subtrees" do
+      tree.insert(10, 20, "data1")
+      tree.insert(5, 10, "lower-start")
+      tree.insert(10, 15, "data2")
+
+      expect(tree.query_starting_at(10)).to contain_exactly("data1", "data2")
+    end
+  end
+
   describe "#query_overlapping" do
     before do
       # Create intervals: [0,10), [5,15), [20,30), [25,35)

@@ -5,12 +5,28 @@ Breaking changes:
 * Simplified API: Single `parse()` method with lazy line/column
 * Removed deprecated methods: `parse_parslet`, `parse_parslet_with_positions`,
   `parse_with_transform`, `parse_to_objects`, `parse_raw`
+* Aligned ordered choice with Parslet's prefix-success cache semantics -
+  grammars that parse on Parslet 2.0 parse identically; some that fail there
+  now raise `ParseFailed` here too
+* Scoped memoization keys by parse mode - strict failures are no longer
+  replayed for prefix parses, fixing inputs that failed only above the
+  adaptive caching threshold
+* Choice errors enumerate at most 16 alternatives - larger choices report
+  "Expected one of N alternatives" (per-branch causes stay in the cause tree)
+* Made `Slice#hash` content-based to match `Slice#eql?` - offset no longer
+  affects Hash/Set key identity
+* Froze `Alternative#alternatives` - extend choices with `a | b` instead of
+  in-place mutation
 
 New features:
 
 * Lazy line/column computation in `Slice#line_and_column` - computed only when accessed
 * `BatchDecoder` module for efficient batch AST processing
 * Grammar accepts Ruby atoms directly - no JSON serialization step needed
+* Literal-prefix indexing for ordered choices with 16+ branches on the
+  pure-Ruby path - failure reporting still tries every branch
+* Parser-class parses memoize at all input sizes by default - thresholds are
+  performance-only since cache-unsafe results are never memoized
 
 Bug fixes:
 
@@ -19,6 +35,12 @@ Bug fixes:
   - Same inner keys → Repetition pattern (keep as array)
   - Different inner keys → Wrapper pattern (merge inner hashes)
 * Correct entity extraction for grammars with multiple declarations
+* Fixed memoization of capture-dependent results - `dynamic {}` blocks and
+  capture writes are re-evaluated on every attempt
+* Fixed repetition interval/tree memoization to actually replay cached
+  results, consistently across consume-all modes
+* Fixed `Buffer#clear!` to clear used slots, plugging a pooled-buffer
+  reference leak
 
 == Parsanol 1.2.2 (2026-03-07)
 

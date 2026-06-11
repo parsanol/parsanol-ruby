@@ -19,16 +19,20 @@ require "optparse"
 require "time"
 
 class BenchmarkRunner
-  APPROACHES = %w[
+  CACHE_THRESHOLD_APPROACHES = %w[
+    parsanol-cache-default
+    parsanol-cache-1000
+  ].freeze
+
+  APPROACHES = (%w[
     parslet-ruby
     parsanol-ruby
     parsanol-native
-    parsanol-ffi-hash
-    parsanol-ffi-json
-  ].freeze
+  ] + CACHE_THRESHOLD_APPROACHES).freeze
 
   SIZES = %w[tiny small medium large].freeze
-  INPUT_TYPES = %w[json expression express].freeze
+  DEFAULT_INPUT_TYPES = %w[json expression express].freeze
+  INPUT_TYPES = (DEFAULT_INPUT_TYPES + %w[cache_threshold]).freeze
 
   def initialize(args)
     @options = parse_options(args)
@@ -43,6 +47,7 @@ class BenchmarkRunner
       output_dir: File.join(__dir__, "reports"),
       verbose: false,
       show_diagram: true,
+      input_type: nil,
     }.tap do |opts|
       OptionParser.new do |parser|
         parser.banner = "Usage: #{$0} [options]"
@@ -54,6 +59,11 @@ class BenchmarkRunner
         parser.on("-p", "--parser NAME", APPROACHES,
                   "Test only this parser") do |p|
           opts[:parser] = p
+        end
+
+        parser.on("-t", "--type TYPE", INPUT_TYPES,
+                  "Test only this input type") do |t|
+          opts[:input_type] = t
         end
 
         parser.on("-v", "--verbose", "Show detailed output") do
@@ -69,10 +79,19 @@ class BenchmarkRunner
         end
       end.parse!(args)
     end
+  rescue OptionParser::ParseError => e
+    abort "#{e.message}\nValid parsers: #{APPROACHES.join(', ')}\n" \
+          "Valid input types: #{INPUT_TYPES.join(', ')}"
   end
 
   def run
-    print_approaches_diagram if @options[:show_diagram]
+    if @options[:show_diagram]
+      if cache_threshold_selected?
+        print_cache_threshold_overview
+      else
+        print_approaches_diagram
+      end
+    end
 
     puts "=" * 70
     puts "Parsanol Benchmark Suite - Evidence-Based Performance Verification"
@@ -86,6 +105,11 @@ class BenchmarkRunner
 
     # Check available parsers
     available = check_available_parsers
+    if @options[:parser] && !available.include?(@options[:parser])
+      abort "ERROR: #{@options[:parser]} is not available in this environment " \
+            "(available: #{available.empty? ? 'none' : available.join(', ')})"
+    end
+
     parsers_to_test = @options[:parser] ? [@options[:parser]] : available
 
     if parsers_to_test.empty?
@@ -94,17 +118,24 @@ class BenchmarkRunner
       return
     end
 
-    puts "Available parsers: #{available.join(', ')}"
-    puts "Testing: #{parsers_to_test.join(', ')}"
-    puts
-
     # Determine sizes to test
     sizes = @options[:quick] ? %w[tiny small medium] : SIZES
+    input_types = selected_input_types
+    compatible_parsers = compatible_parsers_for(parsers_to_test, input_types)
+
+    if compatible_parsers.empty?
+      puts "ERROR: No selected parsers are compatible with: #{input_types.join(', ')}"
+      return
+    end
+
+    puts "Available parsers: #{available.join(', ')}"
+    puts "Testing: #{compatible_parsers.join(', ')}"
+    puts
 
     # Run benchmarks
     sizes.each do |size|
-      INPUT_TYPES.each do |type|
-        run_benchmark_set(parsers_to_test, type, size)
+      input_types.each do |type|
+        run_benchmark_set(compatible_parsers, type, size)
       end
     end
 
@@ -126,16 +157,26 @@ class BenchmarkRunner
   def print_approaches_diagram
     puts
     puts "╔═════════════════════════════════════════════════════════════════════════════════╗"
-    puts "║                    5 APPROACHES FOR JSON PARSING IN RUBY                        ║"
+    puts "║                    3 APPROACHES FOR RUBY PARSING                                ║"
     puts "╚═════════════════════════════════════════════════════════════════════════════════╝"
     puts
     puts "  APPROACH 1: parslet-ruby      → Pure Ruby parsing (baseline)"
     puts "  APPROACH 2: parsanol-ruby     → Parsanol Ruby backend (same speed)"
     puts "  APPROACH 3: parsanol-native   → Rust parsing, AST to Ruby, Ruby JSON"
-    puts "  APPROACH 4: parsanol-ffi-hash → Rust parsing, direct Ruby Hash, Ruby JSON"
-    puts "  APPROACH 5: parsanol-ffi-json → Rust parsing + JSON serialization (FASTEST)"
     puts
     puts "  See benchmark/APPROACHES.md for detailed diagram"
+    puts
+    puts "-" * 70
+    puts
+  end
+
+  def print_cache_threshold_overview
+    puts
+    puts "Cache-threshold benchmark: compares adaptive cache defaults on the"
+    puts "pure-Ruby parser path using a synthetic recursive grammar."
+    puts
+    puts "  parsanol-cache-default → parser-class default (caches immediately)"
+    puts "  parsanol-cache-1000    → conservative atom-level threshold (1000 bytes)"
     puts
     puts "-" * 70
     puts
@@ -157,6 +198,7 @@ class BenchmarkRunner
     begin
       require "parsanol"
       available << "parsanol-ruby"
+      available.concat(CACHE_THRESHOLD_APPROACHES) if cache_threshold_selected?
       log "✓ parsanol-ruby available (Approach 2: Parsanol Ruby backend)"
     rescue LoadError => e
       log "✗ parsanol-ruby not available: #{e.message}"
@@ -168,37 +210,11 @@ class BenchmarkRunner
         if defined?(Parsanol::Native) && Parsanol::Native.available?
           available << "parsanol-native"
           log "✓ parsanol-native available (Approach 3: Rust → AST → Ruby)"
+        else
+          log "✗ parsanol-native not available (run `rake compile` to build the extension)"
         end
       rescue StandardError => e
         log "✗ parsanol-native not available: #{e.message}"
-      end
-    end
-
-    # Approach 4: Parsanol FFI Hash (Rust → Ruby Hash direct)
-    if available.include?("parsanol-native")
-      begin
-        if Parsanol::Native.respond_to?(:parse_to_objects)
-          available << "parsanol-ffi-hash"
-          log "✓ parsanol-ffi-hash available (Approach 4: Rust → Ruby Hash)"
-        else
-          log "✗ parsanol-ffi-hash not available (parse_to_objects not implemented)"
-        end
-      rescue StandardError => e
-        log "✗ parsanol-ffi-hash not available: #{e.message}"
-      end
-    end
-
-    # Approach 5: Parsanol FFI JSON (Rust → JSON string)
-    if available.include?("parsanol-native")
-      begin
-        if Parsanol::Native.respond_to?(:parse_to_json)
-          available << "parsanol-ffi-json"
-          log "✓ parsanol-ffi-json available (Approach 5: Rust → JSON)"
-        else
-          log "✗ parsanol-ffi-json not available (parse_to_json not implemented)"
-        end
-      rescue StandardError => e
-        log "✗ parsanol-ffi-json not available: #{e.message}"
       end
     end
 
@@ -206,6 +222,9 @@ class BenchmarkRunner
   end
 
   def run_benchmark_set(parsers, type, size)
+    parsers = parsers_for_type(parsers, type)
+    return if parsers.empty?
+
     input_file = File.join(__dir__, "inputs", size, "#{type}.txt")
 
     unless File.exist?(input_file)
@@ -224,8 +243,9 @@ class BenchmarkRunner
 
     @results[key] = {}
 
+    name_width = parsers.map(&:length).max
     parsers.each do |parser|
-      print "  #{parser.ljust(20)} ... "
+      print "  #{parser.ljust(name_width)} ... "
       stdout_was = $stdout
       $stdout = StringIO.new if !@options[:verbose]
 
@@ -281,13 +301,37 @@ class BenchmarkRunner
       create_parsanol_ruby_parser(type)
     when "parsanol-native"
       create_parsanol_native_parser(type)
-    when "parsanol-ffi-hash"
-      create_parsanol_ffi_hash_parser(type)
-    when "parsanol-ffi-json"
-      create_parsanol_ffi_json_parser(type)
+    when "parsanol-cache-default"
+      create_cache_threshold_parser(type, :default)
+    when "parsanol-cache-1000"
+      create_cache_threshold_parser(type, :conservative)
     else
       raise "Unknown parser: #{parser_name}"
     end
+  end
+
+  def parsers_for_type(parsers, type)
+    if type == "cache_threshold"
+      parsers & CACHE_THRESHOLD_APPROACHES
+    else
+      parsers - CACHE_THRESHOLD_APPROACHES
+    end
+  end
+
+  def compatible_parsers_for(parsers, input_types)
+    input_types.flat_map { |type| parsers_for_type(parsers, type) }.uniq
+  end
+
+  def selected_input_types
+    return [@options[:input_type]] if @options[:input_type]
+    return ["cache_threshold"] if CACHE_THRESHOLD_APPROACHES.include?(@options[:parser])
+
+    DEFAULT_INPUT_TYPES
+  end
+
+  def cache_threshold_selected?
+    @options[:input_type] == "cache_threshold" ||
+      CACHE_THRESHOLD_APPROACHES.include?(@options[:parser])
   end
 
   def create_parslet_parser(type)
@@ -320,13 +364,14 @@ class BenchmarkRunner
       parser = JsonParsanolParser.new
       ->(input) { parser.parse(input, mode: :ruby) }
     when "expression"
-      Class.new(Parsanol::Parser) do
+      parser = Class.new(Parsanol::Parser) do
         rule(:number) { match("[0-9]").repeat(1) }
         rule(:op) { match('[+\-*/]') }
         rule(:space) { match('\s').repeat(1) }
         rule(:expr) { number >> (space >> op >> space >> number).repeat }
         root :expr
-      end.new.method(:parse)
+      end.new
+      ->(input) { parser.parse(input, mode: :ruby) }
     when "express"
       require_relative "parsers/express_parsanol"
       parser = ExpressParsanolParser.new
@@ -343,13 +388,14 @@ class BenchmarkRunner
       parser = JsonParsanolParser.new
       ->(input) { parser.parse(input, mode: :native) }
     when "expression"
-      Class.new(Parsanol::Parser) do
+      parser = Class.new(Parsanol::Parser) do
         rule(:number) { match("[0-9]").repeat(1) }
         rule(:op) { match('[+\-*/]') }
         rule(:space) { match('\s').repeat(1) }
         rule(:expr) { number >> (space >> op >> space >> number).repeat }
         root :expr
-      end.new.method(:parse)
+      end.new
+      ->(input) { parser.parse(input, mode: :native) }
     when "express"
       require_relative "parsers/express_parsanol"
       parser = ExpressParsanolParser.new
@@ -357,34 +403,18 @@ class BenchmarkRunner
     end
   end
 
-  def create_parsanol_ffi_hash_parser(type)
-    require "parsanol"
+  def create_cache_threshold_parser(type, mode)
+    raise "cache threshold benchmark only supports cache_threshold input" unless type == "cache_threshold"
 
-    case type
-    when "json"
-      # Approach 4: Rust parses, creates Ruby Hash directly
-      # Get the grammar from the parser and serialize it
-      require_relative "parsers/json_parsanol"
-      json_parser = JsonParsanolParser.new
-      grammar_json = Parsanol::Native.serialize_grammar(json_parser.root)
-      ->(input) { Parsanol::Native.parse_to_objects(grammar_json, input) }
+    require_relative "parsers/cache_threshold_parsanol"
+
+    case mode
+    when :default
+      CacheThresholdParsanolBenchmark.default_threshold_parser
+    when :conservative
+      CacheThresholdParsanolBenchmark.conservative_threshold_parser
     else
-      raise "parsanol-ffi-hash not implemented for #{type}"
-    end
-  end
-
-  def create_parsanol_ffi_json_parser(type)
-    require "parsanol"
-
-    case type
-    when "json"
-      # Approach 5: Rust parses and serializes to JSON directly
-      require_relative "parsers/json_parsanol"
-      json_parser = JsonParsanolParser.new
-      grammar_json = Parsanol::Native.serialize_grammar(json_parser.root)
-      ->(input) { Parsanol::Native.parse_to_json(grammar_json, input) }
-    else
-      raise "parsanol-ffi-json not implemented for #{type}"
+      raise "Unknown cache threshold benchmark mode: #{mode}"
     end
   end
 
@@ -401,9 +431,10 @@ class BenchmarkRunner
       puts
       printf "%-20s", "Input"
       parsers = type_results.flat_map { |_, v| v.keys }.uniq
-      parsers.each { |p| printf "%15s", p[0..12] }
+      column_width = [((parsers.map(&:length).max || 0) + 2), 15].max
+      parsers.each { |p| printf "%*s", column_width, p }
       puts
-      puts "-" * (20 + (parsers.size * 15))
+      puts "-" * (20 + (parsers.size * column_width))
 
       type_results.sort_by do |k, _|
         SIZES.index(k.split("/").last)
@@ -414,9 +445,9 @@ class BenchmarkRunner
         parsers.each do |parser|
           if results[parser]
             ips = results[parser][:ips]
-            printf "%14.1f", ips
+            printf "%*.1f", column_width, ips
           else
-            printf "%15s", "N/A"
+            printf "%*s", column_width, "N/A"
           end
         end
         puts

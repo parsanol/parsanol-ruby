@@ -33,6 +33,23 @@ describe Parsanol::Slice do
         other.should == slice
       end
 
+      it "hashes equal slices with different offsets identically" do
+        other = cslice("foobar", 41)
+
+        slice.should eql(other)
+        slice.hash.should == other.hash
+        { slice => :matched }[other].should == :matched
+      end
+
+      it "hashes equal slice subclasses identically" do
+        subclass = Class.new(described_class)
+        other = subclass.new(41, "foobar")
+
+        slice.should eql(other)
+        slice.hash.should == other.hash
+        { slice => :matched }[other].should == :matched
+      end
+
       it "is equal to a string with the same content" do
         slice.should == "foobar"
       end
@@ -126,8 +143,10 @@ describe Parsanol::Slice do
     describe "string methods" do
       describe "matching" do
         it "matches as a string would" do
-          slice.should match(/bar/)
-          slice.should match(/foo/)
+          # Anchored patterns prove real regexp matching, which substring
+          # inclusion could not satisfy.
+          slice.should match(/\Afoo/)
+          slice.should match(/bar\z/)
 
           md = slice.match(/f(o)o/)
           md.captures.first.should == "o"

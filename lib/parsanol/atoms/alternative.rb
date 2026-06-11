@@ -11,6 +11,13 @@
 module Parsanol
   module Atoms
     class Alternative < Parsanol::Atoms::Base
+      # Literal-prefix indexing only pays off past this many alternatives
+      INDEX_THRESHOLD = 16
+      # ... and only when at least this many branches have a static literal prefix
+      INDEX_MIN_BRANCHES = 4
+      # Above this many alternatives the error message stops enumerating them
+      CHOICE_ERROR_DETAIL_LIMIT = 16
+
       # @return [Array<Parsanol::Atoms::Base>] alternative parsers
       attr_reader :alternatives
 
@@ -19,8 +26,9 @@ module Parsanol
       # @param options [Array<Parsanol::Atoms::Base>] alternatives
       def initialize(*options)
         super()
-        @alternatives = options
-        @choice_error = "Expected one of #{options.inspect}"
+        # Frozen so the lazily memoized literal index can never go stale:
+        # the index assumes this array is immutable after construction.
+        @alternatives = options.freeze
       end
 
       # Adds an alternative with flattening.
@@ -87,7 +95,7 @@ module Parsanol
         success, value2 = a2.apply(source, context, consume_all)
         return [success, value2] if success
 
-        context.err(self, source, @choice_error, [value1, value2])
+        context.err(self, source, choice_error, [value1, value2])
       end
 
       # Three-alternative fast path
@@ -101,11 +109,26 @@ module Parsanol
         success, value3 = a3.apply(source, context, consume_all)
         return [success, value3] if success
 
-        context.err(self, source, @choice_error, [value1, value2, value3])
+        context.err(self, source, choice_error, [value1, value2, value3])
       end
 
       # General case for N alternatives
       def try_many(options, source, context, consume_all)
+        # The reporting pass (the re-parse after a failure) must try every
+        # branch so the failure cause tree stays complete; the literal index
+        # only prunes the fast non-reporting pass.
+        unless context.reporting?
+          indexed = candidate_indexes(source)
+          if indexed
+            return try_selected(indexed, options, source, context, consume_all)
+          end
+        end
+
+        try_all(options, source, context, consume_all)
+      end
+
+      # Full scan over every branch (reporting pass, or no usable index)
+      def try_all(options, source, context, consume_all)
         errors = nil
 
         options.each do |alt|
@@ -116,7 +139,198 @@ module Parsanol
           errors << value
         end
 
-        context.err(self, source, @choice_error, errors)
+        context.err(self, source, choice_error, errors)
+      end
+
+      # Scan restricted to index-selected branch positions, in original order
+      def try_selected(indexes, options, source, context, consume_all)
+        errors = nil
+
+        indexes.each do |idx|
+          success, value = options[idx].apply(source, context, consume_all)
+          return [success, value] if success
+
+          errors ||= []
+          errors << value
+        end
+
+        context.err(self, source, choice_error, errors)
+      end
+
+      # Branch positions worth trying for the current input, or nil when no
+      # index applies and every branch must be scanned
+      def candidate_indexes(source)
+        index = literal_index
+        return nil unless index
+
+        indexes = index[:always].dup
+        prefixes = index[:prefixes]
+        max_prefix_bytes = index[:max_prefix_bytes]
+        current_prefix = +""
+
+        valid_prefix_preview(source.peek(max_prefix_bytes)).each_char do |char|
+          current_prefix << char
+          matches = prefixes[current_prefix]
+          indexes.concat(matches) if matches
+        end
+
+        indexes.uniq!
+        indexes.sort!
+        indexes
+      end
+
+      # Lazily builds and memoizes the literal-prefix index (nil when this
+      # choice is too small or has too few literal branches to index)
+      def literal_index
+        return nil if @alternatives.size < INDEX_THRESHOLD
+
+        # Benign lazy race: alternatives are frozen at initialization, so
+        # concurrent builds produce the same index and the last assignment wins.
+        return @literal_index if defined?(@literal_index)
+
+        @literal_index = build_literal_index
+      end
+
+      # Maps each branch's static literal prefix to its position; branches
+      # without one go to the always-tried bucket
+      def build_literal_index
+        prefixes = {}
+        always = []
+        indexed_count = 0
+        max_prefix_bytes = 0
+
+        @alternatives.each_with_index do |alt, idx|
+          prefix, = static_literal_prefix(alt)
+
+          if prefix.nil? || prefix.empty?
+            always << idx
+            next
+          end
+
+          add_to_index(prefixes, prefix, idx)
+          indexed_count += 1
+          max_prefix_bytes = [max_prefix_bytes, prefix.bytesize].max
+        end
+
+        return nil if indexed_count < INDEX_MIN_BRANCHES
+
+        {
+          prefixes: freeze_prefix_index(prefixes),
+          max_prefix_bytes: max_prefix_bytes,
+          always: always.freeze,
+        }.freeze
+      end
+
+      def add_to_index(prefixes, prefix, idx)
+        (prefixes[prefix] ||= []) << idx
+      end
+
+      def freeze_prefix_index(prefixes)
+        prefixes.transform_values(&:freeze).freeze
+      end
+
+      # Trims a byte-bounded peek down to valid encoding: the scanner position
+      # is always on a character boundary, so only a trailing character can be
+      # cut and at most a few iterations are ever needed
+      def valid_prefix_preview(preview)
+        return preview if preview.valid_encoding?
+
+        (preview.bytesize - 1).downto(1) do |bytesize|
+          trimmed = preview.byteslice(0, bytesize)
+          return trimmed if trimmed.valid_encoding?
+        end
+
+        +""
+      end
+
+      # Lazy so building a large choice never pays inspect costs up front;
+      # benign lazy race, same as literal_index
+      def choice_error
+        @choice_error ||= if @alternatives.size <= CHOICE_ERROR_DETAIL_LIMIT
+                            "Expected one of #{alternatives_inspect}"
+                          else
+                            "Expected one of #{@alternatives.size} alternatives"
+                          end
+      end
+
+      # Inspect that survives branches whose own #inspect raises
+      def alternatives_inspect
+        @alternatives.inspect
+      rescue StandardError
+        "[#{@alternatives.map { |atom| atom_inspect(atom) }.join(', ')}]"
+      end
+
+      def atom_inspect(atom)
+        atom.inspect
+      rescue StandardError
+        atom.class.name || atom.class.to_s
+      end
+
+      # Returns [prefix, exact]. prefix is a literal string every successful
+      # match of the atom is guaranteed to start with (nil when none can be
+      # proven). exact is true only when the atom matches exactly that literal
+      # and nothing else, so a parent sequence may keep appending literals
+      # from subsequent parts. A partial prefix (exact: false) is still a
+      # sound index key on its own, but nothing may be appended after it.
+      def static_literal_prefix(atom, seen = {})
+        object_id = atom.object_id
+        return [nil, false] if seen[object_id]
+
+        seen[object_id] = true
+        marked = true
+
+        if atom.instance_of?(Parsanol::Atoms::Str)
+          [atom.str, true]
+        elsif atom.instance_of?(Parsanol::Atoms::Named)
+          static_literal_prefix(atom.parslet, seen)
+        elsif atom.instance_of?(Parsanol::Atoms::Entity)
+          parslet = static_entity_parslet(atom)
+          parslet ? static_literal_prefix(parslet, seen) : [nil, false]
+        elsif atom.instance_of?(Parsanol::Atoms::Sequence)
+          static_sequence_literal_prefix(atom, seen)
+        else
+          [nil, false]
+        end
+      ensure
+        # Only clear markers set by this frame; an early return for an already
+        # seen atom must not remove an ancestor's recursion guard.
+        seen.delete(object_id) if marked
+      end
+
+      def static_sequence_literal_prefix(atom, seen)
+        prefix = +""
+        exact = true
+
+        atom.parslets.each do |part|
+          part_prefix, part_exact = static_literal_prefix(part, seen)
+
+          if part_prefix.nil?
+            exact = false
+            break
+          end
+
+          prefix << part_prefix
+
+          # A partial part may match more input after its own prefix, so
+          # literals from later parts are not guaranteed to follow at this
+          # offset — appending them would over-claim and mis-prune branches.
+          unless part_exact
+            exact = false
+            break
+          end
+        end
+
+        return [nil, false] if prefix.empty?
+
+        [prefix, exact]
+      end
+
+      # Resolves an Entity's rule block without letting a misbehaving block
+      # break index construction (unresolvable entities stay unindexed)
+      def static_entity_parslet(atom)
+        atom.parslet
+      rescue StandardError, NotImplementedError
+        nil
       end
     end
   end

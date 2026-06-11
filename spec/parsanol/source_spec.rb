@@ -29,6 +29,34 @@ describe Parsanol::Source do
       end
     end
 
+    describe "<- #remaining" do
+      it "returns unconsumed input without advancing" do
+        source.consume(3)
+
+        source.remaining.should == str[3..]
+        source.pos.should == 3
+      end
+    end
+
+    it "accepts string-like input for line cache lookups" do
+      string_like = Class.new do
+        def to_str
+          "a\nb"
+        end
+      end.new
+
+      described_class.new(string_like).line_and_column(2).should == [2, 1]
+    end
+
+    describe "<- #peek(n)" do
+      it "returns a bounded input preview without advancing" do
+        source.consume(3)
+
+        source.peek(5).should == str[3, 5]
+        source.pos.should == 3
+      end
+    end
+
     describe "<- #pos" do
       subject { source.pos }
 
@@ -204,6 +232,11 @@ describe Parsanol::Source do
       source.consume(2)
       source.chars_left.should
       source.chars_left.should == 0
+    end
+
+    it "peeks by byte count without advancing" do
+      source.peek("é".bytesize).should == "é"
+      source.pos.should == 0
     end
   end
 end

@@ -38,9 +38,10 @@ module Parsanol
               "Source requires a string-like object (responds to to_str)"
       end
 
-      # Core scanner for input traversal
-      @scanner = StringScanner.new(input)
       @raw_string = input.to_str
+
+      # Core scanner for input traversal
+      @scanner = StringScanner.new(@raw_string)
 
       # Regex cache: maps count n to /(.|$){n}/m pattern
       @regex_cache = Hash.new do |h, count|
@@ -48,12 +49,12 @@ module Parsanol
       end
 
       # Line ending cache for position-to-line/column mapping
-      @line_data = LineCache.new
-      @line_data.scan_for_line_endings(0, input)
+      @line_data = LineCache.new(@raw_string)
 
       # Object pools for memory efficiency
       # SlicePool: reduces Slice allocations during matching
-      @slice_pool = Parsanol::Pools::SlicePool.new(size: 5000)
+      @slice_pool = Parsanol::Pools::SlicePool.new(size: 5000,
+                                                   preallocate: false)
 
       # PositionPool: reduces Position allocations for error reporting
       @position_pool = Parsanol::Pools::PositionPool.new(size: 1000)
@@ -105,6 +106,23 @@ module Parsanol
     #
     def chars_left
       @scanner.rest_size
+    end
+
+    # Returns the unconsumed input from the current position without advancing.
+    #
+    # @return [String] remaining input
+    #
+    def remaining
+      @scanner.rest
+    end
+
+    # Returns up to byte_count bytes from the current position without advancing.
+    #
+    # @param byte_count [Integer] maximum bytes to read
+    # @return [String] bounded input preview
+    #
+    def peek(byte_count)
+      @scanner.peek(byte_count)
     end
 
     # Counts characters from current position until a target string.
