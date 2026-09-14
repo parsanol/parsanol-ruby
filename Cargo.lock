@@ -204,7 +204,7 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 [[package]]
 name = "magnus"
 version = "0.9.0"
-source = "git+https://github.com/matsadler/magnus?rev=4e46772#4e46772050e47cd6cd988fa935263cc5c583e388"
+source = "git+https://github.com/matsadler/magnus?rev=9407bd9#9407bd98afef6692edca706426c15ea6bef60d0e"
 dependencies = [
  "magnus-macros",
  "rb-sys",
@@ -215,7 +215,7 @@ dependencies = [
 [[package]]
 name = "magnus-macros"
 version = "0.9.0"
-source = "git+https://github.com/matsadler/magnus?rev=4e46772#4e46772050e47cd6cd988fa935263cc5c583e388"
+source = "git+https://github.com/matsadler/magnus?rev=9407bd9#9407bd98afef6692edca706426c15ea6bef60d0e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -253,7 +253,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 [[package]]
 name = "parsanol"
 version = "0.5.1"
-source = "git+https://github.com/parsanol/parsanol-rs?branch=main#a09699f2e2dec69438e119abee140ab809e883c6"
+source = "git+https://github.com/parsanol/parsanol-rs?branch=main#1a141f1a3471ba6ce83a768354a917d4ab83d172"
 dependencies = [
  "ahash",
  "getrandom 0.3.4",
@@ -270,7 +270,7 @@ dependencies = [
 [[package]]
 name = "parsanol-derive"
 version = "0.5.1"
-source = "git+https://github.com/parsanol/parsanol-rs?branch=main#a09699f2e2dec69438e119abee140ab809e883c6"
+source = "git+https://github.com/parsanol/parsanol-rs?branch=main#1a141f1a3471ba6ce83a768354a917d4ab83d172"
 dependencies = [
  "proc-macro2",
  "quote",
