@@ -126,10 +126,10 @@ RSpec.describe "Performance Regression Tests", :performance do
 
       rule(:entry) do
         (
-           string.as(:key) >> spaces? >>
-           str(":") >> spaces? >>
-           value.as(:val)
-         ).as(:entry)
+          string.as(:key) >> spaces? >>
+          str(":") >> spaces? >>
+          value.as(:val)
+        ).as(:entry)
       end
 
       rule(:top) { spaces? >> value >> spaces? }
