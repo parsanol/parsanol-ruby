@@ -172,19 +172,21 @@ RSpec.describe "Performance Regression Tests", :performance do
         optimized = calc_parser.new
         unoptimized = unoptimized_calc_parser.new
 
+        # Pin to the Ruby backend: this spec measures the Ruby-side rule
+        # optimizer, not the native backend that parse() defaults to.
         # Warm up
         3.times do
-          optimized.parse(input)
-          unoptimized.parse(input)
+          optimized.parse(input, mode: :ruby)
+          unoptimized.parse(input, mode: :ruby)
         end
 
         # Benchmark both
         unoptimized_result = Benchmark.ips(quiet: true) do |x|
-          x.report("unoptimized") { unoptimized.parse(input) }
+          x.report("unoptimized") { unoptimized.parse(input, mode: :ruby) }
         end
 
         optimized_result = Benchmark.ips(quiet: true) do |x|
-          x.report("optimized") { optimized.parse(input) }
+          x.report("optimized") { optimized.parse(input, mode: :ruby) }
         end
 
         unoptimized_ips = unoptimized_result.entries.first.ips

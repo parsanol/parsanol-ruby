@@ -28,10 +28,19 @@ module Parsanol
       # This is a class variable to share across all transformations
       @@symbol_cache = {}
 
-      def self.transform(ast)
+      # Symbol tags from native parser
+      SEQUENCE_SYM = :sequence
+      REPETITION_SYM = :repetition
+      MAYBE_SYM = :maybe
+      MAYBE_TAG = ":maybe"
+
+      # `named` mirrors CanFlatten#flatten's named flag: inside a Named
+      # result (.as), an absent maybe flattens to nil; unnamed it flattens
+      # to "".
+      def self.transform(ast, named: false)
         case ast
         when Array
-          transform_array(ast)
+          transform_array(ast, named: named)
         when Hash
           transform_hash(ast)
         else
@@ -52,11 +61,7 @@ module Parsanol
         @@symbol_cache[key] ||= key.to_sym
       end
 
-      # Symbol tags from native parser
-      SEQUENCE_SYM = :sequence
-      REPETITION_SYM = :repetition
-
-      def self.transform_array(arr)
+      def self.transform_array(arr, named: false)
         return EMPTY_ARRAY if arr.empty? # Match Parsanol Ruby mode behavior
 
         # Check if this is a tagged array from native parser
@@ -87,6 +92,16 @@ module Parsanol
             i += 1
           end
           flatten_repetition(items)
+        elsif [MAYBE_SYM, MAYBE_TAG].include?(first)
+          # Maybe flattens to nil-or-value (named) or ""-or-value (unnamed),
+          # never to an array
+          len = arr.length
+          if len == 1
+            named ? nil : EMPTY_STRING
+          else
+            flattened = transform(arr[1])
+            named ? flattened : (flattened || EMPTY_STRING)
+          end
         elsif first.is_a?(Symbol) || (first.is_a?(String) && first.start_with?(":"))
           # Other tagged arrays - pass through
           arr.map { |item| transform(item) }
@@ -115,7 +130,7 @@ module Parsanol
         sym_key = cached_symbol(key)
 
         # Transform the value
-        transformed = transform(value)
+        transformed = transform(value, named: true)
 
         # Check if value is a tagged repetition from native parser
         is_tagged_repetition = value.is_a?(Array) && !value.empty? &&
@@ -240,7 +255,7 @@ module Parsanol
           is_repetition = value.is_a?(Array) && !value.empty? &&
             value.first.is_a?(String) && value.first == REPETITION_TAG
 
-          transformed = transform(value)
+          transformed = transform(value, named: true)
 
           result[sym_key] = if is_repetition
                               if transformed.is_a?(Array)

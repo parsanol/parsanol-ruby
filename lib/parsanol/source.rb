@@ -53,7 +53,7 @@ module Parsanol
 
       # Object pools for memory efficiency
       # SlicePool: reduces Slice allocations during matching
-      @slice_pool = Parsanol::Pools::SlicePool.new(size: 5000)
+      @slice_pool = Parsanol::Pools::SlicePool.new(size: 5000, preallocate: false)
 
       # PositionPool: reduces Position allocations for error reporting
       @position_pool = Parsanol::Pools::PositionPool.new(size: 1000)

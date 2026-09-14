@@ -151,7 +151,14 @@ module Parsanol
       # @return [Integer] Size class
       #
       def select_size_class(size)
-        SIZE_CLASSES.find { |sc| sc >= size } || next_power_of_2(size)
+        i = 0
+        n = SIZE_CLASSES.length
+        while i < n
+          return SIZE_CLASSES[i] if SIZE_CLASSES[i] >= size
+
+          i += 1
+        end
+        next_power_of_2(size)
       end
 
       # Find next power of 2 greater than or equal to n.

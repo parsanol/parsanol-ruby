@@ -129,7 +129,7 @@ RSpec.describe "Native vs Ruby Performance Benchmarks", :performance do
       grammar = Parsanol::Native.serialize_grammar(parser.root)
 
       ruby_ips = Benchmark.ips(quiet: true) do |x|
-        x.report("ruby") { parser.parse(input) }
+        x.report("ruby") { parser.parse(input, mode: :ruby) }
       end.entries.first.ips
 
       native_ips = Benchmark.ips(quiet: true) do |x|
@@ -193,7 +193,7 @@ RSpec.describe "Native vs Ruby Performance Benchmarks", :performance do
       grammar = Parsanol::Native.serialize_grammar(parser.root)
 
       ruby_ips = Benchmark.ips(quiet: true) do |x|
-        x.report("ruby") { parser.parse(input) }
+        x.report("ruby") { parser.parse(input, mode: :ruby) }
       end.entries.first.ips
 
       native_ips = Benchmark.ips(quiet: true) do |x|

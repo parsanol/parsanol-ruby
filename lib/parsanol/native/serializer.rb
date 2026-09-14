@@ -120,6 +120,7 @@ module Parsanol
           "atom" => serialize_atom(atom.parslet),
           "min" => atom.min,
           "max" => atom.max,
+          "tag" => atom.result_tag == :maybe ? "Maybe" : "Repetition",
         },
       }
     end

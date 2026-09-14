@@ -48,7 +48,11 @@ module Parsanol
         # Use _parse_raw which returns properly tagged Ruby arrays via transform_ast.
         # The batch format doesn't preserve :repetition/:sequence tags, so we use
         # the direct FFI path. Apply the Ruby transformer to handle tags correctly.
-        raw_ast = _parse_raw(grammar_json, input)
+        begin
+          raw_ast = _parse_raw(grammar_json, input)
+        rescue RuntimeError => e
+          raise_native_parse_error(e, grammar, input)
+        end
         BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice)
       end
 
@@ -69,7 +73,11 @@ module Parsanol
                          Parser.serialize_grammar(grammar)
                        end
 
-        raw_ast = _parse_fresh_raw(grammar_json, input)
+        begin
+          raw_ast = _parse_fresh_raw(grammar_json, input)
+        rescue RuntimeError => e
+          raise_native_parse_error(e, grammar, input)
+        end
         BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice)
       end
 
@@ -181,6 +189,22 @@ module Parsanol
           stats[:rust_grammar_cache_capacity] = grammar_cache_capacity
         end
         stats
+      end
+
+      # Translates a native backend failure into the Parsanol error protocol.
+      #
+      # When the grammar atom is at hand, reparses through the pure Ruby
+      # backend: a Ruby failure raises Parsanol::ParseFailed with the full
+      # cause-tree diagnostics, and a Ruby success recovers grammars the
+      # native serializer cannot express (e.g. custom atoms). For
+      # pre-serialized JSON grammars the native message is wrapped in a
+      # Parsanol::ParseFailed directly.
+      def raise_native_parse_error(error, grammar, input)
+        return grammar.parse(input) if grammar.respond_to?(:parse)
+
+        source = Parsanol::Source.new(input)
+        cause = Parsanol::Cause.new(error.message, source, source.bytepos)
+        raise Parsanol::ParseFailed.new(cause.to_s, cause)
       end
     end
   end
