@@ -40,7 +40,7 @@ INPUTS = %w[
   SO_4^2- H_2O CH_3-CH_2-OH HC#CH Na^+ Cl^-1 Ca^2+
   C_6H_12O_6 H_2O-H_2O CH_3-CH_2-CH_2-CH_3
 ].freeze
-BIG = 1000.times.map { INPUTS.sample }.join("-")
+BIG = Array.new(1000) { INPUTS.sample }.join("-")
 N_SMALL = 300
 N_BIG = 20
 

@@ -201,11 +201,9 @@ module Parsanol
 
       # Pre-serialized JSON grammar path (library authors with cached JSON).
       def parse_json_grammar(grammar_json, input)
-        begin
-          _parse_raw(grammar_json, input)
-        rescue RuntimeError => e
-          raise_native_parse_error(e, grammar_json, input)
-        end
+        _parse_raw(grammar_json, input)
+      rescue RuntimeError => e
+        raise_native_parse_error(e, grammar_json, input)
       end
 
       # Grammar-atom path: registers once and parses by Rust-side handle,
