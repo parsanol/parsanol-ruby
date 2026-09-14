@@ -28,6 +28,9 @@ module Parsanol
         :default => 1000,
       }.freeze
 
+      # Number of observed backtrack events before packrat caching engages.
+      BACKTRACK_ACTIVATION_LIMIT = 64
+
       # Creates a new parsing context.
       #
       # @param error_reporter [#err, #err_at] error reporter instance
@@ -40,7 +43,7 @@ module Parsanol
                      adaptive_cache_threshold: nil,
                      parser_class: nil)
         # Core memoization cache: position -> { atom_id -> [result, advance] }
-        @memo = Hash.new { |h, k| h[k] = {} }
+        @memo = {}
 
         # Error reporting delegate
         @reporter = error_reporter
@@ -55,7 +58,7 @@ module Parsanol
         @evict_interval = 100
 
         # Object pools for reducing allocations
-        @array_pool = Parsanol::Pools::ArrayPool.new(size: 10_000)
+        @array_pool = Parsanol::Pools::ArrayPool.new(size: 10_000, preallocate: false)
         @buffer_pool = Parsanol::Pools::BufferPool.new(pool_size: 100)
 
         # Selective memoization tracking
@@ -85,7 +88,8 @@ module Parsanol
 
         @adaptive_threshold = threshold
         @input_len = nil
-        @caching_active = nil
+        @caching_active = false
+        @backtrack_events = 0
       end
 
       # Attempts to parse using memoization. Returns cached result if available,
@@ -100,21 +104,18 @@ module Parsanol
         # Skip caching for atoms that don't benefit from it
         return atom.try(src, self, must_consume_all) unless atom.cached?
 
-        # Determine if caching should be active (lazy initialization)
-        if @caching_active.nil?
-          total_len = src.bytepos + src.chars_left
-          @input_len = total_len
-          @caching_active = total_len >= @adaptive_threshold
-        end
-
-        # For small inputs, skip caching overhead
-        return atom.try(src, self, must_consume_all) unless @caching_active
-
         # Use interval-based caching if enabled
         return try_with_interval(atom, src, must_consume_all) if @use_intervals
 
+        # Adaptive activation: packrat memoization costs more than it saves
+        # on deterministic forward-only grammars, so start uncached and only
+        # engage once real backtracking (re-parsing behind the progress
+        # frontier) is observed.
+        return try_uncached_probe(atom, src, must_consume_all) unless @caching_active
+
         pos = src.bytepos
         key = atom.object_id
+        entry = @memo[pos]
 
         # Periodic cache eviction to prevent unbounded growth
         if pos > @furthest_pos
@@ -128,10 +129,10 @@ module Parsanol
           end
         end
 
-        # Check for cache hit
-        if @memo[pos].key?(key)
+        # Check for cache hit (avoid default-block Hash allocation per probe)
+        if entry&.key?(key)
           @hit_stats[key] += 1
-          outcome, delta = @memo[pos][key]
+          outcome, delta = entry[key]
           src.bytepos = pos + delta
           return outcome
         end
@@ -144,7 +145,7 @@ module Parsanol
         # Only cache if beneficial (heuristic)
         attempts = @hit_stats[key] + @miss_stats[key]
         if attempts <= @min_hits_for_cache || @hit_stats[key].positive?
-          @memo[pos][key] =
+          (@memo[pos] ||= {})[key] =
             [outcome,
              delta]
         end
@@ -326,6 +327,21 @@ module Parsanol
       end
 
       private
+
+      # Executes an atom without memoization while watching for backtracking.
+      # A failed attempt at a position behind the progress frontier means work
+      # is being re-done; once that repeats, packrat caching engages.
+      def try_uncached_probe(atom, src, must_consume_all)
+        pos = src.bytepos
+        outcome = atom.try(src, self, must_consume_all)
+        if pos > @furthest_pos
+          @furthest_pos = pos
+        elsif !outcome[0] && pos < @furthest_pos
+          @backtrack_events += 1
+          @caching_active = true if @backtrack_events >= BACKTRACK_ACTIVATION_LIMIT
+        end
+        outcome
+      end
 
       # Lookup cached result (uses object_id for speed)
       def lookup(atom, pos)

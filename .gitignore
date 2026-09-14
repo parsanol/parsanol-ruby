@@ -7,3 +7,6 @@ lib/parsanol/parsanol_native.bundle
 Gemfile.lock
 /tmp
 TODO*.md
+
+# Local versioned native extension builds
+lib/parsanol/*/parsanol_native.bundle

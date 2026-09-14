@@ -112,10 +112,18 @@ module Parsanol
       if mode_or_opts.is_a?(Hash) && !kwargs.key?(:mode)
         # Legacy API: parse(input, options={})
         merged = mode_or_opts.merge(kwargs)
-        super(input, merged)
+        if Parsanol::Native.available? && !merged.key?(:prefix) &&
+            !merged.key?(:reporter)
+          # Native backend by default; falls back to pure Ruby inside
+          # parse_native when the extension is missing.
+          parse_native(input, merged)
+        else
+          super(input, merged)
+        end
       else
         # New API: parse(input, mode:, **options)
-        mode = kwargs.delete(:mode) || :ruby
+        mode = kwargs.delete(:mode) ||
+          (Parsanol::Native.available? ? :native : :ruby)
         case mode
         when :ruby
           super(input, kwargs)
@@ -209,7 +217,8 @@ module Parsanol
       if Parsanol::Native.available?
         Parsanol::Native.parse(root, input)
       else
-        super
+        Parsanol::Atoms::Base.instance_method(:parse).bind_call(self, input,
+                                                                opts)
       end
     end
 
