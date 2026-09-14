@@ -56,10 +56,10 @@ module MyJson
 
     rule(:entry) do
       (
-         string.as(:key) >> spaces? >>
-         str(":") >> spaces? >>
-         value.as(:val)
-       ).as(:entry)
+        string.as(:key) >> spaces? >>
+        str(":") >> spaces? >>
+        value.as(:val)
+      ).as(:entry)
     end
 
     rule(:attribute) { (entry | value).as(:attribute) }
