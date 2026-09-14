@@ -6,7 +6,6 @@
 #
 #   ruby benchmark/compare.rb
 
-require "bundler/setup" if File.exist?("Gemfile.lock")
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 
 require "benchmark"
