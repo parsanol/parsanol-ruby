@@ -92,10 +92,10 @@ RSpec.describe "Native vs Ruby Performance Benchmarks", :performance do
 
       rule(:entry) do
         (
-           string.as(:key) >> spaces? >>
-           str(":") >> spaces? >>
-           value.as(:val)
-         ).as(:entry)
+          string.as(:key) >> spaces? >>
+          str(":") >> spaces? >>
+          value.as(:val)
+        ).as(:entry)
       end
 
       rule(:top) { spaces? >> value >> spaces? }
