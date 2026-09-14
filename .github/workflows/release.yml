@@ -123,7 +123,7 @@ jobs:
         uses: oxidize-rb/actions/fetch-ci-data@v1
         with:
           supported-ruby-platforms: |
-            exclude: [arm-linux, x64-mingw32]
+            exclude: [x64-mingw32]
           stable-ruby-versions: |
             only: [3.2, 3.3, 3.4, 4.0]
 
