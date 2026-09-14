@@ -171,16 +171,15 @@ module Parsanol
         context.err_at(self, source, @min_error, source.bytepos, [v3])
       end
 
-      # General repetition with buffer pooling
+      # General repetition: builds the tagged result Array in place so
+      # finalize_result can flatten without an intermediate Buffer/LazyResult
+      # materialization.
       def try_general(source, context, consume_all)
         start_pos = source.bytepos
         occurrence = 0
-
-        # Estimate buffer size
-        estimate = [@max || 10, 10].min
-        buffer = context.acquire_buffer(size: estimate + 1)
-        buffer.push(@result_tag)
-
+        # Pre-size for the tag + a modest run; Array growth is amortized.
+        result = Array.new([@max || 8, 8].min + 1)
+        result[0] = @result_tag
         last_error = nil
 
         loop do
@@ -190,14 +189,13 @@ module Parsanol
           break unless success
 
           occurrence += 1
-          buffer.push(value)
+          result[occurrence] = value
 
           break if @max && occurrence >= @max
         end
 
         # Check minimum bound
         if occurrence < @min
-          context.release_buffer(buffer)
           source.bytepos = start_pos
           return context.err_at(self, source, @min_error, start_pos,
                                 [last_error])
@@ -205,11 +203,12 @@ module Parsanol
 
         # Check complete consumption
         if consume_all && source.chars_left.positive?
-          context.release_buffer(buffer)
           return context.err(self, source, @extra_error, [last_error])
         end
 
-        ok(Parsanol::LazyResult.new(buffer, context))
+        # Trim to the actual filled length (tag + occurrence matches).
+        result.pop(result.size - occurrence - 1) if result.size > occurrence + 1
+        ok(result)
       end
 
       # Tree memoization for GPEG-style caching
@@ -227,23 +226,21 @@ module Parsanol
 
         # Parse and cache
         occurrence = 0
-        estimate = [@max || 10, 10].min
-        buffer = context.acquire_buffer(size: estimate + 1)
-        buffer.push(@result_tag)
+        result = Array.new([@max || 8, 8].min + 1)
+        result[0] = @result_tag
 
         positions = context.acquire_array
         positions << start_pos
         last_error = nil
 
         loop do
-          source.bytepos
           success, value = @parslet.apply(source, context, false)
           last_error = value
 
           break unless success
 
           occurrence += 1
-          buffer.push(value)
+          result[occurrence] = value
           positions << source.bytepos
 
           break if @max && occurrence >= @max
@@ -252,13 +249,13 @@ module Parsanol
         # Cache successful prefix
         if occurrence.positive?
           end_pos = positions[occurrence]
-          context.store_tree_memo(cache_key, start_pos, buffer.to_a[1..],
-                                  end_pos)
+          context.store_tree_memo(cache_key, start_pos,
+                                  result[1, occurrence], end_pos)
         end
+        context.release_array(positions) if context.respond_to?(:release_array)
 
         # Check minimum
         if occurrence < @min
-          context.release_buffer(buffer)
           source.bytepos = start_pos
           return context.err_at(self, source, @min_error, start_pos,
                                 [last_error])
@@ -266,11 +263,11 @@ module Parsanol
 
         # Check consumption
         if consume_all && source.chars_left.positive?
-          context.release_buffer(buffer)
           return context.err(self, source, @extra_error, [last_error])
         end
 
-        ok(Parsanol::LazyResult.new(buffer, context))
+        result.pop(result.size - occurrence - 1) if result.size > occurrence + 1
+        ok(result)
       end
     end
   end

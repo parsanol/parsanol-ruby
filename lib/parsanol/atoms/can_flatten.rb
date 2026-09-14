@@ -65,18 +65,25 @@ module Parsanol
         raise "BUG: Unknown tag #{tag.inspect}."
       end
 
-      # Lisp style fold left where the first element builds the basis for
-      # an inject. Optimized with early return and reduced method calls.
+      # Lisp style fold left where the first non-nil element builds the
+      # basis for an inject. Nil entries are skipped in a single pass so
+      # callers do not need an intermediate #compact.
       #
       def foldl(list)
         len = list.size
-        return "" if len.zero?
-        return list[0] if len == 1 # Fast path for single element
+        i = 0
+        while i < len && list[i].nil?
+          i += 1
+        end
+        return "" if i >= len
 
-        result = list[0]
-        i = 1
+        result = list[i]
+        i += 1
+        return result if i >= len # Fast path for single non-nil element
+
         while i < len
-          result = yield(result, list[i])
+          e = list[i]
+          result = yield(result, e) unless e.nil?
           i += 1
         end
         result
@@ -87,7 +94,7 @@ module Parsanol
       # @api private
       #
       def flatten_sequence(list)
-        foldl(list.compact) do |r, e| # and then merge flat elements
+        foldl(list) do |r, e|
           merge_fold(r, e)
         end
       end
@@ -161,22 +168,65 @@ module Parsanol
         if has_hash
           # If keyed subtrees are in the array, we'll want to discard all
           # strings inbetween. To keep them, name them.
-          return list.select { |e| e.instance_of?(Hash) }
+          hashes = []
+          i = 0
+          while i < len
+            e = list[i]
+            hashes << e if e.instance_of?(Hash)
+            i += 1
+          end
+          return hashes
         end
 
         if has_array
           # If any arrays are nested in this array, flatten all arrays to this
           # level.
-          return list
-              .select { |e| e.instance_of?(Array) }
-              .flatten(1)
+          flat = []
+          i = 0
+          while i < len
+            e = list[i]
+            if e.instance_of?(Array)
+              flat.concat(e)
+            end
+            i += 1
+          end
+          return flat
         end
 
         # Consistent handling of empty lists, when we act on a named result
         return [] if named && list.empty?
 
-        # If there are only strings, concatenate them and return that.
-        foldl(list.compact) { |s, e| s + e }
+        # All-string (or Slice) repetition: join once instead of O(n)
+        # intermediate Slice allocations via repeated #+.
+        join_string_list(list)
+      end
+
+      # Join a list of string-like values into a single Slice (or String),
+      # preserving the first Slice's offset and input. Nils are skipped.
+      def join_string_list(list)
+        first_slice = nil
+        content = nil
+        i = 0
+        len = list.size
+        while i < len
+          e = list[i]
+          unless e.nil?
+            if first_slice.nil? && e.instance_of?(Parsanol::Slice)
+              first_slice = e
+            end
+            piece = e.instance_of?(Parsanol::Slice) ? e.content : e.to_s
+            if content.nil?
+              content = +piece
+            else
+              content << piece
+            end
+          end
+          i += 1
+        end
+        return "" if content.nil?
+        return first_slice.class.new(first_slice.offset, content, first_slice.input) if first_slice
+
+        content
       end
 
       # That annoying warning 'Duplicate subtrees while merging result' comes

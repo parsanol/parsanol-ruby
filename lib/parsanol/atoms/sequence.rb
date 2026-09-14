@@ -105,7 +105,7 @@ module Parsanol
         ok([:sequence, value])
       end
 
-      # Two-element sequence with buffer pooling
+      # Two-element sequence
       def match_pair(p1, p2, source, context, consume_all)
         success, v1 = p1.apply(source, context, false)
         return context.err(self, source, @fail_msg, [v1]) unless success
@@ -113,14 +113,10 @@ module Parsanol
         success, v2 = p2.apply(source, context, consume_all)
         return context.err(self, source, @fail_msg, [v2]) unless success
 
-        buffer = context.acquire_buffer(size: 3)
-        buffer.push(:sequence)
-        buffer.push(v1)
-        buffer.push(v2)
-        ok(Parsanol::LazyResult.new(buffer, context))
+        ok([:sequence, v1, v2])
       end
 
-      # Three-element sequence with buffer pooling
+      # Three-element sequence
       def match_triple(p1, p2, p3, source, context, consume_all)
         success, v1 = p1.apply(source, context, false)
         return context.err(self, source, @fail_msg, [v1]) unless success
@@ -131,20 +127,16 @@ module Parsanol
         success, v3 = p3.apply(source, context, consume_all)
         return context.err(self, source, @fail_msg, [v3]) unless success
 
-        buffer = context.acquire_buffer(size: 4)
-        buffer.push(:sequence)
-        buffer.push(v1)
-        buffer.push(v2)
-        buffer.push(v3)
-        ok(Parsanol::LazyResult.new(buffer, context))
+        ok([:sequence, v1, v2, v3])
       end
 
       # General case for N elements
       def match_general(components, source, context, consume_all)
-        buffer = context.acquire_buffer(size: components.size + 1)
-        buffer.push(:sequence)
+        n = components.size
+        result = Array.new(n + 1)
+        result[0] = :sequence
 
-        last_idx = components.size - 1
+        last_idx = n - 1
         idx = 0
 
         while idx <= last_idx
@@ -152,15 +144,14 @@ module Parsanol
           success, value = components[idx].apply(source, context, must_consume)
 
           unless success
-            context.release_buffer(buffer)
             return context.err(self, source, @fail_msg, [value])
           end
 
-          buffer.push(value)
+          result[idx + 1] = value
           idx += 1
         end
 
-        ok(Parsanol::LazyResult.new(buffer, context))
+        ok(result)
       end
 
       # Merges adjacent string atoms using Rope for efficiency
