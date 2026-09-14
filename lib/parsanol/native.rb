@@ -38,21 +38,13 @@ module Parsanol
       def parse(grammar, input)
         raise LoadError, "Native parser not available" unless available?
 
-        # Handle both grammar atoms and pre-serialized JSON strings
-        grammar_json = if grammar.is_a?(String)
-                         grammar
-                       else
-                         Parser.serialize_grammar(grammar)
-                       end
+        raw_ast =
+          if grammar.is_a?(String)
+            parse_json_grammar(grammar, input)
+          else
+            parse_atom_grammar(grammar, input)
+          end
 
-        # Use _parse_raw which returns properly tagged Ruby arrays via transform_ast.
-        # The batch format doesn't preserve :repetition/:sequence tags, so we use
-        # the direct FFI path. Apply the Ruby transformer to handle tags correctly.
-        begin
-          raw_ast = _parse_raw(grammar_json, input)
-        rescue RuntimeError => e
-          raise_native_parse_error(e, grammar, input)
-        end
         BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice)
       end
 
@@ -205,6 +197,35 @@ module Parsanol
         source = Parsanol::Source.new(input)
         cause = Parsanol::Cause.new(error.message, source, source.bytepos)
         raise Parsanol::ParseFailed.new(cause.to_s, cause)
+      end
+
+      # Pre-serialized JSON grammar path (library authors with cached JSON).
+      def parse_json_grammar(grammar_json, input)
+        begin
+          _parse_raw(grammar_json, input)
+        rescue RuntimeError => e
+          raise_native_parse_error(e, grammar_json, input)
+        end
+      end
+
+      # Grammar-atom path: registers once and parses by Rust-side handle,
+      # so steady-state calls marshal no JSON and copy no input string.
+      def parse_atom_grammar(grammar, input)
+        handle = Parser.grammar_handle(grammar)
+
+        begin
+          _parse_handle(handle, input)
+        rescue ArgumentError
+          # Handle dropped Rust-side (e.g. cache cleared): re-register once.
+          Parser.invalidate_handle(handle)
+          begin
+            _parse_handle(Parser.grammar_handle(grammar), input)
+          rescue RuntimeError => e
+            raise_native_parse_error(e, grammar, input)
+          end
+        rescue RuntimeError => e
+          raise_native_parse_error(e, grammar, input)
+        end
       end
     end
   end

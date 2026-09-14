@@ -8,6 +8,9 @@ module Parsanol
     module Parser
       GRAMMAR_HASH_CACHE = Hash.new
       GRAMMAR_CACHE = Hash.new
+      # structure-hash => Rust-side grammar handle. Keyed by content so a
+      # recycled object_id can never alias a different grammar.
+      HANDLE_CACHE = Hash.new
 
       class << self
         @cached_available = nil
@@ -40,25 +43,50 @@ module Parsanol
 
         # Serialize a Ruby grammar to JSON (cached).
         def serialize_grammar(root_atom)
-          root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
-          obj_id = root_atom.object_id
-          cache_key = GRAMMAR_HASH_CACHE[obj_id] ||= grammar_structure_hash(root_atom)
-          GRAMMAR_CACHE[cache_key] ||= GrammarSerializer.serialize(root_atom)
+          grammar_json(root_atom)
+        end
+
+        # Resolve a Rust-side handle for the grammar, registering it once.
+        # Per-call cost is the memoized structure-hash lookup plus one Hash
+        # access — no JSON marshal, no re-hash inside Rust.
+        def grammar_handle(root_atom)
+          cache_key = grammar_cache_key(root_atom)
+          HANDLE_CACHE[cache_key] ||= Native._register_grammar(grammar_json(root_atom))
+        end
+
+        # Drop a handle whose Rust-side entry no longer exists; the next
+        # grammar_handle call re-registers.
+        def invalidate_handle(handle)
+          HANDLE_CACHE.reject! { |_key, cached| cached == handle }
         end
 
         def clear_cache
           GRAMMAR_HASH_CACHE.clear
           GRAMMAR_CACHE.clear
+          HANDLE_CACHE.clear
         end
 
         def cache_stats
           {
             hash_cache_size: GRAMMAR_HASH_CACHE.size,
             grammar_cache_size: GRAMMAR_CACHE.size,
+            handle_cache_size: HANDLE_CACHE.size,
           }
         end
 
         private
+
+        def grammar_cache_key(root_atom)
+          root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
+          obj_id = root_atom.object_id
+          GRAMMAR_HASH_CACHE[obj_id] ||= grammar_structure_hash(root_atom)
+        end
+
+        def grammar_json(root_atom)
+          root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
+          cache_key = grammar_cache_key(root_atom)
+          GRAMMAR_CACHE[cache_key] ||= GrammarSerializer.serialize(root_atom)
+        end
 
         def grammar_structure_hash(atom)
           Digest::MD5.hexdigest(atom_structure(atom).to_s)
