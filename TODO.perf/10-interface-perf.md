@@ -1,6 +1,8 @@
 # 10 — Interface performance: Rust and Ruby boundary costs
 
-Status: PLANNED (2026-09-15) — baselines measured, items ranked by leverage
+Status: ITEM 1 IN FLIGHT (2026-09-16) — rs PRs #62 (merged) + #63 (open) move
+every tier onto one raw-batch decode path; ruby-side PR (lockfile refresh +
+this file) follows once rs #63 merges
 
 ## Measured baselines (2026-09-15, this machine)
 
