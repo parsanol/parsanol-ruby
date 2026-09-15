@@ -10,6 +10,8 @@ require "parsanol/native/batch_decoder"
 
 module Parsanol
   module Native
+    # ffi-gem cdylib tier: lazy — only loaded when the MRI extension is absent.
+    autoload :Ffi, "parsanol/native/ffi"
     class << self
       # Check if native extension is available
       def available?
@@ -37,6 +39,10 @@ module Parsanol
       #
       def parse(grammar, input)
         raise LoadError, "Native parser not available" unless available?
+
+        # ffi-gem tier (JRuby/TruffleRuby/no-binary MRI): same contract,
+        # batch-decoded results, single reporter-pass error fallback.
+        return Ffi.parse(grammar, input) unless Parser.extension_loaded?
 
         # Both sub-methods return the final decoded tree; on native failure
         # they fall back to the pure-Ruby parser, whose result is already
