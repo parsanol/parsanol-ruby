@@ -194,7 +194,20 @@ module Parsanol
       # pre-serialized JSON grammars the native message is wrapped in a
       # Parsanol::ParseFailed directly.
       def raise_native_parse_error(error, grammar, input)
-        return grammar.parse(input) if grammar.respond_to?(:parse)
+        if grammar.respond_to?(:parse)
+          # One interpreter pass with the error reporter attached covers
+          # both jobs: a success means the native backend could not
+          # express the grammar (recover the tree), a failure raises the
+          # parslet-compatible cause tree. The native backend has
+          # already failed, so a separate plain attempt first would be a
+          # wasted parse.
+          reporter = Parsanol::ErrorReporter::Tree.new
+          source = Parsanol::Source.new(input)
+          success, value = grammar.run_with_context(source, reporter, true)
+          return grammar.finalize_result(value) if success
+
+          value.raise
+        end
 
         source = Parsanol::Source.new(input)
         cause = Parsanol::Cause.new(error.message, source, source.bytepos)
