@@ -132,9 +132,11 @@ module Parsanol
         # Transform the value
         transformed = transform(value, named: true)
 
-        # Check if value is a tagged repetition from native parser
+        # Check if value is a tagged repetition from native parser.
+        # The Rust handle path tags with Symbols, the batch decoder with
+        # ":repetition" Strings — accept both.
         is_tagged_repetition = value.is_a?(Array) && !value.empty? &&
-          value.first.is_a?(String) && value.first == REPETITION_TAG
+          [REPETITION_SYM, REPETITION_TAG].include?(value.first)
 
         # Check RAW value for repetition pattern BEFORE transformation
         # Array with items that all have the parent key
@@ -203,13 +205,12 @@ module Parsanol
           # Empty array from repetition stays as empty array
           if transformed.empty?
             { sym_key => EMPTY_ARRAY }
-          # Check if items already have the same key (avoid double-wrapping)
-          elsif transformed.all? do |item|
-            item.is_a?(Hash) && item.key?(sym_key)
-          end
+          # Hash items already carry their own capture names — a
+          # repetition of named captures keeps them as-is (parslet
+          # semantics); only unnamed items get the parent name per item.
+          elsif transformed.all? { |item| item.is_a?(Hash) }
             { sym_key => transformed }
           else
-            # Wrap each item with the name
             { sym_key => transformed.map { |item| { sym_key => item } } }
           end
         elsif transformed.is_a?(::Parsanol::Slice) && transformed.empty?

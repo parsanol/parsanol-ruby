@@ -30,8 +30,33 @@ module Parsanol
       # @return [Object] the parsed result
       # @raise [Parsanol::ParseFailed] on parse failure
       def parse(source, options = {})
-        input = normalize_input(source)
         must_consume_all = !options[:prefix]
+
+        # Compiled-VM fast path: String input, full-consumption semantics.
+        # On failure (or unsupported grammar / budget exhaustion) fall
+        # through to the interpreter, which also produces the exact
+        # cause-tree diagnostics.
+        if must_consume_all && source.is_a?(String) &&
+            (program = VM.program_for(self))
+          result = VM.run(program, source, true)
+          if result == VM::BAIL
+            # Internal bail: fall back to the interpreter and skip the VM
+            # for this grammar from now on.
+            VM.disable_for!(self)
+          elsif result.first == :heavy
+            # Succeeded but burned >1/8 of the step budget —
+            # heavy-backtracking grammar; the memoizing interpreter is
+            # the better engine from now on.
+            VM.disable_for!(self)
+            return finalize_result(result[1])
+          elsif result.first
+            return finalize_result(result[1])
+          end
+          # Clean [false, nil]: the input does not parse — the interpreter
+          # reparse below produces the detailed cause tree.
+        end
+
+        input = normalize_input(source)
 
         # Initial parse attempt (no error collection)
         success, value = run_with_context(input, nil, must_consume_all)
