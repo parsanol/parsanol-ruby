@@ -154,18 +154,18 @@ RSpec.describe "Native vs Ruby Performance Benchmarks", :performance do
     let(:simple_json) { '{"key": "value", "number": 123}' }
     let(:nested_json) { '{"a": [1, 2, 3], "b": {"c": "d"}}' }
 
-    # NOTE: AST structure differs between Ruby and Native parsers
-    # Both produce valid parse trees, just structured differently
-    it "native parser successfully parses simple JSON" do
-      result = Parsanol::Native.parse(json_parser.new, simple_json)
-      expect(result).not_to be_nil
-    end
-
     # Sized so engine throughput dominates per-call constants; the Ruby
     # VM wins on tiny inputs, which says nothing about engine speed.
     let(:large_json) do
       items = Array.new(200) { |i| i + 1 }
       "{\"array\": [#{items.join(', ')}], \"name\": \"bench\"}"
+    end
+
+    # NOTE: AST structure differs between Ruby and Native parsers
+    # Both produce valid parse trees, just structured differently
+    it "native parser successfully parses simple JSON" do
+      result = Parsanol::Native.parse(json_parser.new, simple_json)
+      expect(result).not_to be_nil
     end
 
     it "measures speedup for simple JSON" do
