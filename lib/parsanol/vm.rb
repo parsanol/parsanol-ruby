@@ -71,9 +71,18 @@ module Parsanol
     # and may skip the VM for this grammar afterwards. A clean
     # [false, nil] means the input genuinely does not parse.
     BAIL = Object.new.freeze
+    # Step budget exhausted on the naive pass — internal to #run, which
+    # retries once with packrat memoization before giving up.
+    BUDGET = Object.new.freeze
+    # Memo marker for a subroutine currently being evaluated at a given
+    # position. Re-entry (left recursion) fails that path instead of
+    # looping forever.
+    PENDING = Object.new.freeze
 
     STEP_BUDGET_FACTOR = 200
     STEP_BUDGET_FIXED = 10_000
+    MEMO_BUDGET_FACTOR = 4_096
+    MEMO_BUDGET_CELLS_FACTOR = 16
 
     class << self
       @programs = {}
@@ -108,13 +117,27 @@ module Parsanol
 
       def clear_program_cache
         @programs&.clear
+        @heavy&.clear
       end
 
       # Compiles the grammar rooted at +atom+. Returns the flat program
       # Array, or nil when the grammar uses unsupported atoms.
       def compile(atom)
+        program = compile_with_inline(atom, true)
+        # Inlining duplicates every non-recursive rule body at each
+        # reference site; grammars with many cross-referencing rules
+        # explode past the program cap even though the atom tree is
+        # modest. Recompiling with inlining off (each rule a CALL/RET
+        # subroutine) keeps the program O(atoms) at a small per-rule
+        # dispatch cost — far better than refusing the grammar outright.
+        return program unless program == :oversize
+
+        compile_with_inline(atom, false)
+      end
+
+      def compile_with_inline(atom, inline)
         root = atom.is_a?(Parsanol::Parser) ? atom.root : atom
-        compiler = Compiler.new
+        compiler = Compiler.new(inline: inline)
         return nil unless compiler.compile_atom(root, true)
 
         # HALT terminates the MAIN program; subroutines follow it so the
@@ -128,8 +151,58 @@ module Parsanol
       # Executes a compiled program. Returns [true, value] on success;
       # [false, nil] on failure or budget exhaustion — callers fall back
       # to the interpreter, which reproduces exact diagnostics.
+      #
+      # Heavy-backtracking grammars get a second chance: the naive pass
+      # runs without memoization (zero overhead on the happy path), and
+      # only if it blows the step budget does a memoized pass run. The
+      # memo converts repeated rule+position work into single entries, so
+      # grammars that the interpreter needed (slow) memoization for now
+      # run at VM speed.
       def run(program, input, consume_all)
-        Executor.new(program, input, consume_all).execute
+        executor = Executor.new(program, input, consume_all)
+        result = executor.execute
+        if result.equal?(BUDGET)
+          executor = Executor.new(program, input, consume_all, memoize: true)
+          result = executor.execute
+          result = BAIL if result.equal?(BUDGET)
+        end
+        result
+      end
+
+      # Grammar-aware entry used by Base#parse. Grammars that have shown
+      # heavy-backtracking behavior (budget bust, or a success that
+      # burned the step-density threshold) memoize from the first
+      # instruction on subsequent parses, skipping the doomed naive
+      # pass; a heavy success is retried memoized in the same call so
+      # the VM keeps the grammar instead of surrendering it to the
+      # interpreter.
+      def run_for(atom, program, input, consume_all)
+        root = atom.is_a?(Parsanol::Parser) ? atom.root : atom
+        id = root.object_id
+        heavy = (@heavy ||= {})
+        if heavy[id]
+          result = Executor.new(program, input, consume_all,
+                                memoize: true).execute
+          return BAIL if result.equal?(BUDGET)
+
+          return result
+        end
+
+        result = Executor.new(program, input, consume_all).execute
+        if result.equal?(BUDGET) ||
+            (result.is_a?(Array) && result.first == :heavy)
+          heavy[id] = true
+          memo_result = Executor.new(program, input, consume_all,
+                                     memoize: true).execute
+          # A heavy naive success already answered; the memo pass only
+          # proves the grammar stays VM-viable (BUDGET would bail to the
+          # interpreter). When the naive pass never answered, the memo
+          # pass's outcome is the result.
+          return BAIL if memo_result.equal?(BUDGET)
+
+          result = memo_result if result.equal?(BUDGET)
+        end
+        result
       end
 
       # Converts the VM value tree into the interpreter's value tree.
@@ -159,8 +232,9 @@ module Parsanol
     # as subroutines, keyed by [body object_id, consume_all] so spine
     # sites (consume_all=true) and inner sites stay semantically distinct.
     class Compiler
-      def initialize
+      def initialize(inline: true)
         @ops = []
+        @inline = inline
         @subs = {}      # [obj_id, flag] => pc or :pending
         @pending = {}   # [obj_id, flag] => [[call_idx, body], ...]
       end
@@ -168,7 +242,7 @@ module Parsanol
       attr_reader :ops
 
       def to_program
-        return nil if @ops.size > MAX_PROGRAM
+        return :oversize if @ops.size > MAX_PROGRAM
 
         @ops.flatten!(1)
       end
@@ -244,7 +318,21 @@ module Parsanol
 
           emit(DROP)
           self
-          # Dynamic, Capture, Scope, Cut, Custom, Infix, unknown
+        when Parsanol::Atoms::Scope
+          # Scope only affects capture state; the result tree is the
+          # inner atom's tree unchanged. The block is pure DSL evaluated
+          # once at compile time. Any Capture/Dynamic inside still fails
+          # compilation on its own, so passthrough cannot diverge.
+          inner = begin
+            atom.block.call
+          rescue StandardError
+            nil
+          end
+          return nil if inner.nil?
+          return nil unless compile_atom(inner, consume_all)
+
+          self
+          # Dynamic, Capture, Cut, Custom, Infix, unknown
         end
       end
 
@@ -401,7 +489,7 @@ module Parsanol
         # round trip entirely. A body currently being compiled (directly
         # or indirectly) is recursive and must stay a subroutine.
         # rubocop:disable Lint/HashCompareByIdentity -- object_id keys; would otherwise pin every atom alive
-        unless (@compiling ||= {})[body.object_id]
+        if @inline && !(@compiling ||= {})[body.object_id]
           @compiling[body.object_id] = true
           # rubocop:enable Lint/HashCompareByIdentity
           result = compile_atom(body, consume_all)
@@ -456,10 +544,11 @@ module Parsanol
     # (with its adaptive memoization) is the better engine; #run reports
     # this via :heavy so Base#parse can skip the VM for the grammar.
     class Executor
-      def initialize(program, input, consume_all)
+      def initialize(program, input, consume_all, memoize: false)
         @ops = program
         @input = input
         @consume_all = consume_all
+        @memoize = memoize
       end
 
       def execute # rubocop:disable Metrics/MethodLength, Metrics/BlockLength, Metrics/BlockNesting -- single dispatch loop; hot path
@@ -471,7 +560,15 @@ module Parsanol
         # interpreter's Source#matches? semantics exactly.
         scanner = StringScanner.new(input)
         n = bytes.size
-        budget = (STEP_BUDGET_FACTOR * n) + STEP_BUDGET_FIXED
+        # The memoized pass is polynomial (bounded by distinct rule ×
+        # position pairs); give it room proportional to grammar + input so
+        # packrat coverage of failing inputs isn't cut short.
+        budget = if @memoize
+                   (MEMO_BUDGET_CELLS_FACTOR * ops.size) +
+                     (MEMO_BUDGET_FACTOR * n) + STEP_BUDGET_FIXED
+                 else
+                   (STEP_BUDGET_FACTOR * n) + STEP_BUDGET_FIXED
+                 end
         steps = 0
 
         pc = 0
@@ -481,13 +578,24 @@ module Parsanol
         frames = []
         calls = []
 
+        memo = @memoize ? {} : nil
+        memo_stack = []
+        trace = ENV["VM_TRACE"] ? [] : nil
+
         # rubocop:disable-next Metrics/BlockLength -- the dispatch loop IS execute
         loop do
           steps += 1
-          return BAIL if steps > budget
+          if steps > budget
+            if trace
+              warn "BUDGET at steps=#{steps} pc=#{pc} pos=#{pos} rstack=#{rstack.size} bt=#{bt.size} calls=#{calls.size}"
+              warn "trace tail: #{trace.last(30).inspect}"
+            end
+            return BUDGET
+          end
+          trace << [pc, pos] if trace
 
           if pc == FAIL
-            pc, pos = unwind(bt, rstack, frames, calls)
+            pc, pos = unwind(bt, rstack, frames, calls, memo, memo_stack)
             return [false, nil] if pc == :fail
             return BAIL if pc == :bail
 
@@ -579,11 +687,45 @@ module Parsanol
             rstack << VM::NamedValue.new(ops[pc + 1], rstack.pop)
             pc += 4
           when CALL
+            sub = ops[pc + 1]
+            if memo
+              table = (memo[sub] ||= {})
+              hit = table[pos]
+              if hit
+                if hit.equal?(PENDING) || hit.equal?(:fail)
+                  # :fail — the body already failed at this position;
+                  # replay the failure without re-running it.
+                  # PENDING — re-entry at the same rule+position (left
+                  # recursion); the interpreter loops forever here, so
+                  # failing this path keeps the VM bounded.
+                  pc = FAIL
+                  next
+                end
+                # Memo hit: replay the subroutine's stack effect without
+                # executing it. Values are immutable (packed spans,
+                # NamedValue, frozen-shape Arrays), so sharing is safe.
+                rstack.concat(hit[1])
+                pos = hit[0]
+                pc += 4
+                next
+              end
+
+              table[pos] = PENDING
+              # Lockstep with calls: unwind rolls both back by clen.
+              memo_stack << sub << pos << rstack.size
+            end
             calls << (pc + 4)
-            pc = ops[pc + 1]
+            pc = sub
           when RET
             pc = calls.pop
             return BAIL if pc.nil?
+
+            if memo
+              mlen = memo_stack.pop
+              mpos = memo_stack.pop
+              msub = memo_stack.pop
+              memo[msub][mpos] = [pos, rstack[mlen..]]
+            end
           when LOOK_POS
             bt << ops[pc + 1] << pos << rstack.size << frames.size << calls.size << K_LOOK_FAIL
             pc += 4
@@ -735,6 +877,8 @@ module Parsanol
                   values << [:maybe]
                 end
               when RUN_RE
+                elem_start = pos
+                count = 0
                 loop do
                   b = bytes[pos]
                   m = if kb && b && b < 128
@@ -746,12 +890,19 @@ module Parsanol
                       end
                   break unless m
 
+                  count += 1
                   w = CHAR_WIDTH[b]
                   w = char_width_slow(input, pos) if w.zero?
                   values << ((pos << 20) | w)
                   pos += w
                 end
+                if count < kc
+                  pos = elem_start
+                  failed = true
+                end
               when RUN_STR
+                elem_start = pos
+                count = 0
                 loop do
                   i = 0
                   ln = kb
@@ -765,8 +916,13 @@ module Parsanol
                   end
                   break unless m
 
+                  count += 1
                   values << ((pos << 20) | ln)
                   pos += ln
+                end
+                if count < kc
+                  pos = elem_start
+                  failed = true
                 end
               end
               break if failed
@@ -878,6 +1034,10 @@ module Parsanol
             value = VM.materialize(rstack[0], input)
             # More than ~100 steps per input byte means heavy
             # backtracking; the memoizing interpreter wins there.
+            if @memoize
+              return [true, value]
+            end
+
             return steps > (n << 9) + 1000 ? [:heavy, value] : [true, value]
           else
             return BAIL
@@ -890,7 +1050,7 @@ module Parsanol
       # Unwind one backtrack entry. Returns [pc, pos] or :fail. Repetition
       # entries with count >= min complete their tagged array and jump to
       # the exit continuation with the last iteration end position.
-      def unwind(bt, rstack, frames, calls) # rubocop:disable Naming/MethodParameterName -- stack register names
+      def unwind(bt, rstack, frames, calls, memo, memo_stack) # rubocop:disable Naming/MethodParameterName -- stack register names
         return :fail if bt.empty?
 
         # Everything above this entry belongs to constructs being
@@ -910,6 +1070,24 @@ module Parsanol
 
         rstack.slice!(rlen..) if rstack.size > rlen
         calls.slice!(clen..) if calls.size > clen
+        if memo
+          # memo_stack carries three slots per live call, so the frames of
+          # every call abandoned by this unwind are the tail above 3*clen.
+          # Every abandoned frame is a call whose body failed — cache that
+          # failure too (full packrat memoization), so later explorations
+          # that reach the same rule+position fail immediately instead of
+          # re-running the body. Grammar inputs that don't parse explore
+          # every alternative; without failure entries those explorations
+          # repeat exponentially and blow the step budget.
+          floor = clen * 3
+          while memo_stack.size > floor
+            memo_stack.pop
+            mpos = memo_stack.pop
+            msub = memo_stack.pop
+            table = memo[msub]
+            table[mpos] = :fail if table
+          end
+        end
 
         case kind
         when K_ALT
@@ -930,7 +1108,7 @@ module Parsanol
             check_full = @ops[epc + 2]
             if check_full == 1 && end_pos != @input.bytesize
               frames.slice!(cbase..)
-              unwind(bt, rstack, frames, calls)
+              unwind(bt, rstack, frames, calls, memo, memo_stack)
             else
               values = rstack.pop(rstack.size - rbase)
               values.unshift(tag)
@@ -940,11 +1118,11 @@ module Parsanol
             end
           else
             frames.slice!(cbase..)
-            unwind(bt, rstack, frames, calls)
+            unwind(bt, rstack, frames, calls, memo, memo_stack)
           end
         when K_LOOK_FAIL
           frames.slice!(cbase..) if frames.size > cbase
-          unwind(bt, rstack, frames, calls)
+          unwind(bt, rstack, frames, calls, memo, memo_stack)
         when K_NEG
           # Negative lookahead body failed -> lookahead succeeds.
           frames.slice!(cbase..) if frames.size > cbase
