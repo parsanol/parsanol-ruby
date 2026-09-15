@@ -180,6 +180,11 @@ module Parsanol
       # Alias for ok (legacy compatibility)
       alias succ ok
 
+      # Finalizes result by flattening.
+      def finalize_result(value)
+        flatten(value)
+      end
+
       private
 
       # Converts raw input to Source if needed.
@@ -217,11 +222,6 @@ module Parsanol
         raise "Invariant violation: parse succeeded during error reporting" if success
 
         cause.raise
-      end
-
-      # Finalizes result by flattening.
-      def finalize_result(value)
-        flatten(value)
       end
     end
   end
