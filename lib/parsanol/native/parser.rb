@@ -18,7 +18,7 @@ module Parsanol
         def available?
           return @cached_available unless @cached_available.nil?
 
-          @cached_available = begin
+          @ext_loaded = begin
             # Try versioned path first (released gem), then non-versioned (local dev)
             ruby_version = RUBY_VERSION.split(".").take(2).join(".")
             begin
@@ -30,6 +30,13 @@ module Parsanol
           rescue LoadError
             false
           end
+          @cached_available = @ext_loaded || Ffi.available?
+        end
+
+        # True when the MRI C-API extension is loaded; false when the
+        # engine runs through the ffi-gem cdylib tier instead.
+        def extension_loaded?
+          @ext_loaded ? true : false
         end
 
         # Parse input with a Ruby grammar, returning clean AST.

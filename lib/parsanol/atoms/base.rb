@@ -148,6 +148,13 @@ module Parsanol
         to_s(TOP)
       end
 
+      # Finalizes result by flattening. Public: the native error
+      # fallback (both extension and ffi tiers) calls it cross-object to
+      # finalize a recovered tree.
+      def finalize_result(value)
+        flatten(value)
+      end
+
       protected
 
       # Pre-allocated constant result tuples
@@ -179,11 +186,6 @@ module Parsanol
 
       # Alias for ok (legacy compatibility)
       alias succ ok
-
-      # Finalizes result by flattening.
-      def finalize_result(value)
-        flatten(value)
-      end
 
       private
 
