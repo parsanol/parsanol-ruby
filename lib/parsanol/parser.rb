@@ -109,32 +109,36 @@ module Parsanol
     #   result[:name].to_s           # => "hello"
     #
     def parse(input, mode_or_opts = {}, **kwargs)
-      if mode_or_opts.is_a?(Hash) && !kwargs.key?(:mode)
-        # Legacy API: parse(input, options={})
-        merged = mode_or_opts.merge(kwargs)
-        if Parsanol::Native.available? && !merged.key?(:prefix) &&
-            !merged.key?(:reporter)
-          # Native backend by default; falls back to pure Ruby inside
-          # parse_native when the extension is missing.
-          parse_native(input, merged)
+      opts =
+        if mode_or_opts.is_a?(Hash)
+          mode_or_opts.merge(kwargs)
+        elsif mode_or_opts.nil?
+          kwargs
         else
-          super(input, merged)
+          # New API: parse(input, :mode, **options)
+          kwargs[:mode] = mode_or_opts
+          kwargs
         end
+      # parse(input, {mode: :ruby, ...}) is the same call shape a subclass
+      # forwarding options via super produces; :mode must be honored
+      # wherever it appears, or those callers silently get the native path.
+      mode = opts.delete(:mode) ||
+        (if Parsanol::Native.available? && !opts.key?(:prefix) &&
+              !opts.key?(:reporter)
+           :native
+         else
+           :ruby
+         end)
+      case mode
+      when :ruby
+        super(input, opts)
+      when :native
+        parse_native(input, opts)
+      when :json
+        parse_json(input, opts)
       else
-        # New API: parse(input, mode:, **options)
-        mode = kwargs.delete(:mode) ||
-          (Parsanol::Native.available? ? :native : :ruby)
-        case mode
-        when :ruby
-          super(input, kwargs)
-        when :native
-          parse_native(input, kwargs)
-        when :json
-          parse_json(input, kwargs)
-        else
-          raise ArgumentError,
-                "Unknown mode: #{mode}. Valid modes: :ruby, :native, :json"
-        end
+        raise ArgumentError,
+              "Unknown mode: #{mode}. Valid modes: :ruby, :native, :json"
       end
     end
 

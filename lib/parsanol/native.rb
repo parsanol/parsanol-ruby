@@ -38,14 +38,14 @@ module Parsanol
       def parse(grammar, input)
         raise LoadError, "Native parser not available" unless available?
 
-        raw_ast =
-          if grammar.is_a?(String)
-            parse_json_grammar(grammar, input)
-          else
-            parse_atom_grammar(grammar, input)
-          end
-
-        BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice)
+        # Both sub-methods return the final decoded tree; on native failure
+        # they fall back to the pure-Ruby parser, whose result is already
+        # final and must not be transformed again.
+        if grammar.is_a?(String)
+          parse_json_grammar(grammar, input)
+        else
+          parse_atom_grammar(grammar, input)
+        end
       end
 
       # Memory-bounded parsing without packrat cache.
@@ -65,12 +65,14 @@ module Parsanol
                          Parser.serialize_grammar(grammar)
                        end
 
+        # Decode here, not around the fallback: raise_native_parse_error
+        # returns the Ruby parser's already-final tree on success.
         begin
-          raw_ast = _parse_fresh_raw(grammar_json, input)
+          BatchDecoder.decode_and_flatten(_parse_fresh_raw(grammar_json, input),
+                                          input, Parsanol::Slice)
         rescue RuntimeError => e
           raise_native_parse_error(e, grammar, input)
         end
-        BatchDecoder.decode_and_flatten(raw_ast, input, Parsanol::Slice)
       end
 
       # Parse and return RAW AST without transformation.
@@ -201,7 +203,8 @@ module Parsanol
 
       # Pre-serialized JSON grammar path (library authors with cached JSON).
       def parse_json_grammar(grammar_json, input)
-        _parse_raw(grammar_json, input)
+        BatchDecoder.decode_and_flatten(_parse_raw(grammar_json, input),
+                                        input, Parsanol::Slice)
       rescue RuntimeError => e
         raise_native_parse_error(e, grammar_json, input)
       end
@@ -212,12 +215,16 @@ module Parsanol
         handle = Parser.grammar_handle(grammar)
 
         begin
-          _parse_handle(handle, input)
+          BatchDecoder.decode_and_flatten(_parse_handle(handle, input),
+                                          input, Parsanol::Slice)
         rescue ArgumentError
           # Handle dropped Rust-side (e.g. cache cleared): re-register once.
           Parser.invalidate_handle(handle)
           begin
-            _parse_handle(Parser.grammar_handle(grammar), input)
+            BatchDecoder.decode_and_flatten(
+              _parse_handle(Parser.grammar_handle(grammar), input),
+              input, Parsanol::Slice
+            )
           rescue RuntimeError => e
             raise_native_parse_error(e, grammar, input)
           end
