@@ -208,7 +208,7 @@ module Parsanol
           # Hash items already carry their own capture names — a
           # repetition of named captures keeps them as-is (parslet
           # semantics); only unnamed items get the parent name per item.
-          elsif transformed.all? { |item| item.is_a?(Hash) }
+          elsif transformed.all?(Hash)
             { sym_key => transformed }
           else
             { sym_key => transformed.map { |item| { sym_key => item } } }
