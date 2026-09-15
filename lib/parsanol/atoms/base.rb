@@ -35,20 +35,15 @@ module Parsanol
         # Compiled-VM fast path: String input, full-consumption semantics.
         # On failure (or unsupported grammar / budget exhaustion) fall
         # through to the interpreter, which also produces the exact
-        # cause-tree diagnostics.
+        # cause-tree diagnostics. run_for memoizes heavy-backtracking
+        # grammars transparently.
         if must_consume_all && source.is_a?(String) &&
             (program = VM.program_for(self))
-          result = VM.run(program, source, true)
+          result = VM.run_for(self, program, source, true)
           if result == VM::BAIL
             # Internal bail: fall back to the interpreter and skip the VM
             # for this grammar from now on.
             VM.disable_for!(self)
-          elsif result.first == :heavy
-            # Succeeded but burned >1/8 of the step budget —
-            # heavy-backtracking grammar; the memoizing interpreter is
-            # the better engine from now on.
-            VM.disable_for!(self)
-            return finalize_result(result[1])
           elsif result.first
             return finalize_result(result[1])
           end
