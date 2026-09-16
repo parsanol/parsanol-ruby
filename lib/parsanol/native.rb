@@ -10,6 +10,11 @@ require "parsanol/native/batch_decoder"
 
 module Parsanol
   module Native
+    # Raised when a grammar uses atoms the Rust backend cannot express.
+    # Failing at registration (TODO.perf/8 item 4) instead of planting a
+    # never-matching placeholder that explodes mid-parse.
+    class UnsupportedGrammar < ArgumentError; end
+
     # ffi-gem cdylib tier: lazy — only loaded when the MRI extension is absent.
     autoload :Ffi, "parsanol/native/ffi"
     # Dynamic-atom callbacks: autoloaded so the serializer's reference
