@@ -123,8 +123,7 @@ module Parsanol
       # forwarding options via super produces; :mode must be honored
       # wherever it appears, or those callers silently get the native path.
       mode = opts.delete(:mode) ||
-        (if Parsanol::Native.available? && !opts.key?(:prefix) &&
-              !opts.key?(:reporter)
+        (if Parsanol::Native.available? && !opts.key?(:reporter)
            :native
          else
            :ruby
@@ -219,6 +218,11 @@ module Parsanol
     #
     def parse_native(input, opts)
       if Parsanol::Native.available?
+        if opts.key?(:prefix) && opts[:prefix]
+          value, _end_pos = Parsanol::Native.parse_prefix(root, input)
+          return value
+        end
+
         Parsanol::Native.parse(root, input)
       else
         Parsanol::Atoms::Base.instance_method(:parse).bind_call(self, input,
