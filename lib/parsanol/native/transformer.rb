@@ -345,7 +345,8 @@ module Parsanol
                 # Example: merged_hash={namedTypeOrRename: A}, array=[{namedTypeOrRename: B}]
                 # → should produce [{namedTypeOrRename: A}, {namedTypeOrRename: B}]
                 existing_keys = merged_hash.keys
-                shares_keys = item.any? do |sub_item|
+                repeated_keys = item.flat_map(&:keys).tally.any? { |_key, count| count > 1 }
+                shares_keys = repeated_keys || item.any? do |sub_item|
                   sub_item.is_a?(Hash) && sub_item.keys.intersect?(existing_keys)
                 end
 
