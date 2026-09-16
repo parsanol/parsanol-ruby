@@ -123,11 +123,7 @@ module Parsanol
       # forwarding options via super produces; :mode must be honored
       # wherever it appears, or those callers silently get the native path.
       mode = opts.delete(:mode) ||
-        (if Parsanol::Native.available? && !opts.key?(:reporter)
-           :native
-         else
-           :ruby
-         end)
+        (Parsanol::Native.available? ? :native : :ruby)
       case mode
       when :ruby
         super(input, opts)
@@ -217,17 +213,33 @@ module Parsanol
     # @return [Object] parse result with Slice objects for position info
     #
     def parse_native(input, opts)
-      if Parsanol::Native.available?
-        if opts.key?(:prefix) && opts[:prefix]
-          value, _end_pos = Parsanol::Native.parse_prefix(root, input)
-          return value
-        end
-
-        Parsanol::Native.parse(root, input)
-      else
+      unless Parsanol::Native.available?
         Parsanol::Atoms::Base.instance_method(:parse).bind_call(self, input,
                                                                 opts)
+        return
       end
+
+      if opts.key?(:prefix) && opts[:prefix]
+        value, _end_pos = Parsanol::Native.parse_prefix(root, input)
+        return value
+      end
+
+      Parsanol::Native.parse(root, input)
+    rescue Parsanol::ParseFailed => e
+      feed_native_reporter(opts[:reporter], input, e)
+      raise
+    end
+
+    # Feed the native deepest-failure diagnostics to a user-supplied
+    # reporter: one err_at event carrying the cause the native engine
+    # already produced. The full per-atom event stream of the Ruby
+    # engine remains available via an explicit `mode: :ruby`.
+    def feed_native_reporter(reporter, input, error)
+      return unless reporter.respond_to?(:err_at)
+
+      source = Parsanol::Source.new(input)
+      cause = error.parse_failure_cause
+      reporter.err_at(nil, source, error.message, cause ? cause.position : 0)
     end
 
     # JSON output mode - returns JSON with position info.

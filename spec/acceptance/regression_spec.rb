@@ -333,6 +333,9 @@ describe "Regressions from real examples" do
     end
 
     it "fails gracefully on a missing end (deepest reporter)" do
+      # Exact reporter trees come from the Ruby engine's full event
+      # stream; native mode feeds one deepest-failure event (see the
+      # native reporter specs).
       error = catch_failed_parse do
         subject.parse('
             begin a
@@ -343,7 +346,8 @@ describe "Regressions from real examples" do
               end
             end
           ',
-                      reporter: Parsanol::ErrorReporter::Deepest.new)
+                      reporter: Parsanol::ErrorReporter::Deepest.new,
+                      mode: :ruby)
       end
 
       expect(di(error.ascii_tree)).to eq(di(%q(
