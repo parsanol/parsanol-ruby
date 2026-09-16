@@ -12,6 +12,9 @@ module Parsanol
   module Native
     # ffi-gem cdylib tier: lazy — only loaded when the MRI extension is absent.
     autoload :Ffi, "parsanol/native/ffi"
+    # Dynamic-atom callbacks: autoloaded so the serializer's reference
+    # never raises NameError into the silent :ruby fallback (issue #38).
+    autoload :Dynamic, "parsanol/native/dynamic"
     class << self
       # Check if native extension is available
       def available?
