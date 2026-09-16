@@ -202,14 +202,29 @@ module Parsanol
       # native serializer cannot express (e.g. custom atoms). For
       # pre-serialized JSON grammars the native message is wrapped in a
       # Parsanol::ParseFailed directly.
+      NATIVE_POS_MARKER = /\n@@parsanol_pos:(\d+)\z/
+
       def raise_native_parse_error(error, grammar, input)
+        # Native diagnostics: the Rust tracker reports the deepest
+        # failure position and the terminals expected there. Build the
+        # cause from that directly — the failure path never needs a
+        # reporter reparse. The single interpreter pass below stays only
+        # to recover inputs from grammars native cannot express.
+        if grammar.respond_to?(:parse) && (m = error.message.match(NATIVE_POS_MARKER))
+          source = Parsanol::Source.new(input)
+          success, value = grammar.run_with_context(source, nil, true)
+          return grammar.finalize_result(value) if success
+
+          pos = m[1].to_i
+          msg = error.message.sub(NATIVE_POS_MARKER, "")
+          cause = Parsanol::Cause.new(msg, source, pos)
+          raise Parsanol::ParseFailed.new(cause.to_s, cause)
+        end
+
         if grammar.respond_to?(:parse)
-          # One interpreter pass with the error reporter attached covers
-          # both jobs: a success means the native backend could not
-          # express the grammar (recover the tree), a failure raises the
-          # parslet-compatible cause tree. The native backend has
-          # already failed, so a separate plain attempt first would be a
-          # wasted parse.
+          # No native diagnostics (e.g. incomplete-input errors): one
+          # interpreter pass with the reporter attached — a success
+          # recovers the tree, a failure raises the cause tree.
           reporter = Parsanol::ErrorReporter::Tree.new
           source = Parsanol::Source.new(input)
           success, value = grammar.run_with_context(source, reporter, true)
