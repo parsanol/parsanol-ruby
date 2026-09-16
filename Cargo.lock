@@ -253,7 +253,6 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 [[package]]
 name = "parsanol"
 version = "0.5.1"
-source = "git+https://github.com/parsanol/parsanol-rs?branch=main#9076b51c4a6a4921751fbc59674d3769637b526f"
 dependencies = [
  "ahash",
  "getrandom 0.3.4",
@@ -270,7 +269,6 @@ dependencies = [
 [[package]]
 name = "parsanol-derive"
 version = "0.5.1"
-source = "git+https://github.com/parsanol/parsanol-rs?branch=main#9076b51c4a6a4921751fbc59674d3769637b526f"
 dependencies = [
  "proc-macro2",
  "quote",
