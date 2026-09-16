@@ -7,6 +7,37 @@ Status: MANDATED (2026-09-15); not yet implemented
 When the native extension loads and no explicit `mode: :ruby` was given,
 Rust must handle ALL modes itself. Ruby parsing is never used as a fallback.
 
+## Implementation plan for item 1 (cause trees) — designed 2026-09-16
+
+The Rust `ParseError` today carries only `Failed { position }`. Parslet-style
+cause trees need, per parse attempt that fails:
+
+1. **Failure tracking in `PortableParser`**: a `deepest: Option<(usize /*pos*/,
+   Vec<AtomLabel>)>` updated in the `try_atom` failure path. Labels come from
+   a new `Atom::label(&self) -> Option<String>` (Str -> the literal, Re -> the
+   pattern, Named -> the name, Entity -> rule name) mirroring how the Ruby
+   interpreter names expectations. Only track while deeper than the current
+   best, so the hot path stays a single compare.
+2. **Error payload**: extend `ParseError::Failed` to `Failed { position,
+   expected: Vec<String> }` (serde-default so the batch/JSON surfaces stay
+   compatible), populate from `deepest` in `parse()`'s failure branch.
+3. **FFI contract**: `parse_handle` failure returns `(position, [labels])`
+   (Rust builds a small RArray on failure only — the success path stays
+   untouched).
+4. **Ruby side**: `Parsanol::Native::Parser.parse` builds
+   `Parsanol::Cause` from `(position, labels)` — a new
+   `Cause.from_native(position, labels, source)` constructor — and raises
+   `ParseFailed` directly. Delete the reporter-pass fallback in
+   `raise_native_parse_error` (keep the interpreter path only for
+   coverage-gap recovery, which success-side stays).
+5. **Validation gate**: message-for-message equality with the interpreter's
+   two-pass diagnostics across the pubid (7576) + asciichem + molecule
+   corpora; failure messages are part of the public contract (pubid wraps
+   `#parse_failure_cause`).
+
+Estimate: one focused session. Do NOT land partial — the moment cause
+construction diverges, `Cause#ascii_tree` output changes for every user.
+
 ## Current fallback sites (parse_native / Native.parse) and what parity needs
 
 1. **Parse failure → Ruby reparse for the cause tree.** The Rust executor
