@@ -123,7 +123,7 @@ module Parsanol
       # forwarding options via super produces; :mode must be honored
       # wherever it appears, or those callers silently get the native path.
       mode = opts.delete(:mode) ||
-        (Parsanol::Native.available? ? :native : :ruby)
+        (Parsanol::Native.available? && native_expressible? ? :native : :ruby)
       case mode
       when :ruby
         super(input, opts)
@@ -228,6 +228,23 @@ module Parsanol
     rescue Parsanol::ParseFailed => e
       feed_native_reporter(opts[:reporter], input, e)
       raise
+    end
+
+    # Engine selection for the default mode, decided at registration
+    # time (never mid-parse): grammars the Rust backend cannot express
+    # run on the Ruby engine, announced once per grammar — loud, not a
+    # silent parse-time fallback. An explicit mode: :native still raises
+    # UnsupportedGrammar from registration.
+    def native_expressible?
+      Parsanol::Native::Parser.grammar_handle(root)
+      true
+    rescue Parsanol::Native::UnsupportedGrammar => e
+      warned = (@@unsupported_warned ||= {}.compare_by_identity)
+      unless warned.key?(root)
+        warned[root] = true
+        warn "parsanol: parsing with the Ruby engine (#{e.message})"
+      end
+      false
     end
 
     # Feed the native deepest-failure diagnostics to a user-supplied

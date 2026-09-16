@@ -63,6 +63,8 @@ module Parsanol
                      serialize_scope(atom)
                    when Parsanol::Atoms::Dynamic
                      serialize_dynamic(atom)
+                   when Parsanol::Atoms::Ignored
+                     serialize_ignored(atom)
                    else
                      # Fallback for unknown atom types
                      serialize_unknown(atom)
@@ -239,12 +241,20 @@ module Parsanol
       }
     end
 
-    def serialize_unknown(_atom)
-      # For unsupported atom types, create a placeholder
-      # This will cause a parse error at runtime
+    def serialize_unknown(atom)
+      # Fail fast at registration (TODO.perf/8 item 4): a never-matching
+      # placeholder here used to turn into a parse-time failure that the
+      # native tier silently recovered from with a full Ruby reparse.
+      raise Parsanol::Native::UnsupportedGrammar,
+            "the native backend cannot express #{atom.class} atoms; " \
+            "parse this grammar with mode: :ruby"
+    end
+
+    def serialize_ignored(atom)
+      inner_id = serialize_atom(atom.wrapped_atom)
       {
-        "Str" => {
-          "pattern" => "", # Empty pattern that will never match
+        "Ignore" => {
+          "atom" => inner_id,
         },
       }
     end
