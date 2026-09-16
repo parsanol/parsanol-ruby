@@ -280,12 +280,15 @@ describe "Regressions from real examples" do
     end
 
     it "fails gracefully on a missing end" do
+      # Exact cause trees are the Ruby engine's diagnostics contract;
+      # the native engine reports the deepest expected-set (see the
+      # native cause parity specs).
       error = catch_failed_parse do
         subject.parse('
           begin a
             begin b
           end
-        ')
+        ', mode: :ruby)
       end
 
       expect(di(error.ascii_tree)).to eq(di("
@@ -293,6 +296,23 @@ describe "Regressions from real examples" do
         `- Failed to match sequence (SP? 'begin' SP [a-z] NL BODY SP? 'end') at line 5 char 9.
            `- Unexpected end of input at line 5 char 9.
         "))
+    end
+
+    it "reports the same failure position under native" do
+      input = '
+          begin a
+            begin b
+          end
+        '
+      ruby_error = catch_failed_parse { subject.parse(input, mode: :ruby) }
+      native_error = catch_failed_parse { subject.parse(input, mode: :native) }
+      # The Ruby engine raises the root cause whose TREE bottoms out at
+      # the deepest failure; the native engine reports that deepest
+      # position directly.
+      deepest = lambda do |cause|
+        [cause.position, *cause.children.map(&deepest)].max
+      end
+      expect(native_error.position).to eq(deepest.call(ruby_error))
     end
 
     it "fails gracefully on a missing end (2)" do
