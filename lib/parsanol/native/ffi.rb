@@ -113,13 +113,18 @@ module Parsanol
         end
 
         # Two-call buffer protocol: cap=0 asks for the needed size, then
-        # one allocation carries the whole batch.
+        # the batch lands in a persistent buffer that only grows —
+        # steady-state parses allocate nothing.
         def parse_into(handle, input)
           needed = @binding.c_parse(handle, input, nil, 0)
           return needed unless needed.negative?
 
-          @buffer = FFI::MemoryPointer.new(:uint64, -needed)
-          @binding.c_parse(handle, input, @buffer, -needed)
+          cap = -needed
+          if @buffer.nil? || @buffer.total < cap * 8
+            @buffer&.free
+            @buffer = FFI::MemoryPointer.new(:uint64, cap * 2)
+          end
+          @binding.c_parse(handle, input, @buffer, cap)
         end
       end
     end

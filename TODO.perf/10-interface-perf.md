@@ -38,8 +38,24 @@ Status: PLANNED (2026-09-15) — baselines measured, items ranked by leverage
 5. **Handle-tier input copy**: `parse_handle` borrows zero-copy only
    when no Dynamic atoms; extend the guard to Lookahead bodies that
    capture (currently falls back to copying).
-6. **FFI tier buffer reuse**: one `FFI::MemoryPointer` per thread,
-   grown geometrically, instead of per-parse allocation.
+6. **FFI tier buffer reuse**: DONE (2026-09-16). One persistent
+   `FFI::MemoryPointer`, grown geometrically — steady-state ffi parses
+   allocate nothing. Validated: 1191 specs; pubid ffi differential
+   7576/7621 identical.
+
+## Step-cost findings (2026-09-16, molecule-grammar micro-bench)
+
+Per-parse breakdown at "H_2O" (20k iterations): VM.run 37.5µs,
+materialize included; finalize (CanFlatten re-walk) 8.7µs; program_for
+gate 0.35µs; full parse 48.5µs — the wrapper is already thin.
+finalize is NOT redundant: for unnamed-array roots it performs the
+parslet slice-joining the tree contract requires; only Hash roots
+would pass through untouched. The remaining lever for item 3 is the
+executor loop itself (~375ns/step measured): flat backtrack/frame
+arrays with manual index arithmetic instead of Array#<< chains, and
+operand prefetch per case branch. Both are mechanical but touch every
+opcode site at once — do them as a single dedicated change with the
+differential harnesses as the gate.
 
 ## Non-goals
 
