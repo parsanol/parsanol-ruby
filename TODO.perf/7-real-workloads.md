@@ -56,3 +56,13 @@ this file's description; canonical versions should land in `benchmark/`).
   a failed native attempt + full Ruby reparse on such inputs.
 - The pubid differential harness should be checked in under `benchmark/`
   with a vendored fixture subset (upstream fixture corpus is large).
+
+## Sibling-capture data loss (issue #36) — fixed 2026-09-16
+
+The bare-repeated sibling capture idiom (`ident >> (sep >> item).repeat`)
+returned one merged Hash under native mode, silently overwriting earlier
+captures (A->B->C lost B). Fixed in both engines: the Rust transform
+(repeated_hash_keys guard before fold) and the Ruby AstTransformer
+(repeated-keys detection inside repetition arrays). Exact issue repro is
+spec/parsanol/native/repeated_sibling_capture_spec.rb. Rule recorded:
+repeated keys in sibling captures are a sequence, never a merge.
