@@ -246,6 +246,21 @@ module Parsanol
         raise_native_parse_error(e, grammar_json, input)
       end
 
+      # Prefix-mode parse (partial match allowed): the grammar registers
+      # by handle exactly like #parse; the Rust side returns
+      # [value, end_pos] with trailing input unconsumed.
+      def parse_prefix(grammar, input)
+        handle = Parser.grammar_handle(grammar)
+
+        begin
+          value, end_pos = _parse_handle_prefix(handle, input)
+          [value, end_pos]
+        rescue ArgumentError
+          Parser.invalidate_handle(handle)
+          _parse_handle_prefix(Parser.grammar_handle(grammar), input)
+        end
+      end
+
       # Grammar-atom path: registers once and parses by Rust-side handle,
       # so steady-state calls marshal no JSON and copy no input string.
       def parse_atom_grammar(grammar, input)
