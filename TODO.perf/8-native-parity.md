@@ -1,6 +1,7 @@
 # 8 — Native parity: Rust handles every mode; never fall back to Ruby parsing
 
-Status: MANDATED (2026-09-15); not yet implemented
+Status: ITEM 1 DONE (2026-09-16, rs #67 + ruby #44 → 1.3.23).
+Remaining: prefix: mode, reporter: feeding, atom-coverage audit (items 2–4).
 
 ## Mandate
 
