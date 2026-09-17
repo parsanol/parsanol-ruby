@@ -43,6 +43,7 @@ module Parsanol
     RUN_RE = 24
     RUN_STR = 25
     SEQ_SIMPLE = 26
+    BYTE_DISPATCH = 27
 
     K_ALT = 0
     K_REP = 1
@@ -247,6 +248,137 @@ module Parsanol
         @ops.flatten!(1)
       end
 
+      # Conservative lead-byte table for a branch: table[b] true iff the
+      # atom can start with byte b. nil = cannot prove a constraint (no
+      # guard emitted). Conservative in the safe direction only: a guard
+      # may allow a branch that then fails normally, never reject one
+      # that could match.
+      def pairwise_disjoint?(tables)
+        seen = Array.new(256, false)
+        tables.each do |t|
+          i = 0
+          while i < 256
+            return false if t[i] && seen[i]
+            seen[i] = true if t[i]
+            i += 1
+          end
+        end
+        true
+      end
+
+      def first_byte_table(atom, depth = 0)
+        return nil if depth > 10
+        case atom
+        when Parsanol::Atoms::Str
+          b = atom.str.getbyte(0)
+          return nil unless b
+          t = Array.new(256, false)
+          t[b] = true
+          t
+        when Parsanol::Atoms::Re
+          byte_table(atom.re)
+        when Parsanol::Atoms::Sequence
+          t = nil
+          nullable_all = true
+          atom.parslets.each do |child|
+            ct = first_byte_table(child, depth + 1)
+            return nil if ct.nil?
+            if t
+              i = 0
+              while i < 256
+                t[i] ||= ct[i]
+                i += 1
+              end
+            else
+              t = ct
+            end
+            unless nullable?(child, depth + 1)
+              nullable_all = false
+              break
+            end
+          end
+          nullable_all ? nil : t
+        when Parsanol::Atoms::Alternative
+          t = nil
+          atom.alternatives.each do |branch|
+            bt = first_byte_table(branch, depth + 1)
+            return nil if bt.nil?
+            if t
+              i = 0
+              while i < 256
+                t[i] ||= bt[i]
+                i += 1
+              end
+            else
+              t = bt
+            end
+          end
+          t
+        when Parsanol::Atoms::Named
+          first_byte_table(atom.parslet, depth + 1)
+        when Parsanol::Atoms::Ignored
+          first_byte_table(atom.wrapped_atom, depth + 1)
+        when Parsanol::Atoms::Lookahead
+          # Positive: body's lead bytes. Negative: body's lead bytes are
+          # a safe superset (a failing !-check just fails the branch
+          # normally).
+          first_byte_table(atom.bound_parslet, depth + 1)
+        when Parsanol::Atoms::Repetition
+          # min 0 can match empty — no byte constraint exists.
+          return nil if atom.min.zero?
+          first_byte_table(atom.parslet, depth + 1)
+        when Parsanol::Atoms::Entity
+          inner = begin
+            atom.parslet
+          rescue StandardError
+            nil
+          end
+          return nil if inner.nil?
+          first_byte_table(inner, depth + 1)
+        when Parsanol::Atoms::Scope
+          inner = begin
+            atom.block.call
+          rescue StandardError
+            nil
+          end
+          return nil if inner.nil?
+          first_byte_table(inner, depth + 1)
+        end
+      end
+
+      def nullable?(atom, depth = 0)
+        return false if depth > 10
+        case atom
+        when Parsanol::Atoms::Str then atom.str.bytesize.zero?
+        when Parsanol::Atoms::Re then false
+        when Parsanol::Atoms::Sequence
+          atom.parslets.all? { |c| nullable?(c, depth + 1) }
+        when Parsanol::Atoms::Alternative
+          atom.alternatives.any? { |c| nullable?(c, depth + 1) }
+        when Parsanol::Atoms::Repetition then atom.min.zero?
+        when Parsanol::Atoms::Named
+          nullable?(atom.parslet, depth + 1)
+        when Parsanol::Atoms::Ignored
+          nullable?(atom.wrapped_atom, depth + 1)
+        when Parsanol::Atoms::Lookahead then true
+        when Parsanol::Atoms::Entity
+          inner = begin
+            atom.parslet
+          rescue StandardError
+            nil
+          end
+          !inner.nil? && nullable?(inner, depth + 1)
+        when Parsanol::Atoms::Scope
+          inner = begin
+            atom.block.call
+          rescue StandardError
+            nil
+          end
+          !inner.nil? && nullable?(inner, depth + 1)
+        else false
+        end
+      end
+
       def compile_atom(atom, consume_all)
         case atom
         when Parsanol::Atoms::Str
@@ -281,6 +413,36 @@ module Parsanol
           alts = atom.alternatives
           count = alts.size
           return nil if count.zero?
+
+          # First-set discrimination: when every branch has a provable
+          # lead-byte table and the tables are pairwise disjoint, at most
+          # one branch can match any input — dispatch directly to the
+          # viable branch (or fail) in one lookup. Shared lead bytes
+          # fall back to the plain CHOICE machinery untouched.
+          tables = alts.map { |a| first_byte_table(a) }
+          if tables.all? && pairwise_disjoint?(tables)
+            dispatch_idx = emit(BYTE_DISPATCH, nil, nil, nil)
+            starts = []
+            idx = 0
+            while idx < count
+              starts << flat(@ops.size)
+              return nil unless compile_atom(alts[idx], consume_all)
+              idx += 1
+            end
+            table = Array.new(256, -1)
+            tables.each_with_index do |t, bi|
+              pc_i = starts[bi]
+              bi2 = bi
+              j = 0
+              while j < 256
+                table[j] = pc_i if t[j]
+                j += 1
+              end
+              bi2
+            end
+            patch(dispatch_idx, 1, table)
+            return self
+          end
 
           jumps = []
           idx = 0
@@ -793,6 +955,11 @@ module Parsanol
               frames.slice!(cbase..)
               pc += 4
             end
+          when BYTE_DISPATCH
+            table = ops[pc + 1]
+            b = pos < n ? bytes[pos] : -1
+            target = b == -1 ? -1 : table[b]
+            pc = target >= 0 ? target : FAIL
           when SEQ_SIMPLE
             kids = ops[pc + 1]
             kn = kids.size
