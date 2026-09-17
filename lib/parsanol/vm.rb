@@ -594,15 +594,12 @@ module Parsanol
           end
           trace << [pc, pos] if trace
 
-          if pc == FAIL
+          case ops[pc]
+          when FAIL
             pc, pos = unwind(bt, rstack, frames, calls, memo, memo_stack)
             return [false, nil] if pc == :fail
             return BAIL if pc == :bail
 
-            next
-          end
-
-          case ops[pc]
           when STR
             lit = ops[pc + 1]
             ln = ops[pc + 2]
