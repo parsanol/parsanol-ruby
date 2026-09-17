@@ -259,6 +259,7 @@ module Parsanol
           i = 0
           while i < 256
             return false if t[i] && seen[i]
+
             seen[i] = true if t[i]
             i += 1
           end
@@ -268,10 +269,12 @@ module Parsanol
 
       def first_byte_table(atom, depth = 0)
         return nil if depth > 10
+
         case atom
         when Parsanol::Atoms::Str
           b = atom.str.getbyte(0)
           return nil unless b
+
           t = Array.new(256, false)
           t[b] = true
           t
@@ -328,6 +331,7 @@ module Parsanol
         when Parsanol::Atoms::Repetition
           # min 0 can match empty — no byte constraint exists.
           return nil if atom.min.zero?
+
           first_byte_table(atom.parslet, depth + 1)
         when Parsanol::Atoms::Entity
           inner = begin
@@ -350,8 +354,11 @@ module Parsanol
         end
       end
 
+      # Wrapper branches (Entity/Scope) share body shapes by design.
+      # rubocop:disable-next Lint/DuplicateBranch
       def nullable?(atom, depth = 0)
         return false if depth > 10
+
         case atom
         when Parsanol::Atoms::Str then atom.str.bytesize.zero?
         when Parsanol::Atoms::Re then false
@@ -360,27 +367,26 @@ module Parsanol
         when Parsanol::Atoms::Alternative
           atom.alternatives.any? { |c| nullable?(c, depth + 1) }
         when Parsanol::Atoms::Repetition then atom.min.zero?
-        when Parsanol::Atoms::Named
-          nullable?(atom.parslet, depth + 1)
-        when Parsanol::Atoms::Ignored
-          nullable?(atom.wrapped_atom, depth + 1)
+        when Parsanol::Atoms::Named then nullable?(atom.parslet, depth + 1)
+        when Parsanol::Atoms::Ignored then nullable?(atom.wrapped_atom, depth + 1)
         when Parsanol::Atoms::Lookahead then true
-        when Parsanol::Atoms::Entity
-          inner = begin
-            atom.parslet
-          rescue StandardError
-            nil
-          end
-          !inner.nil? && nullable?(inner, depth + 1)
-        when Parsanol::Atoms::Scope
-          inner = begin
-            atom.block.call
-          rescue StandardError
-            nil
-          end
-          !inner.nil? && nullable?(inner, depth + 1)
+        when Parsanol::Atoms::Entity, Parsanol::Atoms::Scope
+          nullable_wrapped?( # rubocop:disable Lint/DuplicateBranch -- Entity/Scope differ only in accessor
+            -> { atom.is_a?(Parsanol::Atoms::Entity) ? atom.parslet : atom.block.call }, depth
+          )
         else false
         end
+      end
+
+      # Entity and Scope wrap lazily-resolvable inners through different
+      # accessors; the nullability logic is shared.
+      def nullable_wrapped?(resolver, depth)
+        inner = begin
+          resolver.call
+        rescue StandardError
+          nil
+        end
+        !inner.nil? && nullable?(inner, depth + 1)
       end
 
       def compile_atom(atom, consume_all)
@@ -431,6 +437,7 @@ module Parsanol
             while idx < count
               starts << flat(@ops.size)
               return nil unless compile_atom(alts[idx], consume_all)
+
               idx += 1
             end
             table = Array.new(256, -1)
