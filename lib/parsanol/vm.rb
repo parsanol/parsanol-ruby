@@ -283,6 +283,7 @@ module Parsanol
           atom.parslets.each do |child|
             ct = first_byte_table(child, depth + 1)
             return nil if ct.nil?
+
             if t
               i = 0
               while i < 256
@@ -303,6 +304,7 @@ module Parsanol
           atom.alternatives.each do |branch|
             bt = first_byte_table(branch, depth + 1)
             return nil if bt.nil?
+
             if t
               i = 0
               while i < 256
@@ -334,6 +336,7 @@ module Parsanol
             nil
           end
           return nil if inner.nil?
+
           first_byte_table(inner, depth + 1)
         when Parsanol::Atoms::Scope
           inner = begin
@@ -342,6 +345,7 @@ module Parsanol
             nil
           end
           return nil if inner.nil?
+
           first_byte_table(inner, depth + 1)
         end
       end
