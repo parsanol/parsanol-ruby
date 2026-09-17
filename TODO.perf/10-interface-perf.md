@@ -27,14 +27,20 @@ Status: PLANNED (2026-09-15) — baselines measured, items ranked by leverage
 2. **Failure path**: build the parslet cause tree IN Rust (deepest
    failure tracking during backtracking) per TODO.perf/8 — removes the
    ~6ms-per-invalid-input interpreter fallback entirely.
-3. **VM per-step cost** (~500ns): reorder the dispatch `case` by
-   measured opcode frequency; split the hot prefix (STR/RE/RUN_*) into
-   a dedicated loop before the general case table; avoid re-fetching
-   `ops[pc+1..3]` individually by fetching once. Target 250-300ns/step
-   → pure-Ruby reaches ~1.3-1.5x parslet on the real grammars.
-4. **Slice allocation diet**: per-char Slices remain the interpreter's
-   biggest allocator; only named captures need Slices (unnamed runs
-   already join). Apply the same rule inside `materialize`.
+3. **VM per-step cost** (~500ns): PARTIAL (2026-09-17) — FAIL now
+   dispatches through the case table (one fewer comparison per step)
+   and the trace/env lookups hoisted out of the hot loop. Measured on
+   a loaded machine: molecule ruby stays 1.7–1.8x parslet; the gain is
+   within noise. Honest conclusion: MRI case-dispatch floors out
+   around this cost; the remaining per-step levers (operand prefetch,
+   flat bt/frames arrays) are each <10% and touch every opcode site at
+   once. The next pure-Ruby speedup must come from algorithmic work
+   (fewer steps per byte), not dispatch micro-optimization.
+4. **Slice allocation diet**: DONE BY DESIGN — materialize already
+   creates Slices only for Integer spans and NamedValue hashes; unnamed
+   runs are joined into single packed spans by REP_EXIT/SEQ before
+   materialize ever sees them. No per-char Slice allocation remains on
+   the VM path.
 5. **Handle-tier input copy**: `parse_handle` borrows zero-copy only
    when no Dynamic atoms; extend the guard to Lookahead bodies that
    capture (currently falls back to copying).
