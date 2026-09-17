@@ -156,6 +156,24 @@ Run your own benchmarks with:
 bundle exec ruby examples/benchmark_examples.rb
 ----
 
+[[engine-posture]]
+==== Engine roles
+
+Parsanol ships two engines with one semantic contract (identical parse
+trees and error messages):
+
+* **Native (default)** — the Rust extension. It handles every parsing
+  mode, including error cause trees, `prefix:` and `reporter:`, with no
+  Ruby fallback during parsing. Prebuilt platform gems cover the common
+  triples; `bundle exec rake compile` builds it locally otherwise.
+* **Ruby (`mode: :ruby`)** — the pure-Ruby engine. Its role is
+  portability (no prebuilt gem, no Rust toolchain, non-MRI rubies) and
+  serving as the semantic reference implementation for differential
+  testing against Parslet.
+
+When both are available, the native engine is always used unless
+`mode: :ruby` is requested explicitly.
+
 [[slice-support]]
 === Slice Support
 
