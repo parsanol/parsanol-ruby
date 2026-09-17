@@ -46,22 +46,4 @@ Gem::Specification.new do |spec|
 
   # Required for Rust extension
   spec.add_dependency "rb_sys", "~> 0.9.39"
-
-  spec.add_development_dependency "rake", "~> 13.0"
-  spec.add_development_dependency "rake-compiler", "~> 1.2.0"
-  spec.add_development_dependency "rdoc", "~> 6.0"
-  spec.add_development_dependency "rspec", "~> 3.0"
-
-  # For code style checking
-  spec.add_development_dependency "rubocop", "~> 1.0"
-
-  # For Parslet compatibility verification
-  spec.add_development_dependency "parslet", "~> 2.0.0"
-
-  # For benchmarking
-  spec.add_development_dependency "benchmark-ips", "~> 2.0"
-
-  # For type checking
-  spec.add_development_dependency "rbs", "~> 3.0"
-  spec.add_development_dependency "steep", "~> 1.0"
 end
