@@ -98,7 +98,49 @@ and the materialized tree. Current failing classes (tests carried as
 
 Phase 1 must clear all four before any wiring.
 
+## Phase 1 DONE (2026-09-18, parsanol-rs#75)
+
+All four defect classes cleared; the five differential tests are live
+and green (byte-identical trees, end_pos, and success/failure vs the
+tree-walker):
+
+1. Frame protocol rebuilt: LPeg-interleaved ordered choice (each Choice
+   before its own branch), backtrack frames carry value/register/
+   capture heights and a kind (Choice/Return/Predicate/Mark), unwinding
+   truncates to the popped frame and skips non-choice frames instead of
+   resuming callers mid-sequence, PartialCommit jumps to the loop body
+   and updates heights so completed iterations survive backtracking.
+2. Value model rebuilt: terminals push InputRef values; BuildSeq/
+   BuildRep/BuildHash/ToNil/PushNil/CapMark/RecordCapture/ScopeEnd
+   reproduce the tree-walker's raw tagged envelopes, Maybe flattening,
+   Named hashes, deferred span captures, and scope discard.
+3. Maybe tag honored end-to-end (RepetitionTag flows through
+   compilation).
+4. Regex-at-EOF parity with parse_re; empty Str pushes a zero-width
+   value.
+
+Measured (benches/large-input.rs, program compiled once): 64 KB
+2.76x (1.93 GiB/s), 64 KB fail-at-end 1.55x; 2 KB -16% (per-parse VM
+setup) — engine selection stays a registration-time concern.
+
+Dynamic/Custom atoms are gated out with UnsupportedFeature (phase 3);
+legacy dynamic parity tests assert the gate.
+
+## Remaining phases
+
+- **Phase 2 — wiring (P0)**: compile the program once per registered
+  grammar (cached in the FFI handle entry), run parse_with_vm per
+  parse; registration-time capability gate keeps Dynamic/Custom
+  grammars on the packrat engine; input-size-aware engine selection to
+  avoid the small-input VM penalty.
+- **Phase 3 — semantics completion (P1)**: Dynamic/Custom support
+  (needs arena-crossing value copies), ErrorTracker → (position,
+  expected-labels) diagnostics bridge matching
+  PortableParser::failure_diagnostics.
+- **Phase 4 — dispatch (P1)**: bake lead-byte discrimination into
+  Choice compilation from the existing FirstSetAnalysis (TODO.max-perf/1
+  design).
+
 ## Status
 
-Design complete; phase-1 defects inventoried and gated by the
-differential harness; implementation scheduled as phased PRs (P1).
+Phase 1 complete (rs#75); phases 2-4 scheduled.
