@@ -126,21 +126,44 @@ setup) — engine selection stays a registration-time concern.
 Dynamic/Custom atoms are gated out with UnsupportedFeature (phase 3);
 legacy dynamic parity tests assert the gate.
 
+## Phase 2 DONE (2026-09-18, parsanol-rs#76 → 0.6.1)
+
+Production parses run on the precompiled program behind deterministic
+gates (no Ruby involvement):
+
+- **Compile-once at registration**, on a dedicated large-stack thread
+  (compiler recursion over the atom tree overflows the Ruby thread's
+  stack guard otherwise — surfaced as SystemStackError inside
+  _register_grammar).
+- **Generalized rule boundaries**: rule references serialize as shared
+  Named atoms, cyclic through them — the compiler infinite-recursed on
+  real grammars until every Named atom / Entity target became a
+  subroutine and every reference a call. EXPRESS compiles to 10,195
+  instructions.
+- **Backtrack budget** (len/64 + 16): measured rates separate grammar
+  classes by six orders of magnitude (KV-class 2 backtracks / 47.5 KB;
+  EXPRESS ~16/byte). Tripping falls back to the walker for that parse
+  and sticks the grammar off (the Ruby VM's sticky-BAIL design).
+  Inputs ≥ 8 KiB engage the VM.
+- **Diagnostics bridge**: Expected::label() +
+  ErrorTracker::expected_labels_at_furthest() feed
+  native_failure_message. parse_fresh (expressir's large-file path)
+  wired identically via a hash-keyed program cache + sticky set.
+
+Verification: 140-file SRL corpus byte-identical; ruby suite 1224/0.
+KV-class large input end-to-end: 47.5 KB in 3 ms. Backtracking-heavy
+grammars: walker + one-time registration cost.
+
 ## Remaining phases
 
-- **Phase 2 — wiring (P0)**: compile the program once per registered
-  grammar (cached in the FFI handle entry), run parse_with_vm per
-  parse; registration-time capability gate keeps Dynamic/Custom
-  grammars on the packrat engine; input-size-aware engine selection to
-  avoid the small-input VM penalty.
 - **Phase 3 — semantics completion (P1)**: Dynamic/Custom support
-  (needs arena-crossing value copies), ErrorTracker → (position,
-  expected-labels) diagnostics bridge matching
-  PortableParser::failure_diagnostics.
-- **Phase 4 — dispatch (P1)**: bake lead-byte discrimination into
-  Choice compilation from the existing FirstSetAnalysis (TODO.max-perf/1
-  design).
+  (needs arena-crossing value copies).
+- **Phase 4 — VM memoization (P1)**: memoize (position, call-site)
+  results in the VM to serve the backtracking-heavy class — removes
+  the budget fallback. Then BYTE_DISPATCH from FirstSetAnalysis
+  (TODO.max-perf/1 design).
 
 ## Status
 
-Phase 1 complete (rs#75); phases 2-4 scheduled.
+Phases 1-2 complete (rs#75, rs#76 → 0.6.0/0.6.1); phases 3-4
+scheduled.
