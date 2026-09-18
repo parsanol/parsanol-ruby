@@ -59,5 +59,5 @@ TODO.max-perf/4's defect inventory). Hand-rolling a separate lead-byte
 table inside the tree-walker would duplicate the VM's existing
 FirstSetAnalysis machinery; the correct move is to complete the VM and
 bake dispatch into its Choice compilation (FirstSetAnalysis already
-computes charsets + nullability). This item's design transfers 1:1 to
-the VM's compiler.
+computes charsets + nullability). This item's design is now IMPLEMENTED in the VM's compiler
+(BYTE_DISPATCH, rs#78 → 0.7.0) — see TODO.max-perf/4.

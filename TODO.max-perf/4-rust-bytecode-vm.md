@@ -154,16 +154,35 @@ Verification: 140-file SRL corpus byte-identical; ruby suite 1224/0.
 KV-class large input end-to-end: 47.5 KB in 3 ms. Backtracking-heavy
 grammars: walker + one-time registration cost.
 
+## Phase 4 (part 1) DONE — BYTE_DISPATCH (2026-09-18, rs#78 → 0.7.0)
+
+Graph-aware lead-byte analysis over every alternative branch
+(resolving through Named/Entity/Ignore/Capture/Scope/Sequence,
+cycle-guarded; character-class regexes; sequences opening with
+optional elements union their sets; min>=1 repetitions). Fully
+disjoint, non-nullable branch sets compile to a single ByteDispatch
+table jump instead of serial probing. SOUNDNESS rules: nullable
+branches are never dispatched (they can match empty and must be tried
+first); a lead byte outside every set fails the choice only because
+the sets are exhaustive over required leads. Dispatched branches end
+with Jump terminators, and programs containing dispatch skip the
+peephole (which shifts indices the baked table offsets cannot follow).
+
+EXPRESS: 1 of 63 alternatives qualifies today — shared optional
+prefixes make 35 overlap (prefix hoisting = the recorded follow-up),
+so the backtrack budget still routes EXPRESS to the walker. KV-class:
+dispatched end-to-end, 47.5 KB in 3 ms. SRL corpus byte-identical;
+suite 409 + 54.
+
 ## Remaining phases
 
 - **Phase 3 — semantics completion (P1)**: Dynamic/Custom support
   (needs arena-crossing value copies).
-- **Phase 4 — VM memoization (P1)**: memoize (position, call-site)
-  results in the VM to serve the backtracking-heavy class — removes
-  the budget fallback. Then BYTE_DISPATCH from FirstSetAnalysis
-  (TODO.max-perf/1 design).
+- **Phase 4 remainder**: prefix hoisting for overlapping optional
+  prefixes (extends dispatch coverage to the EXPRESS choice style);
+  VM memoization for the backtracking-heavy class.
 
 ## Status
 
-Phases 1-2 complete (rs#75, rs#76 → 0.6.0/0.6.1); phases 3-4
-scheduled.
+Phases 1-2 complete (rs#75/#76 → 0.6.0/0.6.1); phase 4 part 1
+complete (rs#78 → 0.7.0); remainder scheduled.
