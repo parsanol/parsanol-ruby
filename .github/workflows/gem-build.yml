@@ -205,3 +205,19 @@ jobs:
           name: cross-gem-any
           path: pkg/*.gem
           if-no-files-found: error
+
+  # Validation-only mirror of release.yml's stub-x64-mingw32 job.
+  stub-x64-mingw32:
+    name: Build stub gem (x64-mingw32)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - name: Build lib-only platform stub
+        run: |
+          ruby build_mingw32_stub.rb
+          ls -l parsanol-*-x64-mingw32.gem

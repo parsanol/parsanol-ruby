@@ -156,7 +156,38 @@ jobs:
           path: pkg/*-${{ matrix.ruby-platform }}.gem
           if-no-files-found: error
 
+  # Ruby >= 3.2 (our floor) never shipped a legacy-MinGW build: the
+  # newest x64-mingw32 Ruby is 3.0, which cannot run parsanol at all.
+  # A native x64-mingw32 gem is therefore unbuildable; we publish a
+  # lib-only platform stub so the platform matrix on RubyGems is
+  # complete for resolvers. It installs the pure-Ruby engine.
+  stub-x64-mingw32:
+    name: Build stub gem (x64-mingw32)
+    needs: prepare-version
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-version.outputs.sha }}
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - name: Build lib-only platform stub
+        run: |
+          ruby build_mingw32_stub.rb
+          mkdir -p pkg
+          mv parsanol-*-x64-mingw32.gem pkg/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-gem-x64-mingw32
+          path: pkg/*-x64-mingw32.gem
+          if-no-files-found: error
+
   # Smoke test Linux x86_64 gem
+
   smoke-linux:
     name: Smoke test Linux x86_64
     needs: build
@@ -290,7 +321,7 @@ jobs:
 
   release:
     name: Release
-    needs: [prepare-version, build, smoke-linux, smoke-linux-arm, smoke-macos-arm, smoke-macos-intel, smoke-windows, smoke-windows-arm]
+    needs: [prepare-version, build, stub-x64-mingw32, smoke-linux, smoke-linux-arm, smoke-macos-arm, smoke-macos-intel, smoke-windows, smoke-windows-arm]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
