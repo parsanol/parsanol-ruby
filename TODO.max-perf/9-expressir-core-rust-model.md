@@ -24,7 +24,7 @@ makes ONE native call (parse + AST hydration inside Rust), then
 hydrates its model afterwards in Ruby (`Builder.build_with_remarks`).
 The 80% stage is the target.
 
-Even after the bucketed-index round (lutaml/expressir#363: selects
+Even after the bucketed-index round (lutaml/expressir#362: selects
 gone, builder CPU -19%), the remaining cost is lutaml-model object
 construction + remark attachment in Ruby: ~100k model objects per
 giant, each through `Serialize#initialize_attributes` and
