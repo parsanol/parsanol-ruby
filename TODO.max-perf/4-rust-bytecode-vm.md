@@ -174,15 +174,35 @@ so the backtrack budget still routes EXPRESS to the walker. KV-class:
 dispatched end-to-end, 47.5 KB in 3 ms. SRL corpus byte-identical;
 suite 409 + 54.
 
-## Remaining phases
+## Phase 3 (Custom) + phase 4 (memoization) DONE (2026-09-18,
+rs#79 → 0.7.1)
 
-- **Phase 3 — semantics completion (P1)**: Dynamic/Custom support
-  (needs arena-crossing value copies).
-- **Phase 4 remainder**: prefix hoisting for overlapping optional
-  prefixes (extends dispatch coverage to the EXPRESS choice style);
-  VM memoization for the backtracking-heavy class.
+- **Rule-call memoization**: (rule pc, position) outcomes memoized —
+  successes with end position + value, failures with position; Return
+  frames carry the memo rule; unwinding records failures (suppressed
+  when the backtrack budget aborted the parse); entry pool capped at
+  2M.
+- **Measured verdict on the heavy class** (EXPRESS grammar): memo
+  trims warm re-parses (~1.5s → ~1.3s) but the memoized VM still
+  trails the memoized walker (~0.9s). The walker remains the right
+  engine for that class, which the backtrack budget already routes it
+  to. Prefix hoisting would extend dispatch coverage instead.
+- **Custom atoms**: the VM pushes the matched span (or custom value)
+  onto the value stack; a registered-custom-atom differential test
+  pins VM/walker parity. Dynamic stays gated — its Ruby re-entrancy
+  is fundamental to the VM tier, and such grammars keep the packrat
+  engine by the registration-time capability gate.
+
+## Remaining
+
+- **Prefix hoisting** (P1): factor shared optional prefixes before
+  dispatch — extends dispatch coverage to the EXPRESS choice style
+  (35 of 63 alternatives overlap today).
+- **Dynamic in the VM**: would require passing Ruby-callable contexts
+  into the VM (design needed); grammars using Dynamic keep the walker.
 
 ## Status
 
-Phases 1-2 complete (rs#75/#76 → 0.6.0/0.6.1); phase 4 part 1
-complete (rs#78 → 0.7.0); remainder scheduled.
+Phases 1-2 complete (rs#75/#76); phase 3 Custom + phase 4
+memoization complete (rs#79 → 0.7.1); prefix hoisting + Dynamic
+scheduled.
