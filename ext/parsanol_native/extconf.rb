@@ -1,6 +1,18 @@
 # frozen_string_literal: true
 
 require "mkmf"
+
+# The Rust extension only builds against MRI's C API. Other engines
+# (TruffleRuby, JRuby) resolve the ruby-platform gem and must install
+# cleanly on the pure-Ruby backend instead of failing the whole install
+# (parsanol-ruby#23). An explicit opt-out works on MRI too.
+if RUBY_ENGINE != "ruby" || ENV["PARSANOL_NATIVE"] == "0"
+  File.write("Makefile", dummy_makefile("").to_s)
+  warn "parsanol: skipping the Rust extension on #{RUBY_ENGINE} " \
+       "(pure-Ruby backend will be used)"
+  exit 0
+end
+
 require "rb_sys/mkmf"
 
 create_rust_makefile("parsanol/parsanol_native") do |r|
