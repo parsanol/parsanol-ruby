@@ -48,6 +48,20 @@ module Parsanol
           Parsanol::Native.parse(grammar, input)
         end
 
+        # Parse input with a Ruby grammar, returning the parslet-shaped
+        # AST as a flat event stream [[events], [strings]] — one FFI
+        # return, no per-node Ruby objects. Replay with EventPlayer or
+        # consume the opcodes directly.
+        #
+        # @param grammar [Parsanol::Atoms::Base] Ruby grammar definition
+        # @param input [String] Input string to parse
+        # @return [Array<Array<Integer>, Array<String>>]
+        def parse_events(grammar, input)
+          handle = grammar_handle(grammar)
+          blob, strings = Native._parse_handle_events(handle, input)
+          [blob.unpack("q*"), strings]
+        end
+
         # Serialize a Ruby grammar to JSON (cached).
         def serialize_grammar(root_atom)
           grammar_json(root_atom)
