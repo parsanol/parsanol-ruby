@@ -69,6 +69,59 @@ module Parsanol
     end
     alias match matches?
 
+    # Byte length of the pattern's match at the current position
+    # (StringScanner#match? returns it), or nil when there is no match.
+    #
+    # @param pattern [Regexp] pattern to probe
+    # @return [Integer, nil] matched byte length
+    #
+    def match_bytes(pattern)
+      @scanner.match?(pattern)
+    end
+
+    # Consumes n bytes from input and returns them as a pooled Slice.
+    # Companion to #match_bytes for atoms that measure their match in
+    # bytes (quantified regexes).
+    #
+    # @param count [Integer] number of bytes to consume
+    # @return [Parsanol::Slice] slice containing consumed bytes
+    #
+    # The underlying input string. Custom atoms doing position math
+    # (e.g. lookbehind rewinds) need direct access to it (GH-70).
+    #
+
+    # Rewinds n characters from the current position, walking back over
+    # UTF-8 continuation bytes so multibyte input stays aligned. Bounds:
+    # never rewinds past the start of the input.
+    #
+    # @param count [Integer] number of characters to move back
+    # @return [Integer] the new byte position
+    def rewind_chars(count)
+      pos = @scanner.pos
+      remaining = count
+      while remaining.positive? && pos.positive?
+        pos -= 1
+        remaining -= 1 unless (@raw_string.getbyte(pos) & 0xC0) == 0x80
+      end
+      @scanner.pos = pos
+      pos
+    end
+
+    # The underlying input string. Custom atoms doing position math
+    # (e.g. lookbehind rewinds) need direct access to it (GH-70).
+    #
+    # @return [String] the full input
+    def input
+      @raw_string
+    end
+
+    def consume_bytes(count)
+      current_pos = @scanner.pos
+      content = @raw_string.byteslice(current_pos, count)
+      @scanner.pos = current_pos + count
+      @slice_pool.acquire_with(current_pos, content, @line_data)
+    end
+
     # Consumes n characters from input and returns them as a pooled Slice.
     #
     # @param count [Integer] number of characters to consume

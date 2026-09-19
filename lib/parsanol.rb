@@ -129,30 +129,10 @@ module Parsanol
   def match(pattern = nil)
     return CharacterClassBuilder.new unless pattern
 
-    match_quantifier_warning(pattern)
     Atoms::Re.new(pattern)
   end
   module_function :match
 
-  # `match` consumes exactly one character (Parslet parity), so a regex
-  # quantifier is silently truncated: match(/[0-9]+/) matches a single
-  # digit. Warn once per offending pattern — the intended spelling is
-  # `match("[0-9]").repeat(1)`.
-  # Deliberately mutable: it accumulates warned patterns per process.
-  QUANTIFIER_WARNED = {} # rubocop:disable Style/MutableConstant
-  private_constant :QUANTIFIER_WARNED
-
-  def match_quantifier_warning(pattern)
-    return if QUANTIFIER_WARNED.key?(pattern)
-    return unless pattern.is_a?(String)
-    return unless quantified_pattern?(pattern)
-
-    QUANTIFIER_WARNED[pattern] = true
-    warn "Parsanol: match(#{pattern.inspect}) matches exactly one character " \
-         "(Parslet parity); the quantifier is ignored. " \
-         "Use match(...).repeat(1) to match repeatedly."
-  end
-  module_function :match_quantifier_warning
 
   # True when the pattern carries a top-level quantifier (+, *, ?, or
   # {n,m}) outside a character class.
