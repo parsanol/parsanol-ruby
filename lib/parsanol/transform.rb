@@ -127,14 +127,18 @@ module Parsanol
     # @param block [Proc] transformation block
     # @return [Object] block result
     #
+    # Public seam for rule execution: called for every matched rule
+    # with the captured bindings. Subclasses override this to
+    # post-process each rule result (e.g. source-line injection);
+    # the pipeline always routes through it (GH-74).
+    #
+    # @param bindings [Hash] matched pattern bindings
+    # @param block [Proc] the transformation block
+    # @return [Object] block result
     def call_on_match(bindings, block)
       return nil unless block
 
-      if block.arity == 1
-        block.call(bindings)
-      else
-        Context.new(bindings).instance_eval(&block)
-      end
+      execute_block(block, bindings)
     end
 
     private
@@ -181,7 +185,7 @@ module Parsanol
         bindings = pattern.match(node, ctx)
         next unless bindings
 
-        return execute_block(block, bindings)
+        return call_on_match(bindings, block)
       end
 
       # No rule matched
