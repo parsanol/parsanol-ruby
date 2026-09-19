@@ -10,7 +10,7 @@ RSpec.describe "VM crash fallback" do
     parser = Class.new(Parsanol::Parser) do
       rule(:line_char)     { match["^\\r\\n"] }
       rule(:line_ending)   { match["\\r\\n"].repeat(1) }
-      rule(:line_verbatim) { line_char.repeat(1).as(:ln) >> line_ending | line_char.repeat(1).as(:ln) }
+      rule(:line_verbatim) { (line_char.repeat(1).as(:ln) >> line_ending) | line_char.repeat(1).as(:ln) }
       rule(:document)      { line_verbatim.repeat(1) }
       root(:document)
     end

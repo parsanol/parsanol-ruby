@@ -75,7 +75,7 @@ module Parsanol
     # @param pattern [Regexp] pattern to probe
     # @return [Integer, nil] matched byte length
     #
-    def match_bytes(pattern)
+    def match_bytes(pattern) # rubocop:disable Naming/PredicateMethod -- returns byte length or nil, not a boolean
       @scanner.match?(pattern)
     end
 
