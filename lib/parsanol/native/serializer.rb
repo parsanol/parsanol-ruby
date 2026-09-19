@@ -29,6 +29,13 @@ module Parsanol
       %({"atoms":#{@atoms.to_json},"root":#{root_id}})
     end
 
+    # Grammar JSON for dynamic-atom callbacks: {"atoms":[...],"root":N}.
+    # The Rust bridge inlines the referenced atoms into a self-contained
+    # atom tree before running it.
+    def self.atom_json(atom)
+      serialize(atom)
+    end
+
     private
 
     # Serialize a single atom and return its atom_id
@@ -156,31 +163,11 @@ module Parsanol
       end
 
       if parslet
-        # Serialize the resolved parslet inline (don't call serialize_atom to avoid double-caching)
-        serialized = case parslet
-                     when Parsanol::Atoms::Str
-                       serialize_str(parslet)
-                     when Parsanol::Atoms::Re
-                       serialize_re(parslet)
-                     when Parsanol::Atoms::Sequence
-                       serialize_sequence(parslet)
-                     when Parsanol::Atoms::Alternative
-                       serialize_alternative(parslet)
-                     when Parsanol::Atoms::Repetition
-                       serialize_repetition(parslet)
-                     when Parsanol::Atoms::Named
-                       serialize_named(parslet)
-                     when Parsanol::Atoms::Entity
-                       # Nested entity - just reference it via serialize_atom
-                       { "Entity" => { "atom" => serialize_atom(parslet) } }
-                     when Parsanol::Atoms::Lookahead
-                       serialize_lookahead(parslet)
-                     else
-                       serialize_unknown(parslet)
-                     end
-
-        # Replace the placeholder with the serialized atom
-        @atoms[atom_id] = serialized
+        # Serialize the resolved parslet via the normal dispatch. A
+        # uniform Entity reference keeps every atom type supported here
+        # (a duplicated inline table once dropped Dynamic/Capture/Scope
+        # and made every rule-wrapped Dynamic atom unserializable).
+        @atoms[atom_id] = { "Entity" => { "atom" => serialize_atom(parslet) } }
       else
         # If the entity's block returns nil, create a placeholder that will fail
         @atoms[atom_id] = {
