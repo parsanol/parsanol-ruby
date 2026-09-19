@@ -237,7 +237,7 @@ module Parsanol
     #
     # The degradation warning prints once per reason per process — not
     # per parser instance and not per parse.
-    public def native_expressible?
+    def native_expressible?
       Parsanol::Native::Parser.grammar_handle(root)
       true
     rescue Parsanol::Native::UnsupportedGrammar => e
@@ -248,6 +248,7 @@ module Parsanol
       end
       false
     end
+    public :native_expressible?
 
     # Feed the native deepest-failure diagnostics to a user-supplied
     # reporter: one err_at event carrying the cause the native engine

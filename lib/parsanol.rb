@@ -133,7 +133,6 @@ module Parsanol
   end
   module_function :match
 
-
   # True when the pattern carries a top-level quantifier (+, *, ?, or
   # {n,m}) outside a character class.
   def quantified_pattern?(pattern)

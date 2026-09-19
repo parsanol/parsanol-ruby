@@ -25,7 +25,7 @@ module Parsanol
       # Creates a new regex matcher.
       #
       # @param pattern [String, Object] regex character class
-      QUANTIFIER_RE = /[+*?]|\{\d+(?:,\s*\d*)?\}/.freeze
+      QUANTIFIER_RE = /[+*?]|\{\d+(?:,\s*\d*)?\}/
 
       def initialize(pattern)
         super()
@@ -58,6 +58,7 @@ module Parsanol
           return ok(source.consume_bytes(matched)) if matched&.positive?
 
           return context.err(self, source, @eof_error) if source.chars_left < 1
+
           return context.err(self, source, @no_match_error)
         end
 
