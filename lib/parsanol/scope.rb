@@ -52,6 +52,11 @@ module Parsanol
         end
       end
 
+      # Chain-aware membership test without raising.
+      def key?(key)
+        @bindings.key?(key) || (@parent_frame&.key?(key) || false)
+      end
+
       # Stores a value in the current frame.
       #
       # @param key [Symbol] the variable name
@@ -77,6 +82,15 @@ module Parsanol
     # @raise [UndefinedVariable] if not found
     def [](key)
       @active_frame.fetch(key)
+    end
+
+    # Chain-aware membership test, mirroring Parslet's captures.key?.
+    # Checks the current frame and all parents without raising.
+    #
+    # @param key [Symbol] the variable name to look up
+    # @return [Boolean] whether any frame binds the key
+    def key?(key)
+      @active_frame.key?(key)
     end
 
     # Stores a value in the current frame.
