@@ -230,18 +230,20 @@ module Parsanol
       raise
     end
 
-    # Engine selection for the default mode, decided at registration
-    # time (never mid-parse): grammars the Rust backend cannot express
-    # run on the Ruby engine, announced once per grammar — loud, not a
-    # silent parse-time fallback. An explicit mode: :native still raises
-    # UnsupportedGrammar from registration.
-    def native_expressible?
+    # Public expressibility check (GH-71): true when the Rust native
+    # backend can run this grammar, false when it must run on the Ruby
+    # engine (Dynamic/custom atoms). Use it to pick an engine
+    # explicitly via parse(input, mode: :native | :ruby).
+    #
+    # The degradation warning prints once per reason per process — not
+    # per parser instance and not per parse.
+    public def native_expressible?
       Parsanol::Native::Parser.grammar_handle(root)
       true
     rescue Parsanol::Native::UnsupportedGrammar => e
-      warned = (@@unsupported_warned ||= {}.compare_by_identity)
-      unless warned.key?(root)
-        warned[root] = true
+      warned = (@@unsupported_warned ||= {})
+      unless warned.key?(e.message)
+        warned[e.message] = true
         warn "parsanol: parsing with the Ruby engine (#{e.message})"
       end
       false
