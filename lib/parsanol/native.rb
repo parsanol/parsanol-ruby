@@ -5,6 +5,7 @@ require "digest"
 
 require "parsanol/native/types"
 require "parsanol/native/parser"
+require "parsanol/native/event_player"
 require "parsanol/native/serializer"
 require "parsanol/native/batch_decoder"
 
