@@ -216,7 +216,10 @@ module Parsanol
             end
             piece = e.instance_of?(Parsanol::Slice) ? e.content : e.to_s
             if content.nil?
-              content = +piece
+              # Copy: unary + returns self for unfrozen strings, and
+              # appending into an input slice's buffer corrupts it when
+              # the same cached subtree is flattened again (GH-67).
+              content = String.new(piece)
             else
               content << piece
             end
