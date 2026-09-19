@@ -123,6 +123,15 @@ module Parsanol
       # Override to disable caching for simple atoms.
       #
       # @return [Boolean]
+      # Single-atom JSON in the native grammar format
+      # ({"Str":{"pattern":"a"}}, ...). Protocol for dynamic-atom
+      # callbacks whose blocks return atoms: the Rust callback bridge
+      # resolves the returned value through this method.
+      def to_atom_json
+        require "parsanol/native"
+        Parsanol::GrammarSerializer.atom_json(self)
+      end
+
       def cached?
         true
       end
