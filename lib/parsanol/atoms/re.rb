@@ -1,11 +1,16 @@
 # frozen_string_literal: true
 
-# Regular expression matcher for single characters.
-# Matches one character against a character class pattern.
+# Regular expression matcher.
+#
+# A plain character class matches one character. Like Parslet, a
+# pattern with an embedded quantifier (match('a+') etc.) is a regex
+# matched greedily at the current position: the whole regex match is
+# consumed in one step.
 #
 # @example Character classes
-#   match('[a-z]')  # matches a-z
-#   match('\d')     # matches digits
+#   match('[a-z]')  # matches one a-z character
+#   match('a+')     # matches a maximal run of a (Parslet parity)
+#   match('\d')     # matches one digit
 #   any             # matches any character
 #
 module Parsanol
@@ -20,10 +25,15 @@ module Parsanol
       # Creates a new regex matcher.
       #
       # @param pattern [String, Object] regex character class
+      QUANTIFIER_RE = /[+*?]|\{\d+(?:,\s*\d*)?\}/.freeze
+
       def initialize(pattern)
         super()
         @match = pattern.to_s
         @re = Regexp.new(@match, Regexp::MULTILINE)
+        # Embedded quantifier: one greedy regex match instead of a
+        # single character (Parslet parity, GH-69).
+        @quantified = QUANTIFIER_RE.match?(@match)
 
         # Extract pattern for display (strip delimiters)
         @display = @match.inspect[1..-2] || @match
@@ -40,7 +50,18 @@ module Parsanol
       # @param _consume_all [Boolean] ignored
       # @return [Array(Boolean, Object)] result
       def try(source, context, _consume_all)
-        # Fast path: check if next char matches
+        if @quantified
+          # One greedy regex match (Parslet parity): consume the whole
+          # match. A zero-length match is treated as no match so
+          # repetitions always advance.
+          matched = source.match_bytes(@re)
+          return ok(source.consume_bytes(matched)) if matched&.positive?
+
+          return context.err(self, source, @eof_error) if source.chars_left < 1
+          return context.err(self, source, @no_match_error)
+        end
+
+        # Fast path: single-character class
         return ok(source.consume(1)) if source.matches?(@re)
 
         # No input left
