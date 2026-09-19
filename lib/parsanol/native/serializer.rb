@@ -162,20 +162,20 @@ module Parsanol
         nil
       end
 
-      if parslet
-        # Serialize the resolved parslet via the normal dispatch. A
-        # uniform Entity reference keeps every atom type supported here
-        # (a duplicated inline table once dropped Dynamic/Capture/Scope
-        # and made every rule-wrapped Dynamic atom unserializable).
-        @atoms[atom_id] = { "Entity" => { "atom" => serialize_atom(parslet) } }
-      else
-        # If the entity's block returns nil, create a placeholder that will fail
-        @atoms[atom_id] = {
-          "Str" => {
-            "pattern" => "\x00__UNIMPLEMENTED_ENTITY_#{atom.name}__",
-          },
-        }
-      end
+      # Serialize the resolved parslet via the normal dispatch. A
+      # uniform Entity reference keeps every atom type supported here
+      # (a duplicated inline table once dropped Dynamic/Capture/Scope
+      # and made every rule-wrapped Dynamic atom unserializable).
+      @atoms[atom_id] = if parslet
+                          { "Entity" => { "atom" => serialize_atom(parslet) } }
+                        else
+                          # If the entity's block returns nil, create a placeholder that will fail
+                          {
+                            "Str" => {
+                              "pattern" => "\x00__UNIMPLEMENTED_ENTITY_#{atom.name}__",
+                            },
+                          }
+                        end
       atom_id
     end
 

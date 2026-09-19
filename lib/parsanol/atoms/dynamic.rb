@@ -27,6 +27,9 @@ module Parsanol
         block = @block
         result = block.call(source, context)
 
+        # A nil return fails the atom (native callback parity).
+        return context.err(self, source, "dynamic block returned nil") if result.nil?
+
         # Result is a parslet atom.
         result.apply(source, context, consume_all)
       end

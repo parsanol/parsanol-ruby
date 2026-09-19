@@ -23,8 +23,12 @@ RSpec.describe "native expressibility" do
       nil # first use defines it
     end
 
+    # GH-85 made dynamic atoms expressible; a genuinely unexpressible
+    # atom (a bare custom subclass) still routes to the Ruby engine.
+    unsupported = Class.new(Parsanol::Atoms::Custom)
     klass = Class.new(Parsanol::Parser) do
-      rule(:x) { dynamic { |_s, _c| str("a") } }
+      define_method(:unsupported_rule) { unsupported.new }
+      rule(:x) { unsupported.new }
       root(:x)
     end
 
