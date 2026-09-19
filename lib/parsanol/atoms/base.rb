@@ -39,7 +39,15 @@ module Parsanol
         # grammars transparently.
         if must_consume_all && source.is_a?(String) &&
             (program = VM.program_for(self))
-          result = VM.run_for(self, program, source, true)
+          begin
+            result = VM.run_for(self, program, source, true)
+          rescue ArgumentError, TypeError
+            # Executor crash on a malformed program (GH-68): the
+            # interpreter is the source of truth — fall through and
+            # stop using the VM for this grammar.
+            VM.disable_for!(self)
+            result = VM::BAIL
+          end
           if result == VM::BAIL
             # Internal bail: fall back to the interpreter and skip the VM
             # for this grammar from now on.
