@@ -42,11 +42,19 @@ RSpec.describe "atom coverage audit", :native do
 
   describe "default-mode engine selection" do
     it "runs unserializable grammars on the Ruby engine, warning once" do
-      expect(NativeCutParser.new.parse("ab")).to eq("ab")
+      begin
+        Parsanol::Parser.class_variable_set(:@@unsupported_warned, {})
+      rescue NameError
+        nil
+      end
+
+      expect do
+        expect(NativeCutParser.new.parse("ab")).to eq("ab")
+      end.to output(/Ruby engine.*Cut/).to_stderr
 
       expect do
         2.times { NativeCutParser.new.parse("ab") }
-      end.to output(/Ruby engine.*Cut/).to_stderr
+      end.not_to output.to_stderr
     end
   end
 end
