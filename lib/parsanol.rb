@@ -265,6 +265,7 @@ module Parsanol
   module_function :exp
 
   autoload :Expression, "parsanol/expression"
+  autoload :IncrementalSession, "parsanol/incremental"
 end
 
 require "parsanol/version"
