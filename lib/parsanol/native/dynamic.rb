@@ -141,16 +141,21 @@ module Parsanol
             context[:captures].transform_keys(&:to_sym),
           )
 
-          # Call the block
-          result = block.call(ctx)
+          # Call the block. Parslet-canonical blocks take two arguments
+          # (source, context): pass the restricted context for both so
+          # either convention works (GH-76). Captures are read-only
+          # snapshots of the engine state; write-dependent dispatch must
+          # run on mode: :ruby.
+          result = if block.arity == 2
+                     block.call(ctx, ctx)
+                   else
+                     block.call(ctx)
+                   end
 
           return nil unless result
 
           # Return the result (should be a parslet/atom)
           result
-        rescue StandardError => e
-          warn "[Parsanol::Native::Dynamic] Invoke error: #{e.message}"
-          nil
         end
       end
     end
