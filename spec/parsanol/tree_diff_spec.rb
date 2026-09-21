@@ -18,7 +18,7 @@ RSpec.describe Parsanol::TreeDiff do
       expect(diff[:path]).to eq("paragraph.lines")
       expect(diff[:why]).to include("kind mismatch")
       expect(diff[:ruby]).to eq("Array(1)")
-      expect(diff[:native]).to match(/Hash\{text, line_break\}/)
+      expect(diff[:native]).to include('Hash{text, line_break}')
     end
 
     it "reports size mismatches in arrays" do
@@ -54,7 +54,7 @@ RSpec.describe Parsanol::TreeDiff do
       )
       expect(drift[:path]).to eq("t")
       expect(drift[:why]).to include("offset drift: 5 vs 6")
-      expect(drift[:ruby]).to match(/Slice\("hi"@5\)/)
+      expect(drift[:ruby]).to include('Slice("hi"@5)')
     end
 
     it "indexes into arrays along the path" do
