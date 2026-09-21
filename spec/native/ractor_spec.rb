@@ -4,7 +4,13 @@ require "spec_helper"
 require "parsanol"
 require "parsanol/native"
 
-RSpec.describe "Parsanol::Native Ractor safety", if: RUBY_ENGINE == "ruby" && defined?(Ractor) do
+# Ruby's Windows Ractor support is experimental and the parallel
+# take/value path hangs there (ruby/ruby scheduler, not the native
+# parse — unix 4.0 passes). Gate the specs to non-Windows.
+WINDOWS = Gem::Platform.local.os =~ /mingw|mswin|windows/ ? true : false
+
+RSpec.describe "Parsanol::Native Ractor safety",
+               if: RUBY_ENGINE == "ruby" && defined?(Ractor) && !WINDOWS do
   let(:grammar) do
     Class.new(Parsanol::Parser) do
       rule(:line) { str("x") >> match("[0-9]").repeat(1) >> str("\n") }
