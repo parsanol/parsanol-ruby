@@ -7,7 +7,7 @@ require "parsanol/native"
 # Ruby's Windows Ractor support is experimental and the parallel
 # take/value path hangs there (ruby/ruby scheduler, not the native
 # parse — unix 4.0 passes). Gate the specs to non-Windows.
-WINDOWS = Gem::Platform.local.os =~ /mingw|mswin|windows/ ? true : false
+WINDOWS = /mingw|mswin|windows/.match?(Gem::Platform.local.os) || false
 
 RSpec.describe "Parsanol::Native Ractor safety",
                if: RUBY_ENGINE == "ruby" && defined?(Ractor) && !WINDOWS do
