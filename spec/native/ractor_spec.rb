@@ -29,7 +29,7 @@ RSpec.describe "Parsanol::Native Ractor safety", if: RUBY_ENGINE == "ruby" && de
 
     reference = Parsanol::Native._parse_handle(handle, input).to_s
 
-    results = 4.times.map do
+    results = Array.new(4) do
       ractor = Ractor.new(handle, input) do |h, inp|
         Parsanol::Native._parse_handle(h, inp).to_s
       end
