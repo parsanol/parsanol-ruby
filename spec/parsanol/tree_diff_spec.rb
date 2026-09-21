@@ -18,7 +18,7 @@ RSpec.describe Parsanol::TreeDiff do
       expect(diff[:path]).to eq("paragraph.lines")
       expect(diff[:why]).to include("kind mismatch")
       expect(diff[:ruby]).to eq("Array(1)")
-      expect(diff[:native]).to include('Hash{text, line_break}')
+      expect(diff[:native]).to include("Hash{text, line_break}")
     end
 
     it "reports size mismatches in arrays" do
