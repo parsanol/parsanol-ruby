@@ -15,13 +15,18 @@ RSpec.describe "Parsanol::Native Ractor safety", if: RUBY_ENGINE == "ruby" && de
 
   let(:input) { "x123\n" * 500 }
 
+  # Ruby 4.0 removed Ractor#take in favor of #value.
+  def ractor_result(ractor)
+    ractor.respond_to?(:value) ? ractor.value : ractor.take
+  end
+
   it "parses from a non-main Ractor" do
     handle = Parsanol::Native::Parser.grammar_handle(grammar)
     ractor = Ractor.new(handle, input) do |h, inp|
       Parsanol::Native._parse_handle(h, inp).class.name
     end
 
-    expect(ractor.take).to eq("Parsanol::Slice")
+    expect(ractor_result(ractor)).to eq("Parsanol::Slice")
   end
 
   it "parses correctly across parallel Ractors" do
@@ -33,7 +38,7 @@ RSpec.describe "Parsanol::Native Ractor safety", if: RUBY_ENGINE == "ruby" && de
       ractor = Ractor.new(handle, input) do |h, inp|
         Parsanol::Native._parse_handle(h, inp).to_s
       end
-      ractor.take
+      ractor_result(ractor)
     end
 
     expect(results).to all(eq(reference))
