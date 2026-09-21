@@ -154,16 +154,25 @@ module Parsanol
 
           return nil unless result
 
-          # Return the result (should be a parslet/atom)
-          result
+          # Capture-write contract (GH-80): return the atom and the
+          # post-call captures hash; the Rust bridge diffs it against
+          # the seeded values and propagates the block's writes
+          # (ctx.captures[:k] = v) into the parse's capture state,
+          # where backtracking scopes discard them on branch failure.
+          [result, ctx.captures]
         end
       end
     end
 
     # Context object passed to dynamic callbacks
     #
-    # Provides read-only access to the parsing context including
-    # input string, current position, and captured values.
+    # Provides access to the parsing context including input string,
+    # current position, and captured values. Capture READS see state
+    # set before the dynamic atom (capture atoms and earlier blocks'
+    # writes). Capture WRITES (ctx.captures[:k] = v) propagate into
+    # the parse's capture state and are visible to later blocks —
+    # and are discarded with the enclosing branch when backtracking
+    # fails it (parsanol-ruby#80).
     #
     # @example
     #   dynamic { |ctx|
