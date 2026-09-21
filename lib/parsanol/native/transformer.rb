@@ -83,7 +83,8 @@ module Parsanol
         elsif [REPETITION_SYM, REPETITION_TAG].include?(first)
           # Optimized: transform items starting from index 1
           len = arr.length
-          return EMPTY_ARRAY if len == 1
+          # Empty repetition: named → [], unnamed → "" (CanFlatten#flatten_repetition)
+          return (named ? EMPTY_ARRAY : EMPTY_STRING) if len == 1
 
           items = Array.new(len - 1)
           i = 0
@@ -91,7 +92,7 @@ module Parsanol
             items[i] = transform(arr[i + 1])
             i += 1
           end
-          flatten_repetition(items)
+          flatten_repetition(items, named: named)
         elsif [MAYBE_SYM, MAYBE_TAG].include?(first)
           # Maybe flattens to nil-or-value (named) or ""-or-value (unnamed),
           # never to an array
@@ -290,309 +291,98 @@ module Parsanol
         result
       end
 
-      # Flatten sequence items according to Parslet semantics:
-      # 1. If ALL items are hashes, return as array (this is a repetition result)
-      # 2. If there are named captures (hashes) among Slices/strings, return ONLY the merged hash (discard Slices/strings)
-      # 3. If only Slices/strings, join them preserving position from first Slice
-      # 4. Return single value if only one item
-      #
-      # This matches Parslet's behavior where:
-      #   str('SCHEMA') >> str(' ') >> match('[a-z]').repeat(1).as(:name) >> str(';')
-      #   returns: {:name => "test"}  (not ["SCHEMA ", {:name=>"test"}, ";"])
-      #
-      # But for repetitions with named captures:
-      #   match('[a-z]').as(:x).repeat(2)
-      #   returns: [{:x => "a"}, {:x => "b"}]  (array of hashes, NOT merged!)
-      #
-      # Optimized: Single-pass with direct result building
-      def self.flatten_sequence(items)
-        return EMPTY_ARRAY if items.empty? # Match Parsanol Ruby mode
-        return items.first if items.length == 1
+      # Exact port of Parslet::Atoms::CanFlatten#flatten_sequence /
+      # #merge_fold / #flatten_repetition / #foldl. Heuristic single-pass
+      # rewrites diverged from this (parsanol-ruby#83); stay byte-for-byte
+      # with parslet's fold. Hot shapes (all-Hash, all-stringlike)
+      # short-circuit before the fold to avoid per-step allocations.
+      def self.foldl(list, &)
+        return EMPTY_STRING if list.empty?
 
-        # Single pass: categorize items
-        merged_hash = {}
-        slice_or_string_parts = []
-        hash_count = 0
-        total_items = 0
-        has_non_empty_array = false
-
-        items.each do |item|
-          case item
-          when Hash
-            merged_hash.merge!(item)
-            hash_count += 1
-            total_items += 1
-          when ::Parsanol::Slice, String
-            slice_or_string_parts << item
-            total_items += 1
-          when Array
-            # Check if this is a non-empty array (repetition result with content)
-            # Parslet behavior: when a sequence contains a non-empty repetition,
-            # the WHOLE sequence should be kept as array, not merged.
-            if item.empty?
-              # Empty repetition - skip (sequence semantics: merge rest)
-              # Don't increment total_items for empty arrays
-            else
-              # Check if array contains only hashes (repetition wrapper pattern)
-              # In this case, merge the inner hashes into merged_hash
-              non_hash_items = item.grep_v(Hash)
-              all_items_are_hashes = non_hash_items.empty?
-
-              if all_items_are_hashes
-                # Check if merging would overwrite existing keys in merged_hash.
-                # If so, this is a repetition pattern (item >> (sep >> item).repeat)
-                # and should be kept as array, not merged.
-                # Example: merged_hash={namedTypeOrRename: A}, array=[{namedTypeOrRename: B}]
-                # → should produce [{namedTypeOrRename: A}, {namedTypeOrRename: B}]
-                existing_keys = merged_hash.keys
-                repeated_keys = item.flat_map(&:keys).tally.any? { |_key, count| count > 1 }
-                shares_keys = repeated_keys || item.any? do |sub_item|
-                  sub_item.is_a?(Hash) && sub_item.keys.intersect?(existing_keys)
-                end
-
-                if shares_keys
-                  has_non_empty_array = true
-                  item.each do |sub_item|
-                    hash_count += 1 if sub_item.is_a?(Hash)
-                  end
-                  total_items += 1
-                else
-                  item.each do |sub_item|
-                    merged_hash.merge!(sub_item) if sub_item.is_a?(Hash)
-                  end
-                end
-              else
-                # Non-empty repetition with non-hash items - mark that we should keep as array
-                has_non_empty_array = true
-                # Still collect items for potential array result
-                item.each do |sub_item|
-                  case sub_item
-                  when Hash
-                    hash_count += 1
-                  when ::Parsanol::Slice, String
-                    slice_or_string_parts << sub_item
-                  end
-                end
-                total_items += 1
-              end
-            end
-          when nil
-            # Skip nil values (from lookahead or optional that didn't match)
-          else
-            total_items += 1
-          end
-        end
-
-        # PARSLET SEQUENCE BEHAVIOR WITH REPETITIONS:
-        # If the sequence contains a non-empty repetition result (array with items),
-        # return as array instead of merging.
-        # Example: factor.as(:left) >> (op >> factor).as(:rhs).repeat
-        # With input "a+b" produces: [{left: {...}}, {rhs: {...}}]
-        # With input "a" produces: {left: {...}} (empty repetition, merge)
-        if has_non_empty_array
-          # Flatten the items: top-level hashes + array items
-          result = []
-          items.each do |item|
-            case item
-            when Hash
-              result << item
-            when Array
-              result.concat(item)
-            when ::Parsanol::Slice, String
-              # Skip unnamed Slices/strings when we have named captures
-            end
-          end
-          return result.length == 1 ? result.first : result
-        end
-
-        # KEY INSIGHT: If ALL items are hashes, we need to determine:
-        # 1. WRAPPER PATTERN: All hashes have the SAME single key, and values are HASHES
-        #    => Merge the inner hashes under that key
-        #    Example: [{:syntax => {:spaces => {...}}},
-        #              {:syntax => {:schemaDecl => [...]}}]
-        #    Result: {:syntax => {:spaces => {...}, :schemaDecl => [...]}}
-        #
-        # 2. REPETITION PATTERN: All hashes have the SAME single key, but values are SIMPLE
-        #    => Keep as array (this is a repetition result)
-        #    Example: [{:letter => "a"}, {:letter => "b"}, {:letter => "c"}]
-        #    Result: [{:letter => "a"}, {:letter => "b"}, {:letter => "c"}]
-        #
-        # 3. MIXED KEYS: Hashes have DIFFERENT keys
-        #    => Merge into single hash
-        #    Example: [{:explicitAttr => {...}}, {:whereClause => {...}}]
-        #    Result: {:explicitAttr => {...}, :whereClause => {...}}
-        if hash_count == total_items && hash_count > 1
-          # Check if all hashes have the same single key
-          first_item = items.first
-          if first_item.is_a?(Hash) && first_item.keys.length == 1
-            wrapper_key = first_item.keys.first
-
-            # Verify all items are hashes with the same single key
-            all_same_wrapper = items.all? do |item|
-              item.is_a?(Hash) && item.keys.length == 1 && item.keys.first == wrapper_key
-            end
-
-            if all_same_wrapper
-              # Check if values are all hashes (wrapper pattern) or not (repetition pattern)
-              all_values_are_hashes = items.all? do |item|
-                item[wrapper_key].is_a?(Hash)
-              end
-
-              return items unless all_values_are_hashes
-
-              # Check if inner hashes have the same keys or different keys
-              # REPETITION pattern (same keys like entity_decl): keep as array
-              # WRAPPER pattern (different keys like spaces vs schemaDecl): merge
-              first_inner_keys = items.first[wrapper_key].keys.to_set
-              items.all? do |item|
-                item[wrapper_key].keys.to_set == first_inner_keys
-              end
-
-              # Check if items have single keys or multiple keys
-              # - Single key items with repeated outer key = true repetition (keep array)
-              # - Multiple key items with repeated outer key = duplicate labels in sequence (merge)
-              max_keys_per_item = items.map do |item|
-                item.is_a?(Hash) ? item.keys.length : 0
-              end.max || 0
-
-              # Check if inner values are hashes with different keys
-              # This distinguishes:
-              # - True repetition: [{letter: 'a'}, {letter: 'b'}] - inner is string
-              # - Duplicate labels: [{group: {char: 'a'}}, {group: {digit: '5'}}] - inner is hash with different keys
-              inner_keys_all_same = true
-              first_inner_keys = nil
-              if items.all? do |item|
-                item.is_a?(Hash) && item[wrapper_key].is_a?(Hash)
-              end
-                first_inner_keys = items.first[wrapper_key].keys.to_set
-                inner_keys_all_same = items.all? do |item|
-                  item[wrapper_key].keys.to_set == first_inner_keys
-                end
-              end
-
-              # DUPLICATE LABELS IN SEQUENCE: multiple keys per item with repeated outer key
-              # OR inner hashes with different keys
-              # Example: [{group: {char: 'a'}}, {group: {digit: '5'}}]
-              # Ruby semantics: merge with last value wins for the outer key
-              # This is different from true repetition where each item has exactly one key
-              has_duplicate_labels = max_keys_per_item > 1 || (first_inner_keys && !inner_keys_all_same)
-
-              # Check if inner hashes have the same keys or different keys
-              first_inner_keys ||= items.first[wrapper_key].keys.to_set
-              all_same_keys = items.all? do |item|
-                item[wrapper_key].keys.to_set == first_inner_keys
-              end
-
-              if has_duplicate_labels
-                # DUPLICATE LABELS PATTERN: items have multiple keys with repeated outer key
-                # OR inner hashes have different keys
-                # This is a SEQUENCE with duplicate .as() labels
-                # Ruby semantics: merge and keep last value for the outer key
-                merged = {}
-                items.each do |item|
-                  item.each do |k, v|
-                    merged[k] = v # Last value wins
-                  end
-                end
-                # Return only the wrapper key with its last value
-                return { wrapper_key => merged[wrapper_key] }
-              elsif all_same_keys
-                # TRUE REPETITION: each item has exactly one key
-                # Keep as array of hashes
-                # Example: [{letter: 'a'}, {letter: 'b'}] or [{schemaDecl: ...}, {schemaDecl: ...}]
-                return items
-              else
-                # DIFFERENT INNER KEYS with single keys: Same outer key with different inner keys
-                # This is a WRAPPER pattern - keep all items as array
-                # Example: [{:syntax => {:entityDecl => ...}}, {:syntax => {:typeDecl => ...}}]
-                # Should NOT merge or drop items - keep all declarations
-                return items
-              end
-
-              return items unless all_values_are_hashes
-
-              # Repetition pattern: keep as array
-
-            end
-          end
-
-          # MIXED KEYS: Hashes have different keys
-          # Parslet sequence semantics: merge into single hash
-          return merged_hash
-        end
-
-        # PARSLET SEQUENCE SEMANTICS:
-        # If there are named captures (hashes) mixed with other things,
-        # return ONLY the merged hash (discard unnamed Slices/strings)
-        return merged_hash unless merged_hash.empty?
-
-        # No named captures - handle Slices/strings and other items
-        if slice_or_string_parts.any?
-          # Join Slices/strings, preserving position from first Slice
-          first_slice = slice_or_string_parts.find { |i| i.is_a?(::Parsanol::Slice) }
-          content = slice_or_string_parts.map do |i|
-            i.is_a?(::Parsanol::Slice) ? i.content : i
-          end.join
-
-          if first_slice
-            # Create new Slice with combined content, preserving position from first
-            return ::Parsanol::Slice.new(first_slice.offset, content,
-                                         first_slice.input)
-          else
-            # All plain strings (shouldn't happen with new decode_flat, but handle it)
-            return slice_or_string_parts.length == 1 ? slice_or_string_parts.first : content
-          end
-        end
-
-        # Only other items (arrays, etc.)
-        return EMPTY_ARRAY if total_items.zero?
-
-        items.length == 1 ? items.first : items
+        list.drop(1).inject(list.first, &)
       end
 
-      # Parslet/Parsanol repetition semantics:
-      # 1. Return [] for empty repetitions
-      # 2. If all items are Slices (or strings), join them preserving position
-      # 3. Otherwise return array
-      def self.flatten_repetition(items)
-        return EMPTY_ARRAY if items.empty?
+      def self.flatten_sequence(items)
+        list = items.compact
+        return EMPTY_STRING if list.empty?
+        return list.first if list.length == 1
 
-        # Single-pass flatten and check
-        flat_items = []
-        all_slices_or_strings = true
-
-        items.each do |item|
-          if item.is_a?(Array)
-            item.each do |sub|
-              flat_items << sub
-              all_slices_or_strings = false unless slice_or_string?(sub)
-            end
-          else
-            flat_items << item
-            all_slices_or_strings = false unless slice_or_string?(item)
-          end
+        # Hot path: all-hash sequence. Single-pass merge preserves
+        # parslet's merge_fold(Hash, Hash) last-wins semantics.
+        if list.all?(Hash)
+          return list.reduce { |acc, hash| acc.merge(hash) }
         end
 
-        return EMPTY_ARRAY if flat_items.empty?
-
-        # If all Slices or strings, join them preserving position from first Slice
-        if all_slices_or_strings
-          first_slice = flat_items.find { |i| i.is_a?(::Parsanol::Slice) }
-          content = flat_items.map do |i|
-            i.is_a?(::Parsanol::Slice) ? i.content : i
-          end.join
-
-          if first_slice
-            # Create new Slice with combined content, preserving position from first
-            ::Parsanol::Slice.new(first_slice.offset, content,
-                                  first_slice.input)
-          else
-            # All plain strings (shouldn't happen with new decode_flat, but handle it)
-            content
-          end
-        else
-          flat_items
+        # Hot path: all stringlike (String/Slice). Build one Slice
+        # from the first Slice's offset, joining contents in place.
+        if list.all? { |x| x.is_a?(::Parsanol::Slice) || x.is_a?(String) }
+          first_slice = list.find { |x| x.is_a?(::Parsanol::Slice) }
+          content = list.map { |x| x.is_a?(::Parsanol::Slice) ? x.content : x.to_s }.join
+          return first_slice ? ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input) : content
         end
+
+        # Cold path: parslet's exact fold (Hash/Slice/String/Array
+        # mixtures, including the #83 paragraph cases).
+        foldl(list) { |acc, item| merge_fold(acc, item) }
+      end
+
+      # Parslet compares exact classes (`left.class == right.class`) and
+      # uses `instance_of?` below — not `is_a?` — so Slice subclasses and
+      # Hash subclasses do not take the wrong branch.
+      def self.merge_fold(left, right)
+        # rubocop:disable Style/ClassEqualityComparison
+        if left.class == right.class
+          # rubocop:enable Style/ClassEqualityComparison
+          return left.is_a?(Hash) ? left.merge(right) : left + right
+        end
+
+        if left.respond_to?(:to_str) && right.respond_to?(:to_str)
+          return right if right.respond_to?(:to_slice)
+          return left if left.respond_to?(:to_slice)
+
+          return left.to_str + right.to_str
+        end
+
+        return left if right.respond_to?(:to_str)
+        return right if left.respond_to?(:to_str)
+
+        return left + [right] if right.is_a?(Hash)
+        return [left] + right if left.is_a?(Hash)
+
+        # Fallback: hoist both sides into an array (defensive; parslet
+        # raises here, but native trees can carry nested Arrays that
+        # parslet would already have folded).
+        Array(left) + Array(right)
+      end
+
+      # Exact port of Parslet::Atoms::CanFlatten#flatten_repetition.
+      # `named` is true only when this repetition is the direct child of
+      # a Named (.as(...)); it controls empty-list folding ([] vs "").
+      # `instance_of?` (not `is_a?`/`any?(Hash)`) matches parslet.
+      def self.flatten_repetition(items, named: false)
+        # rubocop:disable Style/PredicateWithKind
+        if items.any? { |e| e.instance_of?(Hash) }
+          return items.select { |e| e.instance_of?(Hash) }
+        end
+
+        if items.any? { |e| e.instance_of?(Array) }
+          return items.select { |e| e.instance_of?(Array) }.flatten(1)
+        end
+        # rubocop:enable Style/PredicateWithKind
+
+        return EMPTY_ARRAY if named && items.empty?
+
+        # Hot path: all-stringlike repetition → foldl via concat.
+        # Cold path: parslet's exact fold.
+        if items.all? { |x| x.is_a?(::Parsanol::Slice) || x.is_a?(String) }
+          return EMPTY_STRING if items.empty?
+
+          first_slice = items.find { |x| x.is_a?(::Parsanol::Slice) }
+          content = items.map { |x| x.is_a?(::Parsanol::Slice) ? x.content : x.to_s }.join
+          return first_slice ? ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input) : content
+        end
+
+        foldl(items.compact) { |acc, item| acc + item }
       end
 
       # Check if value is a Slice or String
