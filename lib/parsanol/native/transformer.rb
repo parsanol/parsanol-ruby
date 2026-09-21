@@ -294,15 +294,36 @@ module Parsanol
       # Exact port of Parslet::Atoms::CanFlatten#flatten_sequence /
       # #merge_fold / #flatten_repetition / #foldl. Heuristic single-pass
       # rewrites diverged from this (parsanol-ruby#83); stay byte-for-byte
-      # with parslet's fold.
+      # with parslet's fold. Hot shapes (all-Hash, all-stringlike)
+      # short-circuit before the fold to avoid per-step allocations.
       def self.foldl(list, &)
         return EMPTY_STRING if list.empty?
 
-        list[1..].inject(list.first, &)
+        list.drop(1).inject(list.first, &)
       end
 
       def self.flatten_sequence(items)
-        foldl(items.compact) { |acc, item| merge_fold(acc, item) }
+        list = items.compact
+        return EMPTY_STRING if list.empty?
+        return list.first if list.length == 1
+
+        # Hot path: all-hash sequence. Single-pass merge preserves
+        # parslet's merge_fold(Hash, Hash) last-wins semantics.
+        if list.all?(Hash)
+          return list.reduce { |acc, hash| acc.merge(hash) }
+        end
+
+        # Hot path: all stringlike (String/Slice). Build one Slice
+        # from the first Slice's offset, joining contents in place.
+        if list.all? { |x| x.is_a?(::Parsanol::Slice) || x.is_a?(String) }
+          first_slice = list.find { |x| x.is_a?(::Parsanol::Slice) }
+          content = list.map { |x| x.is_a?(::Parsanol::Slice) ? x.content : x.to_s }.join
+          return first_slice ? ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input) : content
+        end
+
+        # Cold path: parslet's exact fold (Hash/Slice/String/Array
+        # mixtures, including the #83 paragraph cases).
+        foldl(list) { |acc, item| merge_fold(acc, item) }
       end
 
       # Parslet compares exact classes (`left.class == right.class`) and
@@ -350,6 +371,16 @@ module Parsanol
         # rubocop:enable Style/PredicateWithKind
 
         return EMPTY_ARRAY if named && items.empty?
+
+        # Hot path: all-stringlike repetition → foldl via concat.
+        # Cold path: parslet's exact fold.
+        if items.all? { |x| x.is_a?(::Parsanol::Slice) || x.is_a?(String) }
+          return EMPTY_STRING if items.empty?
+
+          first_slice = items.find { |x| x.is_a?(::Parsanol::Slice) }
+          content = items.map { |x| x.is_a?(::Parsanol::Slice) ? x.content : x.to_s }.join
+          return first_slice ? ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input) : content
+        end
 
         foldl(items.compact) { |acc, item| acc + item }
       end
