@@ -4,16 +4,16 @@
 #
 # Compares parsing performance across:
 # - parslet: Original Parslet gem (pure Ruby)
-# - parsanol: Parsanol pure Ruby backend
+# - parsanol-ruby: Parsanol pure Ruby backend
 # - parsanol-native: Parsanol with Rust backend
-# - parsanol-zerocopy: Parsanol zero-copy mode (fastest)
-# - racc: RACC parser generator (compiled)
-# - regexp: Pure regex parsing (baseline)
+# - parsanol-parslet: Parsanol::Parslet compatibility layer (pure Ruby)
+# - racc: RACC parser generator (parser files not checked in; auto-skipped)
+# - regexp: Pure regex tokenization (baseline ceiling, not a real parser)
 #
 # Usage:
 #   bundle exec ruby benchmark/benchmark_suite.rb
-#   bundle exec ruby benchmark/benchmark_suite.rb --parser json --size medium
-#   bundle exec ruby benchmark/benchmark_suite.rb --all
+#   bundle exec ruby benchmark/benchmark_suite.rb --parser parsanol-parslet --size medium
+#   bundle exec ruby benchmark/benchmark_suite.rb --type express --size small
 
 require "bundler/setup"
 require "benchmark/ips"
@@ -27,6 +27,27 @@ class BenchmarkSuite
   SIZES = %w[tiny small medium large].freeze
   INPUT_TYPES = %w[json expression express].freeze
 
+  # Parser implementation files per input type (under benchmark/parsers/).
+  # :inline marks parsers built directly in this script. A missing file means
+  # that parser/type combination is skipped with a warning instead of crashing.
+  PARSER_FILES = {
+    "parslet" => { "json" => "json_parslet",
+                   "expression" => "expression_parslet",
+                   "express" => "express_parslet" },
+    "parsanol-ruby" => { "json" => "json_parsanol",
+                         "expression" => "expression_parsanol",
+                         "express" => "express_parsanol" },
+    "parsanol-native" => { "json" => "json_parsanol",
+                           "expression" => "expression_parsanol",
+                           "express" => "express_parsanol" },
+    "parsanol-parslet" => { "json" => "json_parslet_compat",
+                            "expression" => "expression_parslet_compat",
+                            "express" => "express_parslet_compat" },
+    "racc" => { "json" => "json_racc",
+                "expression" => "expression_racc" },
+    "regexp" => :inline,
+  }.freeze
+
   attr_reader :options
 
   def initialize(args)
@@ -39,8 +60,7 @@ class BenchmarkSuite
       parser: nil,        # Specific parser to benchmark
       size: "medium",     # Input size
       input_type: "json", # Type of input
-      all: false,         # Run all combinations
-      iterations: 10,     # Warmup iterations
+      iterations: 10,     # Warmup seconds (benchmark-ips warmup)
       time: 5,            # Benchmark time in seconds
       memory: false,      # Profile memory
       output: "console", # Output format: console, json, html
@@ -64,11 +84,8 @@ class BenchmarkSuite
         opts[:input_type] = t
       end
 
-      parser.on("-a", "--all", "Run all combinations") do
-        opts[:all] = true
-      end
-
-      parser.on("-i", "--iterations N", Integer, "Warmup iterations") do |i|
+      parser.on("-i", "--iterations N", Integer,
+                "Warmup seconds (benchmark-ips warmup)") do |i|
         opts[:iterations] = i
       end
 
@@ -87,6 +104,9 @@ class BenchmarkSuite
     end.parse!(args)
 
     opts
+  rescue OptionParser::ParseError => e
+    abort "#{e.message}\nValid parsers: #{PARSERS.join(', ')}\n" \
+          "Valid input types: #{INPUT_TYPES.join(', ')}"
   end
 
   def run
@@ -104,6 +124,11 @@ class BenchmarkSuite
     puts
 
     # Determine which parsers to test
+    if options[:parser] && !parser_supported?(options[:parser], options[:input_type])
+      abort "ERROR: #{options[:parser]} does not support input type " \
+            "#{options[:input_type]} (see PARSER_FILES in this script)"
+    end
+
     parsers_to_test = options[:parser] ? [options[:parser]] : available_parsers
 
     # Run benchmarks
@@ -134,15 +159,14 @@ class BenchmarkSuite
       puts "WARNING: parslet not available"
     end
 
-    # Check Parsanol
+    # Check Parsanol. The Parsanol::Parslet compatibility layer is pure Ruby,
+    # so it only needs the gem; the native backend additionally needs the
+    # compiled extension.
     begin
       require "parsanol"
       available << "parsanol-ruby"
-
-      if Parsanol::Native.available?
-        available << "parsanol-native"
-        available << "parsanol-parslet"
-      end
+      available << "parsanol-parslet"
+      available << "parsanol-native" if Parsanol::Native.available?
     rescue LoadError => e
       puts "WARNING: parsanol not available: #{e.message}"
     end
@@ -158,7 +182,25 @@ class BenchmarkSuite
     # Regexp is always available
     available << "regexp"
 
-    available
+    available.select { |name| parser_supported?(name, options[:input_type]) }
+  end
+
+  # True when the parser has an implementation for the input type and its
+  # support file (if any) is checked in.
+  def parser_supported?(parser_name, input_type)
+    files = PARSER_FILES[parser_name]
+    return false unless files
+    return true if files == :inline
+
+    file = files[input_type]
+    return false unless file
+
+    supported = File.exist?(File.join(__dir__, "parsers", "#{file}.rb"))
+    unless supported
+      puts "WARNING: #{parser_name} skipped for #{input_type} " \
+           "(benchmark/parsers/#{file}.rb is not checked in)"
+    end
+    supported
   end
 
   def load_input(type, size)
@@ -257,16 +299,25 @@ class BenchmarkSuite
     memory_after = memory_usage if options[:memory]
 
     # Extract results
-    entry = result.entries.first
-
-    {
-      ips: entry.iterations_per_second,
-      stddev: entry.stddev_percentage,
-      cycles: entry.iterations,
+    entry_metrics(result.entries.first).merge(
       memory_before: memory_before,
       memory_after: memory_after,
       memory_delta: memory_after && memory_before ? memory_after - memory_before : nil,
-    }
+    )
+  end
+
+  # benchmark-ips >= 2.x exposes ips/ips_sd (the old iterations_per_second/
+  # stddev_percentage API is gone). The RESULTS table prints stddev as a
+  # percentage of ips, so convert here.
+  def entry_metrics(entry)
+    ips = entry.ips
+    stddev_pct = if entry.respond_to?(:ips_sd) && ips.positive?
+                   entry.ips_sd / ips * 100
+                 else
+                   0
+                 end
+
+    { ips: ips, stddev: stddev_pct, cycles: entry.iterations }
   end
 
   def create_parser(parser_name, input_type)
@@ -314,18 +365,15 @@ class BenchmarkSuite
     when "json"
       require_relative "parsers/json_parsanol"
       parser = JsonParsanolParser.new
-      parser.class.use_ruby_backend!
-      ->(input) { parser.parse(input) }
+      ->(input) { parser.parse(input, mode: :ruby) }
     when "expression"
       require_relative "parsers/expression_parsanol"
       parser = ExpressionParsanolParser.new
-      parser.class.use_ruby_backend!
-      ->(input) { parser.parse(input) }
+      ->(input) { parser.parse(input, mode: :ruby) }
     when "express"
       require_relative "parsers/express_parsanol"
       parser = ExpressParsanolParser.new
-      parser.class.use_ruby_backend!
-      ->(input) { parser.parse(input) }
+      ->(input) { parser.parse(input, mode: :ruby) }
     end
   end
 
@@ -336,18 +384,15 @@ class BenchmarkSuite
     when "json"
       require_relative "parsers/json_parsanol"
       parser = JsonParsanolParser.new
-      parser.class.use_rust_backend!
-      ->(input) { parser.parse(input) }
+      ->(input) { parser.parse(input, mode: :native) }
     when "expression"
       require_relative "parsers/expression_parsanol"
       parser = ExpressionParsanolParser.new
-      parser.class.use_rust_backend!
-      ->(input) { parser.parse(input) }
+      ->(input) { parser.parse(input, mode: :native) }
     when "express"
       require_relative "parsers/express_parsanol"
       parser = ExpressParsanolParser.new
-      parser.class.use_rust_backend!
-      ->(input) { parser.parse(input) }
+      ->(input) { parser.parse(input, mode: :native) }
     end
   end
 
@@ -382,8 +427,7 @@ class BenchmarkSuite
       parser = ExpressionRaccParser.new
       ->(input) { parser.parse(input) }
     else
-      # Fallback to simple regex parsing for RACC
-      ->(input) { input.scan(/\w+/) }
+      raise "racc benchmark does not support input type: #{input_type}"
     end
   end
 

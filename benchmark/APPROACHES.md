@@ -1,11 +1,11 @@
-# The 5 Approaches for Ruby Parsing
+# The 3 Approaches for Ruby Parsing
 
 This document explains the different ways to parse using Parslet/Parsanol
 and the performance characteristics of each approach.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                    5 APPROACHES FOR RUBY PARSING                                 │
+│                    3 APPROACHES FOR RUBY PARSING                                 │
 │                                                                                 │
 │   Each approach moves more work from Ruby to Rust, increasing performance.     │
 │   Measured with Expressir parsing EXPRESS schemas (22KB file).                 │
@@ -42,7 +42,7 @@ and the performance characteristics of each approach.
 
 
 ╔═════════════════════════════════════════════════════════════════════════════════╗
-║  APPROACH 3: Parsanol Native (Batch)                                            ║
+║  APPROACH 3: Parsanol Native (unified parse)                                    ║
 ╠═════════════════════════════════════════════════════════════════════════════════╣
 ║                                                                                 ║
 ║   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐                      ║
@@ -52,41 +52,9 @@ and the performance characteristics of each approach.
 ║                              │                                                  ║
 ║                         FAST parsing                                             ║
 ║                         AST via u64 array                                        ║
+║                         Slice leaves with lazy line/column                       ║
 ║                                                                                 ║
 ║   SPEED: ~20x faster - 153ms                                                    ║
-╚═════════════════════════════════════════════════════════════════════════════════╝
-
-
-╔═════════════════════════════════════════════════════════════════════════════════╗
-║  APPROACH 4: Parsanol Native (ZeroCopy)                                         ║
-╠═════════════════════════════════════════════════════════════════════════════════╣
-║                                                                                 ║
-║   ┌─────────────┐     ┌─────────────────────────┐                              ║
-║   │   INPUT     │     │        PARSANOL         │                              ║
-║   │   String    │────▶│        (Rust FFI)       │────▶ Ruby Objects            ║
-║   └─────────────┘     │  Direct construction    │                              ║
-║                       └─────────────────────────┘                              ║
-║                                                                                 ║
-║   SPEED: ~25x faster                                                            ║
-╚═════════════════════════════════════════════════════════════════════════════════╝
-
-
-╔═════════════════════════════════════════════════════════════════════════════════╗
-║  APPROACH 5: Parsanol Native (ZeroCopy + Slice) ← FASTEST + RECOMMENDED        ║
-╠═════════════════════════════════════════════════════════════════════════════════╣
-║                                                                                 ║
-║   ┌─────────────┐     ┌─────────────────────────────────────┐                  ║
-║   │   INPUT     │     │            PARSANOL                 │                  ║
-║   │   String    │────▶│            (Rust)                   │────▶ Slice Objects║
-║   └─────────────┘     │  Zero-copy + Source positions      │                  ║
-║                       └─────────────────────────────────────┘                  ║
-║                              │                                                  ║
-║                         FASTEST parsing                                          ║
-║                         Source position tracking                                 ║
-║                         Parslet::Slice compatible                               ║
-║                                                                                 ║
-║   SPEED: ~29x faster - 106ms (28.7x vs baseline)                               ║
-║   FEATURES: Preserves source positions for linters, IDEs, Expressir            ║
 ╚═════════════════════════════════════════════════════════════════════════════════╝
 
 
@@ -96,9 +64,7 @@ and the performance characteristics of each approach.
 │                                                                                 │
 │   Approach 1 (parslet-ruby)        ████████████████████████████████  1x        │
 │   Approach 2 (parsanol-ruby)       ████████████████████████████████  ~1x       │
-│   Approach 3 (native-batch)        ████████████████████████████████████████ 20x │
-│   Approach 4 (native-zerocopy)     █████████████████████████████████████████████████ 25x│
-│   Approach 5 (zerocopy+slice)      ████████████████████████████████████████████████████████████████████ 29x│
+│   Approach 3 (parsanol-native)     ████████████████████████████████████████ 20x │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
@@ -108,10 +74,8 @@ and the performance characteristics of each approach.
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   Approach 1-2: Maximum compatibility, debugging, learning                      │
-│   Approach 3:   Need Ruby objects with good performance                        │
-│   Approach 4:   Maximum performance, no source positions needed                │
-│   Approach 5:   Linters, IDEs, Expressir - BEST OVERALL                        │
-│                 (Fastest + source position tracking)                            │
+│   Approach 3:   Performance with Ruby objects and source positions             │
+│                 (linters, IDEs, Expressir)                                      │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
@@ -157,17 +121,30 @@ bundle exec ruby benchmark/run_all.rb --quick
 | Approach | Ruby Method | Rust Function | Status |
 |----------|-------------|---------------|--------|
 | 1 | `Parslet::Parser#parse` | N/A | ✅ Available |
-| 2 | `Parsanol::Parser#parse` (ruby backend) | N/A | ✅ Available |
-| 3 | `Parsanol::Parser#parse` (rust backend) | `parse_batch()` | ✅ Available |
-| 4 | `Parsanol::Native.parse_to_objects()` | `parse_to_objects()` | ✅ Available |
-| 5 | `Parsanol::Native.parse_to_objects(slice: true)` | `parse_to_objects_with_slice()` | ✅ Available |
+| 2 | `Parsanol::Parser#parse(mode: :ruby)` | N/A | ✅ Available |
+| 3 | `Parsanol::Parser#parse(mode: :native)` | batch FFI | ✅ Available |
+
+## Removed Approaches (history)
+
+Earlier revisions described two further approaches: "ZeroCopy" built on a
+dedicated `parse_to_objects` FFI entry point, and a "ZeroCopy + Slice"
+variant. `parse_to_objects` was removed in parsanol-rs 0.4.0 ("Ruby FFI API
+Simplification: Unified to single `parse()` function" —
+`parse_to_objects(g, i, map)` → `parse(g, i)`), mirrored by parsanol-ruby
+1.3.0's removal of the deprecated Ruby methods. The slice variant's dedicated
+entry point (`parse_to_objects_with_slice`) appears only in earlier revisions
+of this document — it never shipped in parsanol-rs. Both goals — direct Ruby
+objects and Slice source positions — are served by today's unified `parse()`
+(Approach 3). A development prototype of ZeroCopy + Slice measured 106ms
+(28.7x vs Parslet) on the 22KB EXPRESS benchmark, which is why older notes
+cite a faster fifth approach.
 
 ## Evidence-Based Results
 
-Actual benchmark results from Expressir parsing EXPRESS schemas:
+Historical benchmark results from Expressir parsing EXPRESS schemas:
 
-| Test File | Size | Lines | Parslet | Native Batch | ZeroCopy+Slice |
-|-----------|------|-------|---------|--------------|----------------|
-| geometry_schema.exp | 22KB | 733 | 3036ms | 153ms (19.9x) | 106ms (28.7x) |
+| Test File | Size | Lines | Parslet | Native Batch |
+|-----------|------|-------|---------|--------------|
+| geometry_schema.exp | 22KB | 733 | 3036ms | 153ms (19.9x) |
 
 **Run the benchmarks yourself to verify on YOUR machine!**
