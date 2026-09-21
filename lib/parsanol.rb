@@ -266,6 +266,7 @@ module Parsanol
 
   autoload :Expression, "parsanol/expression"
   autoload :IncrementalSession, "parsanol/incremental"
+  autoload :TreeDiff, "parsanol/tree_diff"
 end
 
 require "parsanol/version"
