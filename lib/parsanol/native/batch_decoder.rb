@@ -169,6 +169,13 @@ module Parsanol
             @pos += 1
             str = decode_inline_string_bytes(len)
             str.to_sym
+          when TAG_INLINE_STRING
+            # Inline string: len, then u64 chunks (same wire form as
+            # TAG_SYMBOL without the to_sym). Emitted by the rs 0.8.x
+            # engine; previously unhandled here (parsanol-ruby#83).
+            len = @data[@pos]
+            @pos += 1
+            decode_inline_string_bytes(len)
           when TAG_REPETITION
             inner = decode_value
             [:repetition, inner].compact
