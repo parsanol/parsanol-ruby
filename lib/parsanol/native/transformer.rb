@@ -295,44 +295,51 @@ module Parsanol
       # #merge_fold / #flatten_repetition / #foldl. Heuristic single-pass
       # rewrites diverged from this (parsanol-ruby#83); stay byte-for-byte
       # with parslet's fold.
-      def self.foldl(list)
+      def self.foldl(list, &)
         return EMPTY_STRING if list.empty?
 
-        list[1..].inject(list.first) { |r, e| yield r, e }
+        list[1..].inject(list.first, &)
       end
 
       def self.flatten_sequence(items)
-        foldl(items.compact) { |r, e| merge_fold(r, e) }
+        foldl(items.compact) { |acc, item| merge_fold(acc, item) }
       end
 
-      def self.merge_fold(l, r)
-        if l.class == r.class
-          return l.is_a?(Hash) ? l.merge(r) : l + r
+      # Parslet compares exact classes (`left.class == right.class`) and
+      # uses `instance_of?` below — not `is_a?` — so Slice subclasses and
+      # Hash subclasses do not take the wrong branch.
+      def self.merge_fold(left, right)
+        # rubocop:disable Style/ClassEqualityComparison
+        if left.class == right.class
+          # rubocop:enable Style/ClassEqualityComparison
+          return left.is_a?(Hash) ? left.merge(right) : left + right
         end
 
-        if l.respond_to?(:to_str) && r.respond_to?(:to_str)
-          return r if r.respond_to?(:to_slice)
-          return l if l.respond_to?(:to_slice)
+        if left.respond_to?(:to_str) && right.respond_to?(:to_str)
+          return right if right.respond_to?(:to_slice)
+          return left if left.respond_to?(:to_slice)
 
-          return l.to_str + r.to_str
+          return left.to_str + right.to_str
         end
 
-        return l if r.respond_to?(:to_str)
-        return r if l.respond_to?(:to_str)
+        return left if right.respond_to?(:to_str)
+        return right if left.respond_to?(:to_str)
 
-        return l + [r] if r.is_a?(Hash)
-        return [l] + r if l.is_a?(Hash)
+        return left + [right] if right.is_a?(Hash)
+        return [left] + right if left.is_a?(Hash)
 
         # Fallback: hoist both sides into an array (defensive; parslet
         # raises here, but native trees can carry nested Arrays that
         # parslet would already have folded).
-        Array(l) + Array(r)
+        Array(left) + Array(right)
       end
 
       # Exact port of Parslet::Atoms::CanFlatten#flatten_repetition.
       # `named` is true only when this repetition is the direct child of
       # a Named (.as(...)); it controls empty-list folding ([] vs "").
+      # `instance_of?` (not `is_a?`/`any?(Hash)`) matches parslet.
       def self.flatten_repetition(items, named: false)
+        # rubocop:disable Style/PredicateWithKind
         if items.any? { |e| e.instance_of?(Hash) }
           return items.select { |e| e.instance_of?(Hash) }
         end
@@ -340,10 +347,11 @@ module Parsanol
         if items.any? { |e| e.instance_of?(Array) }
           return items.select { |e| e.instance_of?(Array) }.flatten(1)
         end
+        # rubocop:enable Style/PredicateWithKind
 
         return EMPTY_ARRAY if named && items.empty?
 
-        foldl(items.compact) { |s, e| s + e }
+        foldl(items.compact) { |acc, item| acc + item }
       end
 
       # Check if value is a Slice or String
