@@ -145,6 +145,7 @@ describe Parsanol::Buffer do
     it "clears references for GC" do
       buffer.clear!
       expect(buffer.to_a).to eq([])
+      expect(buffer.storage[0, 3]).to eq([nil, nil, nil])
     end
 
     it "returns self for method chaining" do

@@ -53,7 +53,7 @@ module Parsanol
     end
 
     def hash
-      [content, offset].hash
+      [Parsanol::Slice, content].hash
     end
 
     # Delegated methods

@@ -23,6 +23,11 @@ module Parsanol
       end
 
       def try(source, context, consume_all)
+        # The block reads mutable parse state (captures), so no enclosing
+        # composite result may be memoized — replaying it would skip this
+        # re-evaluation.
+        context.mark_cache_unsafe!
+
         # Phase 55: Cache @block ivar to reduce lookup overhead
         block = @block
         result = block.call(source, context)

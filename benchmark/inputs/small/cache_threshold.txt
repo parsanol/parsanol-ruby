@@ -1,0 +1,4 @@
+[(call(alpha), (left+right)/(top+bottom)), (wrap(red) value^2, pack [(item1,item2),(item3,item4)])]
+[(node(beta), (west+east)/(north+south)), (wrap(blue) value_1, bundle [(item5,item6),(item7,item8)])]
+[(task(gamma), (front+back)/(inner+outer)), (mark(green) value^3, group [(item9,item10),(item11,item12)])]
+[(step(delta), (open+close)/(start+finish)), (flag(orange) value_2, cluster [(item13,item14),(item15,item16)])]

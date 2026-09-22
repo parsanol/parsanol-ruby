@@ -1,0 +1,1 @@
+[(call(alpha), (left+right)/(top+bottom)), (wrap(red) value^2, pack [(item1,item2),(item3,item4)])]

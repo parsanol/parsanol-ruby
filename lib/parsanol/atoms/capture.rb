@@ -22,7 +22,10 @@ module Parsanol
         success, result = @inner_atom.apply(source, context, consume_all)
 
         if success
-          # Flatten and store the captured value in context
+          # Flatten and store the captured value in context. The write mutates
+          # parse state, so enclosing composite results must not be memoized —
+          # a replay would skip re-storing the capture.
+          context.mark_cache_unsafe!
           flattened = flatten(result)
           context.captures[@capture_key] = flattened
         end

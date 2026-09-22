@@ -10,11 +10,20 @@ module Parsanol
     # Caches line ending positions for quick line/column resolution.
     # Uses binary search for efficient position lookup.
     class LineCache
-      def initialize
+      # Creates a line cache, optionally bound to a one-shot buffer that is
+      # scanned lazily on the first line_and_column call.
+      #
+      # @param buffer [String, nil] input to scan lazily; nil for callers that
+      #   feed windows incrementally via scan_for_line_endings
+      # @param start_offset [Integer] byte offset of the buffer's first byte
+      def initialize(buffer = nil, start_offset = 0)
         # Array of byte offsets where each line ends
         @breaks = []
         @breaks.extend(IntervalLookup)
         @max_scanned = nil
+        @buffer = buffer
+        @start_offset = start_offset
+        @fully_scanned = false
       end
 
       # Converts a byte offset to [line_number, column_number].
@@ -23,6 +32,8 @@ module Parsanol
       # @param position [Integer, #bytepos] the byte offset to convert
       # @return [Array<Integer, Integer>] [line, column] tuple
       def line_and_column(position)
+        scan_buffer_once
+
         position = position.bytepos if position.respond_to?(:bytepos)
 
         line_idx = @breaks.lower_bound_index(position)
@@ -39,7 +50,10 @@ module Parsanol
       end
 
       # Scans a string buffer for line endings and caches their positions.
-      # Avoids re-scanning already processed regions.
+      # Avoids re-scanning already processed regions. Incremental callers must
+      # feed windows of one consistent input in monotonically advancing,
+      # contiguous-or-overlapping order; non-contiguous or out-of-order scans
+      # are skipped where already covered and can miss line endings in gaps.
       #
       # @param start_offset [Integer] the byte offset where buffer starts
       # @param buffer [String] the string content to scan
@@ -47,16 +61,34 @@ module Parsanol
         return unless buffer
 
         scanner = StringScanner.new(buffer)
-        return unless scanner.exist?(/\n/)
+        if scanner.exist?(/\n/)
+          # Skip already-scanned content. @max_scanned can extend past this
+          # buffer's window (it advances to the end of every scanned buffer),
+          # so clamp to the window to keep the scanner position valid.
+          if @max_scanned && start_offset < @max_scanned
+            scanner.pos = [@max_scanned - start_offset, buffer.bytesize].min
+          end
 
-        # Skip already-scanned content
-        scanner.pos = @max_scanned - start_offset if @max_scanned && start_offset < @max_scanned
-
-        # Record all newline positions
-        while scanner.skip_until(/\n/)
-          @max_scanned = start_offset + scanner.pos
-          @breaks << @max_scanned
+          # Record all newline positions
+          while scanner.skip_until(/\n/)
+            @max_scanned = start_offset + scanner.pos
+            @breaks << @max_scanned
+          end
         end
+
+        @max_scanned = [@max_scanned || start_offset, start_offset + buffer.bytesize].max
+      end
+
+      private
+
+      # Scans the one-shot constructor buffer on first use, then releases it
+      # so retained Slices do not pin the entire input string.
+      def scan_buffer_once
+        return if @fully_scanned || !@buffer
+
+        scan_for_line_endings(@start_offset, @buffer)
+        @fully_scanned = true
+        @buffer = nil
       end
     end
 

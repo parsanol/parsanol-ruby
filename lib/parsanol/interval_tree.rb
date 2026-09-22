@@ -9,6 +9,7 @@
 # Performance characteristics:
 # - Insert: O(log n)
 # - Query: O(log n + k) where k is number of overlapping intervals
+# - Query by start position: O(log n + k)
 # - Delete overlapping: O(log n + k)
 #
 module Parsanol
@@ -70,6 +71,27 @@ module Parsanol
     # @return [Object, nil] Data if exact match found, nil otherwise
     def query_exact(low, high)
       find_exact(@root, low, high)
+    end
+
+    # Query for intervals that start at a specific position
+    # @param low [Integer] Start position to match
+    # @return [Array<Object>] Data for intervals whose start equals low
+    def query_starting_at(low)
+      results = []
+      node = @root
+
+      while node
+        if low < node.low
+          node = node.left
+        elsif low > node.low
+          node = node.right
+        else
+          results << node.data
+          node = node.right
+        end
+      end
+
+      results
     end
 
     # Delete all intervals that overlap with [low, high)
@@ -140,16 +162,18 @@ module Parsanol
 
     # Find exact interval match
     def find_exact(node, low, high)
-      return nil if node.nil?
+      while node
+        return node.data if node.low == low && node.high == high
 
-      return node.data if node.low == low && node.high == high
-
-      # Search in appropriate subtree
-      if low < node.low
-        find_exact(node.left, low, high)
-      else
-        find_exact(node.right, low, high)
+        # Search in appropriate subtree
+        node = if low < node.low
+                 node.left
+               else
+                 node.right
+               end
       end
+
+      nil
     end
 
     # Delete overlapping intervals recursively

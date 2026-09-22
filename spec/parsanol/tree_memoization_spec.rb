@@ -4,6 +4,35 @@ require "spec_helper"
 
 describe "Tree Memoization" do
   let(:context) { Parsanol::Atoms::Context.new(nil, interval_cache: true) }
+  let(:counting_atom_class) do
+    Class.new(Parsanol::Atoms::Base) do
+      attr_reader :calls
+
+      def initialize(char)
+        super()
+        @char = char
+        @calls = 0
+      end
+
+      def try(source, context, _consume_all)
+        @calls += 1
+        pos = source.bytepos
+        slice = source.consume(1)
+        return ok(slice) if slice.content == @char
+
+        source.bytepos = pos
+        context.err(self, source, "miss")
+      end
+
+      def cached?
+        false
+      end
+
+      def to_s_inner(_prec)
+        "counting"
+      end
+    end
+  end
 
   describe "Repetition with tree memoization" do
     it "caches repeated parsing of same element" do
@@ -28,6 +57,110 @@ describe "Tree Memoization" do
       result2 = parser.apply(source, context, false)
       expect(result2.first).to be true
       expect(result2.last).to eq(result1.last)
+    end
+
+    it "reuses cached repetition results without reparsing the inner atom" do
+      atom = counting_atom_class.new("x")
+      parser = atom.repeat(2, 5)
+
+      result1 = parser.try(Parsanol::Source.new("xxxxx"), context, false)
+      calls_after_first_parse = atom.calls
+      result2 = parser.try(Parsanol::Source.new("xxxxx"), context, false)
+
+      expect(result1.first).to be true
+      expect(result2.first).to be true
+      expect(result2.last).to eq(result1.last)
+      expect(atom.calls).to eq(calls_after_first_parse)
+    end
+
+    it "rechecks consume-all on cached repetition hits" do
+      parser = Parsanol::Atoms::Str.new("r").repeat(1, 2)
+
+      result1 = parser.try(Parsanol::Source.new("rrr"), context, false)
+      result2 = parser.try(Parsanol::Source.new("rrr"), context, true)
+
+      expect(result1.first).to be true
+      expect(result2.first).to be false
+    end
+
+    it "does not cache repetitions that fail the minimum bound" do
+      atom = counting_atom_class.new("r")
+      parser = atom.repeat(3, 5)
+
+      result1 = parser.try(Parsanol::Source.new("rr"), context, false)
+      calls_after_first_parse = atom.calls
+      result2 = parser.try(Parsanol::Source.new("rr"), context, false)
+
+      expect(result1.first).to be false
+      expect(result2.first).to be false
+      expect(atom.calls).to be > calls_after_first_parse
+    end
+
+    it "ignores stale cache entries that point past the end of the input" do
+      parser = Parsanol::Atoms::Str.new("a").repeat(2, 5)
+
+      result1 = parser.try(Parsanol::Source.new("aaaaa"), context, false)
+      result2 = parser.try(Parsanol::Source.new("ab"), context, false)
+
+      expect(result1.first).to be true
+      expect(result2.first).to be false
+    end
+
+    it "evicts stale cache entries so later parses can replay fresh results" do
+      atom = counting_atom_class.new("a")
+      parser = atom.repeat(1, 5)
+
+      parser.try(Parsanol::Source.new("aaaaa"), context, false)
+      parser.try(Parsanol::Source.new("ab"), context, false)
+      calls_after_recache = atom.calls
+      result = parser.try(Parsanol::Source.new("ab"), context, false)
+
+      expect(result.first).to be true
+      expect(result.last).to eq([:repetition, "a"])
+      expect(atom.calls).to eq(calls_after_recache)
+    end
+
+    it "keeps child causes when a cached replay fails consume-all" do
+      reporting = Parsanol::Atoms::Context.new(
+        Parsanol::ErrorReporter::Tree.new, interval_cache: true
+      )
+      parser = Parsanol::Atoms::Str.new("r").repeat(1)
+
+      first = parser.try(Parsanol::Source.new("rrb"), reporting, false)
+      success, cause = parser.try(Parsanol::Source.new("rrb"), reporting, true)
+
+      expect(first.first).to be true
+      expect(success).to be false
+      expect(cause.ascii_tree).to include('Expected "r", but got "b"')
+    end
+
+    it "renders replayed consume-all failures of max-bounded repetitions" do
+      reporting = Parsanol::Atoms::Context.new(
+        Parsanol::ErrorReporter::Tree.new, interval_cache: true
+      )
+      parser = Parsanol::Atoms::Str.new("r").repeat(1, 2)
+
+      first = parser.try(Parsanol::Source.new("rrr"), reporting, false)
+      success, cause = parser.try(Parsanol::Source.new("rrr"), reporting, true)
+
+      expect(first.first).to be true
+      expect(success).to be false
+      expect(cause.ascii_tree).to include("Extra input after last repetition")
+    end
+
+    it "does not tree-memoize repetitions across dynamic evaluations" do
+      calls = 0
+      dyn = Parsanol.dynamic do |_source, _context|
+        calls += 1
+        Parsanol.str("x")
+      end
+      parser = dyn.repeat(1, 2)
+
+      parser.try(Parsanol::Source.new("xx"), context, false)
+      calls_after_first_parse = calls
+      parser.try(Parsanol::Source.new("xx"), context, false)
+
+      expect(calls).to be > calls_after_first_parse
     end
 
     it "handles variable repetitions with .maybe" do
@@ -76,6 +209,13 @@ describe "Tree Memoization" do
     it "returns false for use_tree_memoization? when disabled" do
       context_no_tree = Parsanol::Atoms::Context.new
       expect(context_no_tree.use_tree_memoization?).to be false
+    end
+
+    it "retrieves tree memo entries by exact start position" do
+      context.store_tree_memo(:rule, 2, ["value"], 5)
+
+      expect(context.query_tree_memo(:rule, 2)).to eq([["value"], 5])
+      expect(context.query_tree_memo(:rule, 3)).to be_nil
     end
   end
 
