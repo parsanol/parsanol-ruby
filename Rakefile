@@ -70,7 +70,7 @@ namespace :gem do
   # (MRI resilience fallback, TruffleRuby native).
   desc "Build ext/parsanol_cdylib for the active cross target and vendor it"
   task "vendor_cdylib" do
-    triplet = ENV["CARGO_BUILD_TARGET"] || ENV["RUST_TARGET"]
+    triplet = ENV["CARGO_BUILD_TARGET"] || ENV.fetch("RUST_TARGET", nil)
     args = ["cargo", "build", "--release", "-p", "parsanol_cdylib"]
     args += ["--target", triplet] if triplet
     sh(*args)
