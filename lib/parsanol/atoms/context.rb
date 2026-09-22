@@ -50,7 +50,10 @@ module Parsanol
                      adaptive_cache_threshold: nil,
                      parser_class: nil)
         # Core memoization cache: position -> { atom_id -> [result, advance] }
-        @memo = {}
+        # Auto-vivifying sub-hashes: a probe-phase position can reach the
+        # active-path lookup before any entry exists at that position
+        # (parsanol-ruby#122 — NoMethodError on nil under fresh positions).
+        @memo = Hash.new { |hash, pos| hash[pos] = {} }
 
         # Error reporting delegate
         @reporter = error_reporter
