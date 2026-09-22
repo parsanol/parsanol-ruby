@@ -8,7 +8,9 @@ require "spec_helper"
 # accumulate unbounded compiled programs — 2+ GB observed).
 # Loose thresholds — this is a leak regression guard, not a perf test.
 describe "native memory bounds" do
-  rss_mb = -> { `ps -o rss= -p #{Process.pid}`.to_i / 1024.0 }
+  def rss_mb
+    `ps -o rss= -p #{Process.pid}`.to_i / 1024.0
+  end
 
   def blocky_parser
     Class.new(Parsanol::Parser) do
@@ -19,7 +21,7 @@ describe "native memory bounds" do
       rule(:block) do
         dynamic { |_s, _c| str("== ") >> match(/[^\n]/).repeat(1).as(:title) >> str("\n") }
       end
-      rule(:doc) { (block | line >> nl).repeat(1) }
+      rule(:doc) { (block | (line >> nl)).repeat(1) }
       root(:doc)
 
       def self.name
@@ -33,7 +35,7 @@ describe "native memory bounds" do
 
     parser = blocky_parser
     GC.start
-    before = rss_mb.call
+    before = rss_mb
 
     60.times do |i|
       doc = ("= Doc #{i}\n\n== Section #{i}\n\nparagraph line #{i} text\n" * 150)
@@ -41,7 +43,7 @@ describe "native memory bounds" do
     end
 
     GC.start
-    growth = rss_mb.call - before
+    growth = rss_mb - before
     # Pre-fix behavior retained megabytes per distinct document
     # (~4-5 MB x 60 = 300 MB+).
     expect(growth).to be < 150
@@ -55,14 +57,14 @@ describe "native memory bounds" do
     expect { parser.parse(doc, mode: :native) }.not_to raise_error
 
     GC.start
-    before = rss_mb.call
+    before = rss_mb
 
     60.times do
       expect { parser.parse(doc, mode: :native) }.not_to raise_error
     end
 
     GC.start
-    growth = rss_mb.call - before
+    growth = rss_mb - before
     # Pre-fix, every parse of the same doc minted fresh fragment
     # grammars + compiled programs and never freed them (2+ GB).
     expect(growth).to be < 150
