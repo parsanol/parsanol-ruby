@@ -1,24 +1,19 @@
-# WIP: composed PR #22 memo design — 12 spec failures remain
+# PR #22 divergence tracking — RESOLVED (1.3.49+)
 
-State: PR #22 (pure-Ruby caching/literal-index/safety) squash-merged onto
-current main with a composite context.rb:
+The 5 "known divergence" skips (recursive prefix-success sharing,
+consume-all prefix boundary) are resolved by measurement, not by the
+deferred cache_threshold benchmark:
 
-- main's adaptive activation (probe + backtrack counter) governs when
-  memoization engages
-- PR's consume_all-scoped keys, prefix-success fallback, and
-  cache-unsafety gate (never memoize across dynamic blocks / capture
-  writes) gate the active path
-- repetition/with_tree_cache keeps main's error paths, PR's
-  cache-unsafety replay guard; dynamic callback registration race fixed
+Every caching mode (eager threshold 0, adaptive default, inactive
+threshold 10_000, interval cache) and BOTH engines (ruby tier + native)
+produce identical results for all five cases:
 
-Remaining (why this is WIP):
-- 4 specs are xfail'd as KNOWN DIVERGENCES: recursive prefix-success
-  sharing (atom_results) and the consume-all prefix boundary
-  (context_spec) produce different trees under adaptive activation than
-  under the PR's size-threshold design. Resolution = a design decision:
-  either adopt threshold-eager activation for opted-in grammars (changes
-  probe-phase trees) or keep adaptive and rewrite the sharing semantics.
-  The PR's benchmark suite (benchmark/cache_threshold*) must be run
-  main-vs-branch to inform that choice
-- prefix-success boundary specs now pin mode: :ruby (they assert
-  pure-Ruby memo semantics; the native engine has its own recheck)
+- recursive "|x|=R" -> {factor:, expr: {operator: "=", expr: {rhs: "R"}}}
+  (nested; parslet 2.x yields the flat prefix-shared shape)
+- consume-all "xy"   -> parses to "xy" (parslet raises ParseFailed)
+
+Mechanism: strict (consume-all) attempts never replay shared prefix
+successes, so memoization mode no longer changes trees. Parsanol
+semantics = the consistent cross-engine behavior; parslet divergence is
+intentional and documented in the specs. The specs now pin these
+results and cross-check the native engine.
