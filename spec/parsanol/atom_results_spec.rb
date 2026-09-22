@@ -35,11 +35,10 @@ describe "Result of a Parsanol#parse" do
       end
     end
 
-    def expected_recursive_prefix_success_tree
+    def expected_parsanol_recursion_tree
       {
         factor: "|x|",
-        expr: { operator: "=" },
-        expression: { rhs: "R" },
+        expr: { operator: "=", expr: { rhs: "R" } },
       }
     end
 
@@ -76,26 +75,36 @@ describe "Result of a Parsanol#parse" do
       end
     end
 
-    # KNOWN DIVERGENCE (parsanol-ruby#22 WIP): recursive prefix-success
-    # sharing shapes the tree flat only when caching is active from the
-    # start; under adaptive activation the probe phase yields the nested
-    # recursion shape. Tracked in STATUS-PR22.md.
-    it "shares built-in prefix successes for Parslet-compatible recursion" do
-      skip "known divergence — parsanol-ruby#22 WIP (STATUS-PR22.md)"
+    # Parsanol semantics (differential with parslet 2.x): the recursive
+    # grammar yields the nested prime/expr shape in EVERY caching mode —
+    # eager (threshold 0), adaptive, and inactive (threshold 10_000) —
+    # because strict attempts never replay shared prefix successes.
+    # parslet shares the prefix success and produces a flat tree here;
+    # that divergence is intentional (engines agree, parslet does not
+    # set Parsanol semantics).
+    it "produces the same recursion tree when caching is eager" do
       parser_class =
         recursive_prefix_success_parser_class(adaptive_cache_threshold: 0)
 
-      expect(strip_positions(parser_class.new.parse("|x|=R")))
-        .to eq(expected_recursive_prefix_success_tree)
+      expect(strip_positions(parser_class.new.parse("|x|=R", mode: :ruby)))
+        .to eq(expected_parsanol_recursion_tree)
     end
 
-    it "shares built-in prefix successes when adaptive caching is inactive" do
-      skip "known divergence — parsanol-ruby#22 WIP (STATUS-PR22.md)"
+    it "produces the same recursion tree when caching is inactive" do
       parser_class =
         recursive_prefix_success_parser_class(adaptive_cache_threshold: 10_000)
 
-      expect(strip_positions(parser_class.new.parse("|x|=R")))
-        .to eq(expected_recursive_prefix_success_tree)
+      expect(strip_positions(parser_class.new.parse("|x|=R", mode: :ruby)))
+        .to eq(expected_parsanol_recursion_tree)
+    end
+
+    it "matches the native engine's recursion tree" do
+      skip "native backend unavailable" unless Parsanol::Native.available?
+
+      parser_class = recursive_prefix_success_parser_class(adaptive_cache_threshold: 0)
+
+      expect(strip_positions(parser_class.new.parse("|x|=R", mode: :native)))
+        .to eq(expected_parsanol_recursion_tree)
     end
 
     it "still enforces full consumption at the named boundary" do

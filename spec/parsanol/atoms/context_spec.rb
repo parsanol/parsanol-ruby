@@ -136,15 +136,10 @@ describe Parsanol::Atoms::Context do
     end
   end
 
-  def expect_prefix_success_cache_boundary_to_fail(parser_class)
-    # Pure-Ruby memo semantics: the native engine has its own consume-all
-    # recheck behavior, so these boundary specs pin mode: :ruby.
-    expect { parser_class.new.parse("xy", mode: :ruby) }
-      .to raise_error(Parsanol::ParseFailed)
-  end
-
-  def expect_consume_all_success_boundary_to_parse(parser_class)
-    expect(parser_class.new.parse("xy")).to eq("xy")
+  def expect_consume_all_recheck_to_parse(parser_class)
+    # Pure-Ruby memo semantics: the native engine is cross-checked in its
+    # own spec, so these boundary specs pin mode: :ruby.
+    expect(parser_class.new.parse("xy", mode: :ruby)).to eq("xy")
   end
 
   def expect_negative_lookahead_boundary_to_fail(parser_class)
@@ -215,32 +210,38 @@ describe Parsanol::Atoms::Context do
       )
     end
 
-    # KNOWN DIVERGENCE (parsanol-ruby#22 WIP): with adaptive activation
-    # the inactive probe phase re-parses, so the longer alternative wins
-    # the consume-all recheck (no replay deadlock). See STATUS-PR22.md.
-    it "reuses built-in prefix successes for consume-all attempts" do
-      skip "known divergence - parsanol-ruby#22 WIP (STATUS-PR22.md)"
-      expect_prefix_success_cache_boundary_to_fail(
-        consume_all_success_parser_class,
+    # Parsanol semantics (differential with parslet 2.x): the consume-all
+    # recheck takes the longer alternative in EVERY caching mode — eager
+    # (threshold 0), inactive (threshold 10_000), interval — because
+    # strict attempts never replay shared prefix successes. parslet
+    # fails this input under prefix-success sharing; that divergence is
+    # intentional (engines agree, parslet does not set Parsanol
+    # semantics).
+    it "takes the longer alternative on the consume-all recheck with an eager cache" do
+      expect_consume_all_recheck_to_parse(
+        consume_all_success_parser_class(adaptive_cache_threshold: 0),
       )
     end
 
-    it "reuses built-in prefix successes when adaptive caching is inactive" do
-      skip "known divergence — parsanol-ruby#22 WIP (STATUS-PR22.md)"
-      expect_prefix_success_cache_boundary_to_fail(
+    it "takes the longer alternative on the consume-all recheck with caching inactive" do
+      expect_consume_all_recheck_to_parse(
         consume_all_success_parser_class(adaptive_cache_threshold: 10_000),
       )
     end
 
-    # KNOWN DIVERGENCE (parsanol-ruby#22 WIP): with interval caching on,
-    # a strict re-attempt still replays the shared prefix success and
-    # fails the consume-all recheck, diverging from the non-interval
-    # path (which re-parses and takes the longer alternative).
-    it "reuses interval-cache prefix successes for consume-all attempts" do
-      skip "known divergence - parsanol-ruby#22 WIP (STATUS-PR22.md)"
-      expect_prefix_success_cache_boundary_to_fail(
-        consume_all_success_parser_class(interval_cache: true),
+    it "takes the longer alternative on the consume-all recheck with interval caching" do
+      expect_consume_all_recheck_to_parse(
+        consume_all_success_parser_class(adaptive_cache_threshold: 0,
+                                         interval_cache: true),
       )
+    end
+
+    it "matches the native engine on the consume-all recheck" do
+      skip "native backend unavailable" unless Parsanol::Native.available?
+
+      parser_class = consume_all_success_parser_class(adaptive_cache_threshold: 0)
+
+      expect(parser_class.new.parse("xy", mode: :native)).to eq("xy")
     end
 
     it "does not reuse consume-all negative lookahead successes for prefix attempts" do
