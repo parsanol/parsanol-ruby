@@ -22,6 +22,7 @@ jobs:
         with:
           supported-ruby-platforms: |
             exclude: [x64-mingw32]
+            include: [x86-linux]
           stable-ruby-versions: |
             only: [3.2, 3.3, 3.4, 4.0]
 
