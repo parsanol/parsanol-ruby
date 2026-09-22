@@ -218,13 +218,15 @@ describe Parsanol::Atoms::Context do
     # KNOWN DIVERGENCE (parsanol-ruby#22 WIP): with adaptive activation
     # the inactive probe phase re-parses, so the longer alternative wins
     # the consume-all recheck (no replay deadlock). See STATUS-PR22.md.
-    xit "reuses built-in prefix successes for consume-all attempts" do
+    it "reuses built-in prefix successes for consume-all attempts" do
+      skip "known divergence - parsanol-ruby#22 WIP (STATUS-PR22.md)"
       expect_prefix_success_cache_boundary_to_fail(
         consume_all_success_parser_class,
       )
     end
 
-    xit "reuses built-in prefix successes when adaptive caching is inactive" do
+    it "reuses built-in prefix successes when adaptive caching is inactive" do
+      skip "known divergence — parsanol-ruby#22 WIP (STATUS-PR22.md)"
       expect_prefix_success_cache_boundary_to_fail(
         consume_all_success_parser_class(adaptive_cache_threshold: 10_000),
       )
@@ -234,10 +236,8 @@ describe Parsanol::Atoms::Context do
     # a strict re-attempt still replays the shared prefix success and
     # fails the consume-all recheck, diverging from the non-interval
     # path (which re-parses and takes the longer alternative).
-    xit "reuses interval-cache prefix successes for consume-all attempts" do
-      # Cross-mode reuse (non-strict success replayed for a strict
-      # attempt) would starve the consume-all recheck; strict attempts
-      # re-parse instead.
+    it "reuses interval-cache prefix successes for consume-all attempts" do
+      skip "known divergence - parsanol-ruby#22 WIP (STATUS-PR22.md)"
       expect_prefix_success_cache_boundary_to_fail(
         consume_all_success_parser_class(interval_cache: true),
       )

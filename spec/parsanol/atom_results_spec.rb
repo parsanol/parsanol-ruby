@@ -80,7 +80,8 @@ describe "Result of a Parsanol#parse" do
     # sharing shapes the tree flat only when caching is active from the
     # start; under adaptive activation the probe phase yields the nested
     # recursion shape. Tracked in STATUS-PR22.md.
-    xit "shares built-in prefix successes for Parslet-compatible recursion" do
+    it "shares built-in prefix successes for Parslet-compatible recursion" do
+      skip "known divergence — parsanol-ruby#22 WIP (STATUS-PR22.md)"
       parser_class =
         recursive_prefix_success_parser_class(adaptive_cache_threshold: 0)
 
@@ -88,7 +89,8 @@ describe "Result of a Parsanol#parse" do
         .to eq(expected_recursive_prefix_success_tree)
     end
 
-    xit "shares built-in prefix successes when adaptive caching is inactive" do
+    it "shares built-in prefix successes when adaptive caching is inactive" do
+      skip "known divergence — parsanol-ruby#22 WIP (STATUS-PR22.md)"
       parser_class =
         recursive_prefix_success_parser_class(adaptive_cache_threshold: 10_000)
 
