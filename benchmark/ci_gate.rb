@@ -73,8 +73,8 @@ class GateJsonParser < Parsanol::Parser
       (str(".") >> match("[0-9]").repeat(1)).maybe >>
       (match("[eE]") >> match("[+-]").maybe >> match("[0-9]").repeat(1)).maybe
   end
-  rule(:true_val) { str("true").as(:true) }
-  rule(:false_val) { str("false").as(:false) }
+  rule(:true_val) { str("true").as(true) }
+  rule(:false_val) { str("false").as(false) }
   rule(:null_val) { str("null").as(:null) }
   rule(:array) do
     str("[") >> space? >>
@@ -98,10 +98,10 @@ end
 JSON_PARSER = GateJsonParser.new
 ASCIICHEM_PARSER = GateAsciichemParser.new
 
-def median_ips(label)
+def median_ips(label, &block)
   samples = Array.new(PASSES) do
     result = Benchmark.ips(quiet: true, warmup: IPS_WARMUP, time: IPS_TIME) do |x|
-      x.report(label) { yield }
+      x.report(label, &block)
     end
     result.entries.first.ips
   end
@@ -182,17 +182,17 @@ end
 
 if options[:save]
   File.write(options[:save], JSON.pretty_generate(
-    "parsanol_version" => Parsanol::VERSION,
-    "ruby" => RUBY_DESCRIPTION,
-    "results" => current,
-  ))
+                               "parsanol_version" => Parsanol::VERSION,
+                               "ruby" => RUBY_DESCRIPTION,
+                               "results" => current,
+                             ))
   puts
   puts "saved #{options[:save]}"
 end
 
 if regressed.any?
   puts
-  puts "REGRESSION (>#{(REGRESSION_FRACTION * 100).to_i}% median slowdown): #{regressed.join(", ")}"
+  puts "REGRESSION (>#{(REGRESSION_FRACTION * 100).to_i}% median slowdown): #{regressed.join(', ')}"
   exit 1
 end
 puts "gate ok"

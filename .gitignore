@@ -10,3 +10,4 @@ TODO*.md
 
 # Local versioned native extension builds
 lib/parsanol/*/parsanol_native.bundle
+lib/parsanol/native/libparsanol.*
