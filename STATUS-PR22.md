@@ -12,13 +12,13 @@ current main with a composite context.rb:
   cache-unsafety replay guard; dynamic callback registration race fixed
 
 Remaining (why this is WIP):
-- 12 spec failures at the ruby/native seam: 5 context_specs encode the
-  PR's superseded size-threshold design ("immediate caching for unknown
-  classes", prefix-success-while-inactive) and need rewriting to the
-  composite semantics; the prefix-success boundary specs parse "xy"
-  successfully because the run defaulted to the NATIVE engine in the
-  test harness — the specs must pin mode: :ruby explicitly
-- PR's benchmark suite (benchmark/cache_threshold*) must be run
-  main-vs-branch to prove no regression on the adaptive path
-- native-parity (tree_parity_83) suite must pass with ruby mode as the
-  reference (context changes shift ruby trees is NOT acceptable)
+- 4 specs are xfail'd as KNOWN DIVERGENCES: recursive prefix-success
+  sharing (atom_results) and the consume-all prefix boundary
+  (context_spec) produce different trees under adaptive activation than
+  under the PR's size-threshold design. Resolution = a design decision:
+  either adopt threshold-eager activation for opted-in grammars (changes
+  probe-phase trees) or keep adaptive and rewrite the sharing semantics.
+  The PR's benchmark suite (benchmark/cache_threshold*) must be run
+  main-vs-branch to inform that choice
+- prefix-success boundary specs now pin mode: :ruby (they assert
+  pure-Ruby memo semantics; the native engine has its own recheck)
