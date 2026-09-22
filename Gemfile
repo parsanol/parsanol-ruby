@@ -23,5 +23,8 @@ gem "parslet", "~> 2.0.0"
 # For benchmarking
 gem "benchmark-ips", "~> 2.0"
 
+# For the ffi-tier specs (runtime stays a soft-require)
+gem "ffi"
+
 # For type checking
 gem "rbs", "~> 3.0"

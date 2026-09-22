@@ -1,0 +1,70 @@
+name: Perf Gate
+
+# Statistical performance gate (TODO.perf/5 items 4-5): weekly cron, not
+# per-PR — wall-clock on shared runners is too noisy for blocking checks.
+# The baseline is the previous GREEN gate run (actions/cache/save is
+# skipped on regression, so a red run cannot poison its own baseline).
+# Median-of-5 ips at 25% tolerance; single-shot checks were the 0.79x
+# vs 0.80x flake documented in TODO.perf/5.
+
+on:
+  schedule:
+    - cron: "23 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+          cargo-cache: true
+
+      - name: Build native extension
+        run: bundle exec rake compile
+
+      - name: Restore perf baseline
+        uses: actions/cache/restore@v4
+        with:
+          path: perf-baseline.json
+          key: perf-gate-${{ github.run_id }}
+          restore-keys: perf-gate-
+
+      - name: Run gate
+        run: |
+          if [ -f perf-baseline.json ]; then
+            bundle exec ruby benchmark/ci_gate.rb \
+              --baseline perf-baseline.json --save perf-new.json | tee gate-output.md
+          else
+            echo "No baseline yet — recording one." | tee gate-output.md
+            bundle exec ruby benchmark/ci_gate.rb --save perf-new.json | tee -a gate-output.md
+          fi
+
+      - name: Store new baseline (green runs only)
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: perf-new.json
+          key: perf-gate-${{ github.run_id }}
+
+      - name: Upload gate results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-gate-results
+          path: |
+            perf-new.json
+            gate-output.md
+          retention-days: 90
+
+      - name: Job summary
+        if: always()
+        run: cat gate-output.md >> "$GITHUB_STEP_SUMMARY"
