@@ -481,10 +481,14 @@ module Parsanol
         atom.object_id
       end
 
-      # True when a strict (consume-all) attempt may fall back to a shared
-      # prefix-success entry for this atom.
+      # True when a non-strict attempt may fall back to a shared
+      # prefix-success entry for this atom. A strict (consume-all)
+      # attempt must never replay a shared entry: parslet semantics
+      # re-execute the ordered choice, and only a fresh parse can take
+      # a longer alternative when the prefix replay starves the
+      # consume-all recheck (parsanol-ruby#22).
       def prefix_success_fallback?(atom, must_consume_all)
-        must_consume_all && share_prefix_success_cache?(atom)
+        !must_consume_all && share_prefix_success_cache?(atom)
       end
 
       # An outcome may be memoized only when no cache-unsafe event (dynamic

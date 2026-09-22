@@ -103,7 +103,17 @@ module Parsanol
         return nil if cached == :fallback
         return cached if key?(cache, key)
 
-        cache[key] = compile(atom)
+        # A grammar the compiler cannot compile — e.g. one containing a
+        # lazily resolved Entity that a select-first literal index would
+        # never select — falls back to the interpreter, the source of
+        # truth. The interpreter resolves such entities lazily, so an
+        # unselected branch simply never raises.
+        begin
+          cache[key] = compile(atom)
+        rescue NotImplementedError
+          cache[key] = :fallback
+          nil
+        end
       end
 
       # Marks a grammar as VM-incompatible after a runtime failure.

@@ -180,7 +180,7 @@ module Parsanol
         # Pre-size for the tag + a modest run; Array growth is amortized.
         result = Array.new([@max || 8, 8].min + 1)
         result[0] = @result_tag
-        last_error = nil
+        last_failure = nil
 
         loop do
           success, value = @parslet.apply(source, context, false)
@@ -205,7 +205,8 @@ module Parsanol
 
         # Check complete consumption
         if consume_all && source.chars_left.positive?
-          return context.err(self, source, @extra_error, [last_error])
+          return context.err(self, source, @extra_error,
+                             failure_children(last_failure))
         end
 
         # Trim to the actual filled length (tag + occurrence matches).
@@ -270,7 +271,6 @@ module Parsanol
         # Check minimum
         if occurrence < @min
           context.release_array(positions)
-          context.release_buffer(buffer)
           source.bytepos = start_pos
           return context.err_at(self, source, @min_error, start_pos,
                                 failure_children(last_failure))
@@ -293,12 +293,13 @@ module Parsanol
         if occurrence < @min
           source.bytepos = start_pos
           return context.err_at(self, source, @min_error, start_pos,
-                                [last_error])
+                                failure_children(last_failure))
         end
 
         # Check consumption
         if consume_all && source.chars_left.positive?
-          return context.err(self, source, @extra_error, [last_error])
+          return context.err(self, source, @extra_error,
+                             failure_children(last_failure))
         end
 
         result.pop(result.size - occurrence - 1) if result.size > occurrence + 1
