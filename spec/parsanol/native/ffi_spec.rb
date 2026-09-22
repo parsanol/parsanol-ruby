@@ -27,6 +27,12 @@ RSpec.describe Parsanol::Native::Ffi, :native do
       expect(described_class.parse(grammar, "ab")[:greeting].to_s).to eq("ab")
     end
 
+    it "keeps interior NUL bytes intact via the length-taking entry point",
+       if: described_class.available? do
+      grammar = Parsanol.str("a\0b").as(:nulled)
+      expect(described_class.parse(grammar, "a\0b")[:nulled].to_s).to eq("a\0b")
+    end
+
     it "matches the extension tier tree",
        if: described_class.available? && Parsanol::Native::Parser.extension_loaded? do
       atom = Parsanol.match("[a-z]").repeat(1).as(:w)

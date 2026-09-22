@@ -97,8 +97,13 @@ module Parsanol
             ffi_lib path
             attach_function :c_register, :parsanol_c_register,
                             %i[string], :uint64
-            attach_function :c_parse, :parsanol_c_parse,
-                            %i[uint64 string pointer size_t], :long_long
+            # Explicit-length entry point: interior NULs stay intact. The
+            # input crosses as a raw buffer (:string rejects NUL bytes by
+            # design); a cdylib without the symbol is stale relative to
+            # this binding and fails availability loudly (pure-Ruby
+            # fallback) instead of silently truncating at NULs.
+            attach_function :c_parse_len, :parsanol_c_parse_len,
+                            %i[uint64 buffer_in size_t pointer size_t], :long_long
             attach_function :c_last_error, :parsanol_c_last_error,
                             [], :string
             attach_function :c_release, :parsanol_c_release,
@@ -114,9 +119,10 @@ module Parsanol
 
         # Two-call buffer protocol: cap=0 asks for the needed size, then
         # the batch lands in a persistent buffer that only grows —
-        # steady-state parses allocate nothing.
+        # steady-state parses allocate nothing. The explicit-length call
+        # keeps interior NULs intact.
         def parse_into(handle, input)
-          needed = @binding.c_parse(handle, input, nil, 0)
+          needed = @binding.c_parse_len(handle, input, input.bytesize, nil, 0)
           return needed unless needed.negative?
 
           cap = -needed
@@ -124,7 +130,7 @@ module Parsanol
             @buffer&.free
             @buffer = FFI::MemoryPointer.new(:uint64, cap * 2)
           end
-          @binding.c_parse(handle, input, @buffer, cap)
+          @binding.c_parse_len(handle, input, input.bytesize, @buffer, cap)
         end
       end
     end
