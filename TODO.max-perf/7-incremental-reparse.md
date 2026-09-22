@@ -26,4 +26,5 @@ of re-parsing the whole document — is what makes parsing feel instant.
 
 ## Status
 
-Backlog — after TODO.max-perf/4 phase 4.
+Shipped as parsanol-rs TODO.perf items 4+8 (IncrementalSession,
+snapshot-tier retention, latency bench); see 0-index.md.

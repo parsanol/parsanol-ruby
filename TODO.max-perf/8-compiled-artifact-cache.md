@@ -29,4 +29,5 @@ processes sharing a grammar share the artifact.
 
 ## Status
 
-Backlog — after TODO.max-perf/4 phase 4.
+Shipped as parsanol-rs TODO.perf item 1 (Program artifact cache,
+XDG storage, 0.7.5); see 0-index.md.

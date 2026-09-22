@@ -1,6 +1,9 @@
 # 5 — Benchmark gates that keep performance excellent
 
-Status: PARTIAL (scripts exist; CI statistical gates pending)
+Status: DONE (2026-09-22) — benchmark/ci_gate.rb + weekly
+.github/workflows/perf-gate.yml: median-of-5 ips over the canonical
+corpus, baseline = previous GREEN run (red runs cannot poison it),
+fails on >25% median regression, 90-day artifacts + step summary.
 
 ## Problem
 

@@ -1,6 +1,15 @@
 # 3 — Make result materialization near-free
 
-Status: PARTIAL (arena collapse done 2026-09-14; lazy slices/AST pending)
+Status: 3.1 DONE, 3.2 CLOSED (measured 2026-09-22), 3.3 not needed, 3.4 EXISTS
+
+3.2 verdict (measured): a 3.8 KB JSON parse holds ~4.7k live Slices
+totalling ~7 KB content (~1.5 B/slice) — MRI substrings are COW-shared
+and every consumer reads content during transform anyway, so lazy
+content defers an allocation that is immediately paid back. Reopen only
+if a profiling round shows Slice allocation dominating a real consumer.
+3.3's own gate ("only if materialization dominates after 3.2") is
+therefore not met — the native tier's collapse + raw-batch skip (#100
+item 4) removed the materialization hot spots it targeted.
 
 ## 3.1 Arena input-ref collapse — DONE
 

@@ -31,4 +31,6 @@ GB/s token scanning (tens of GB/s on ARM NEON).
 
 ## Status
 
-Backlog — scheduled after TODO.max-perf/4 phases land.
+Superseded: SIMD shipped as parsanol-rs TODO.perf items 2+6;
+shared-prefix split as item 3 (cranelift deferred with profile
+evidence); see parsanol-rs TODO.perf/0-index.md.
