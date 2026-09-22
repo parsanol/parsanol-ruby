@@ -1,6 +1,8 @@
 # 8 — Native parity: Rust handles every mode; never fall back to Ruby parsing
 
-Status: ITEM 1 DONE (2026-09-16, rs #67 + ruby #44 → 1.3.23).
+Status: COMPLETE — all items shipped through 1.3.26 (see per-item
+notes below; cause trees 1.3.23, prefix 1.3.24, reporter 1.3.25,
+atom-coverage audit 1.3.26). ITEM 1 DONE (2026-09-16, rs #67 + ruby #44 → 1.3.23).
 Remaining: prefix: mode, reporter: feeding, atom-coverage audit (items 2–4).
 
 ## Mandate

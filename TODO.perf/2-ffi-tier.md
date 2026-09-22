@@ -1,6 +1,9 @@
 # 2 — FFI tier: universal native via a plain C ABI
 
-Status: NOT STARTED (packaging effort; binding design below is complete)
+Status: SUPERSEDED by TODO.perf/9 — the cdylib C-ABI tier shipped
+(2026-09-15, rs #61 + ruby #34 -> 1.3.17) and is validated. This file
+keeps the original design rationale. Remaining packaging items live in
+TODO.perf/9.
 
 ## Goal
 

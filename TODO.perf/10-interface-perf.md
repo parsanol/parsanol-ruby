@@ -1,6 +1,9 @@
 # 10 — Interface performance: Rust and Ruby boundary costs
 
-Status: PLANNED (2026-09-15) — baselines measured, items ranked by leverage
+Status: CLOSED (2026-09-17/22) — 1: honest negative (batch decode for
+the extension tier measured slower, reverted rs #64); 2: DONE (cause
+trees 1.3.23); 3: PARTIAL-honest (MRI dispatch floor, see item); 4:
+DONE by design; 5: DONE (zero-copy guarded handle API); 6: DONE.
 
 ## Measured baselines (2026-09-15, this machine)
 

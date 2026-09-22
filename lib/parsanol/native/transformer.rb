@@ -18,8 +18,6 @@ module Parsanol
     #
     class AstTransformer
       # Frozen string constants for tag comparisons (avoid allocations)
-      SEQUENCE_TAG = ":sequence"
-      REPETITION_TAG = ":repetition"
       EMPTY_STRING = ""
       EMPTY_ARRAY = [].freeze
       EMPTY_HASH = {}.freeze
@@ -28,11 +26,12 @@ module Parsanol
       # This is a class variable to share across all transformations
       @@symbol_cache = {}
 
-      # Symbol tags from native parser
+      # Envelope tags. Both tiers (extension objects and the flat-u64
+      # batch wire) deliver Symbols — the encoder writes ':'-prefixed
+      # strings as TAG_SYMBOL — so there is exactly one tag form.
       SEQUENCE_SYM = :sequence
       REPETITION_SYM = :repetition
       MAYBE_SYM = :maybe
-      MAYBE_TAG = ":maybe"
 
       # `named` mirrors CanFlatten#flatten's named flag: inside a Named
       # result (.as), an absent maybe flattens to nil; unnamed it flattens
@@ -67,7 +66,8 @@ module Parsanol
         # Check if this is a tagged array from native parser
         # Native parser produces Symbol tags: [:sequence, item1, item2, ...]
         first = arr.first
-        if [SEQUENCE_SYM, SEQUENCE_TAG].include?(first)
+        case first
+        when SEQUENCE_SYM
           # Optimized: transform items starting from index 1
           # Avoid creating arr[1..] slice
           len = arr.length
@@ -80,7 +80,7 @@ module Parsanol
             i += 1
           end
           flatten_sequence(items)
-        elsif [REPETITION_SYM, REPETITION_TAG].include?(first)
+        when REPETITION_SYM
           # Optimized: transform items starting from index 1
           len = arr.length
           # Empty repetition: named → [], unnamed → "" (CanFlatten#flatten_repetition)
@@ -93,7 +93,7 @@ module Parsanol
             i += 1
           end
           flatten_repetition(items, named: named)
-        elsif [MAYBE_SYM, MAYBE_TAG].include?(first)
+        when MAYBE_SYM
           # Maybe flattens to nil-or-value (named) or ""-or-value (unnamed),
           # never to an array
           len = arr.length
@@ -103,7 +103,7 @@ module Parsanol
             flattened = transform(arr[1])
             named ? flattened : (flattened || EMPTY_STRING)
           end
-        elsif first.is_a?(Symbol) || (first.is_a?(String) && first.start_with?(":"))
+        when Symbol
           # Other tagged arrays - pass through
           arr.map { |item| transform(item) }
         else
@@ -138,11 +138,10 @@ module Parsanol
         # Transform the value
         transformed = transform(value, named: true)
 
-        # Check if value is a tagged repetition from native parser.
-        # The Rust handle path tags with Symbols, the batch decoder with
-        # ":repetition" Strings — accept both.
+        # Tagged repetition from the native parser (Symbol tag; both
+        # tiers deliver the same form).
         is_tagged_repetition = value.is_a?(Array) && !value.empty? &&
-          (value.first.equal?(REPETITION_SYM) || value.first == REPETITION_TAG)
+          value.first.equal?(REPETITION_SYM)
 
         # Check RAW value for repetition pattern BEFORE transformation
         # (bare repeated sibling captures, #36): array items that all
@@ -297,7 +296,7 @@ module Parsanol
           sym_key = cached_symbol(key)
 
           is_repetition = value.is_a?(Array) && !value.empty? &&
-            value.first.is_a?(String) && value.first == REPETITION_TAG
+            value.first.equal?(REPETITION_SYM)
 
           transformed = transform(value, named: true)
 
