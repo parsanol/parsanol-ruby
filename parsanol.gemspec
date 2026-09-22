@@ -39,7 +39,17 @@ Gem::Specification.new do |spec|
     Cargo.lock
   ]
   spec.files.reject! { |f| File.directory?(f) }
-  spec.files.reject! { |f| f =~ /\.(dll|so|dylib|lib|bundle)\Z/ }
+  # Cargo build trees are never gem content (a dirty local
+  # ext/parsanol_native/target once inflated a build to 218 MB).
+  spec.files.reject! { |f| f.include?("/target/") || f.start_with?("target/") }
+  # Binaries are never tracked in git, and the ruby (source) gem stays
+  # slim: the pure-portable cdylib is vendored ONLY into platform gems
+  # by the cross-gem build (rake gem:vendor_cdylib), never by a plain
+  # `gem build`.
+  spec.files.reject! do |f|
+    f =~ /\.(dll|so|dylib|lib|bundle)\Z/ &&
+      !(ENV["PARSANOL_VENDOR_CDYLIB"] == "1" && f.start_with?("lib/parsanol/native/"))
+  end
   spec.require_paths = ["lib"]
 
   spec.required_ruby_version = ">= 3.2.0"

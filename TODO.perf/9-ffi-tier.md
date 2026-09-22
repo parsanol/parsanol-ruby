@@ -43,12 +43,23 @@ engine. The parsanol crate now also builds as a cdylib exporting a C ABI
 
 ## Remaining (packaging)
 
-1. Release workflow: build the cdylib in the same rb-sys-dock matrix and
-   vendor it into each platform gem (`lib/parsanol/native/`), plus a
-   Ruby-platform fallback tarball. The local dylib used for validation
-   is NOT committed.
-2. Decide (owner call): hard `add_dependency "ffi"` vs the current
-   soft-require.
-3. NUL bytes in input truncate at the C-string boundary — add a
-   length-taking variant if real workloads need binary inputs.
-4. JRuby/TruffleRuby CI legs running the differential harnesses.
+1. DECIDED + SHIPPED (2026-09-23): the **ruby (source) gem stays
+   binary-free**; each **platform gem vendors its own triple's cdylib**
+   at `lib/parsanol/native/` (where `locate_library` already probes).
+   Mechanism: `ext/parsanol_cdylib` (gem-workspace twin of parsanol-rs's
+   parsanol-ffi, pure-portable — no magnus, zero Ruby-version coupling)
+   built by `rake gem:vendor_cdylib` in the cross-gem jobs under
+   `PARSANOL_VENDOR_CDYLIB=1`; the gemspec's binary rejection is scoped
+   so a plain `gem build` can never vendor. MRI gains a resilience
+   fallback (cdylib when the extension fails to load); TruffleRuby
+   resolves its host-triple platform gem and gets the ffi tier natively;
+   JRuby (java platform) keeps the pure-Ruby engine — a java companion
+   gem is possible later if demanded. Also fixed here: the gemspec glob
+   no longer admits `**/target/**` (a dirty local ext tree once
+   inflated a build to 218 MB).
+2. STILL OWNER CALL: hard `add_dependency "ffi"` vs the current
+   soft-require (soft stands; ffi is a Gemfile dev dep for specs).
+3. DONE (0.8.7): `parsanol_c_parse_len` — binary-safe input; the Ruby
+   binding uses it exclusively and fails availability loudly on a stale
+   cdylib.
+4. OPEN: JRuby/TruffleRuby CI legs running the differential harnesses.

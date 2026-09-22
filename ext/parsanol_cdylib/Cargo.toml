@@ -1,0 +1,15 @@
+[package]
+name = "parsanol_cdylib"
+version = "1.3.50"
+edition = "2021"
+description = "Vendored cdylib for parsanol platform gems: the pure-portable C ABI (no magnus) for the ffi tier"
+license = "MIT"
+publish = false
+
+[lib]
+name = "parsanol"
+crate-type = ["cdylib"]
+doc = false
+
+[dependencies]
+parsanol = { version = "0.8.8" }

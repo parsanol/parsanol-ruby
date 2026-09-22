@@ -64,6 +64,25 @@ namespace :gem do
     sh "rake gem:platform:any gem"
   end
 
+  # Vendor the pure-portable cdylib into PLATFORM gems (TODO.perf/9):
+  # the ruby (source) gem stays binary-free; each cross-gem carries its
+  # own triple's libparsanol next to the extension for the ffi tier
+  # (MRI resilience fallback, TruffleRuby native).
+  desc "Build ext/parsanol_cdylib for the active cross target and vendor it"
+  task "vendor_cdylib" do
+    triplet = ENV["CARGO_BUILD_TARGET"] || ENV["RUST_TARGET"]
+    args = ["cargo", "build", "--release", "-p", "parsanol_cdylib"]
+    args += ["--target", triplet] if triplet
+    sh(*args)
+    dir = triplet ? "target/#{triplet}/release" : "target/release"
+    name = %w[libparsanol.so libparsanol.dylib parsanol.dll]
+      .map { |n| File.join(dir, n) }
+      .find { |f| File.file?(f) }
+    raise "cdylib not found under #{dir}" unless name
+
+    cp name, "lib/parsanol/native/"
+  end
+
   desc "Define the gem task to build on any platform (compile on install)"
   task "platform:any" do
     spec = Gem::Specification.load("parsanol.gemspec").dup
