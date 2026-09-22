@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["ext/parsanol_native"]
+members = ["ext/parsanol_native", "ext/parsanol_cdylib"]
 
 [profile.release]
 opt-level = 3
