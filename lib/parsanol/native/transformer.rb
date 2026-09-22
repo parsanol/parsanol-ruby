@@ -123,10 +123,15 @@ module Parsanol
         transform_multi_key_hash(hash)
       end
 
-      # Optimized handling for single-key hashes (the common case)
+      # Optimized handling for single-key hashes (the common case).
+      # The shape scans below are fused into as few passes as possible:
+      # each predicate was previously its own `all?` walk with a lambda
+      # dispatch, and `item.keys.length` allocated a keys array per
+      # element (Hash#length is O(1)).
       def self.transform_single_key_hash(hash)
-        # Extract the single key-value pair without iteration
-        key = hash.keys.first
+        # Extract the single key-value pair without iterating (the hash
+        # is guaranteed single-key by the caller).
+        key, = hash.first
         value = hash[key]
         sym_key = cached_symbol(key)
 
@@ -137,45 +142,74 @@ module Parsanol
         # The Rust handle path tags with Symbols, the batch decoder with
         # ":repetition" Strings — accept both.
         is_tagged_repetition = value.is_a?(Array) && !value.empty? &&
-          [REPETITION_SYM, REPETITION_TAG].include?(value.first)
+          (value.first.equal?(REPETITION_SYM) || value.first == REPETITION_TAG)
 
         # Check RAW value for repetition pattern BEFORE transformation
-        # Array with items that all have the parent key
-        # e.g., [{x: 1}, {x: 2}] where parent key is :x
-        is_raw_array_repetition = value.is_a?(Array) && !value.empty? &&
-          value.all? do |item|
-            item.is_a?(Hash) && item.keys.length == 1 && item.key?(key)
-          end
+        # (bare repeated sibling captures, #36): array items that all
+        # carry the parent key, e.g. [{x: 1}, {x: 2}].
+        is_raw_array_repetition = false
+        if value.is_a?(Array) && !value.empty? && !is_tagged_repetition
+          is_raw_array_repetition = raw_items_all_named?(value, key)
+        end
 
         # Empty array from native parser is a repetition result (not a sequence)
         # Sequences produce arrays of arrays like [[], []], not empty arrays
         is_empty_repetition = value.is_a?(Array) && value.empty?
 
-        # Special handling for arrays that look like character repetitions
-        # (arrays of single-character Slices/strings should be joined)
-        if transformed.is_a?(Array) && !transformed.empty? &&
-            transformed.all? do |item|
-              slice_or_string?(item) && item_length(item) == 1
+        # Single fused pass over the transformed array: detect the
+        # single-character join shape AND the untagged repetition shape
+        # in one walk (an element cannot be both a Hash and a
+        # single-character stringlike, so the predicates share a loop).
+        joined = nil
+        is_transformed_repetition = false
+        if transformed.is_a?(Array) && !transformed.empty?
+          all_named = true
+          all_single_char = true
+          content = nil
+          first_slice = nil
+          transformed.each do |item|
+            if item.is_a?(Hash)
+              all_single_char = false
+              unless item.length == 1 && item.key?(sym_key)
+                all_named = false
+                break
+              end
+            elsif item.is_a?(::Parsanol::Slice) || item.is_a?(String)
+              all_named = false
+              all_single_char = false unless item.length == 1
+              break if !all_single_char && !all_named
+            else
+              all_named = false
+              all_single_char = false
+              break
             end
-          # Join preserving position from first Slice
-          first_slice = transformed.find { |i| i.is_a?(::Parsanol::Slice) }
-          content = transformed.map { |i| slice_content(i) }.join
-          transformed = if first_slice
-                          ::Parsanol::Slice.new(first_slice.offset, content,
-                                                first_slice.input)
-                        else
-                          content
-                        end
-        end
-
-        # Check for UNTAGGED repetition pattern (native output):
-        # If array items all have the same key as parent, it's a repetition
-        is_transformed_repetition = transformed.is_a?(Array) && !transformed.empty? &&
-          transformed.all? do |item|
-            item.is_a?(Hash) && item.keys.length == 1 && item.key?(sym_key)
           end
 
-        is_repetition = is_tagged_repetition || is_raw_array_repetition || is_transformed_repetition || is_empty_repetition
+          if all_single_char
+            # Join preserving position from the first Slice
+            content = +""
+            transformed.each do |item|
+              if item.is_a?(::Parsanol::Slice)
+                first_slice ||= item
+                content << item.content
+              else
+                content << item.to_s
+              end
+            end
+            joined = if first_slice
+                       ::Parsanol::Slice.new(first_slice.offset,
+                                             content, first_slice.input)
+                     else
+                       content
+                     end
+          elsif all_named
+            is_transformed_repetition = true
+          end
+        end
+
+        transformed = joined if joined
+        is_repetition = is_tagged_repetition || is_raw_array_repetition ||
+          is_transformed_repetition || is_empty_repetition
 
         # Handle based on type
         if is_repetition
@@ -187,6 +221,14 @@ module Parsanol
         else
           # Simple value (Slice, string, nil, etc.) - most common case
           { sym_key => transformed }
+        end
+      end
+
+      # Alloc-free raw repetition scan: Hash#length instead of
+      # item.keys.length (which allocated per element).
+      def self.raw_items_all_named?(value, key)
+        value.all? do |item|
+          item.is_a?(Hash) && item.length == 1 && item.key?(key)
         end
       end
 
@@ -313,12 +355,26 @@ module Parsanol
           return list.reduce { |acc, hash| acc.merge(hash) }
         end
 
-        # Hot path: all stringlike (String/Slice). Build one Slice
-        # from the first Slice's offset, joining contents in place.
-        if list.all? { |x| x.is_a?(::Parsanol::Slice) || x.is_a?(String) }
-          first_slice = list.find { |x| x.is_a?(::Parsanol::Slice) }
-          content = list.map { |x| x.is_a?(::Parsanol::Slice) ? x.content : x.to_s }.join
-          return first_slice ? ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input) : content
+        # Hot path: all stringlike (String/Slice). One fused pass detects
+        # the shape and joins contents in place (no per-item lambda
+        # dispatch, no intermediate map array).
+        content = +""
+        first_slice = nil
+        all_stringlike = list.all? do |x|
+          if x.is_a?(::Parsanol::Slice)
+            first_slice ||= x
+            content << x.content
+            true
+          elsif x.is_a?(String)
+            content << x
+            true
+          else
+            false
+          end
+        end
+        if all_stringlike
+          return first_slice ? ::Parsanol::Slice.new(first_slice.offset, content,
+                                                     first_slice.input) : content
         end
 
         # Cold path: parslet's exact fold (Hash/Slice/String/Array
@@ -372,14 +428,29 @@ module Parsanol
 
         return EMPTY_ARRAY if named && items.empty?
 
-        # Hot path: all-stringlike repetition → foldl via concat.
+        # Hot path: all-stringlike repetition → fused single-pass concat.
         # Cold path: parslet's exact fold.
-        if items.all? { |x| x.is_a?(::Parsanol::Slice) || x.is_a?(String) }
-          return EMPTY_STRING if items.empty?
+        if items.empty?
+          return EMPTY_STRING
+        end
 
-          first_slice = items.find { |x| x.is_a?(::Parsanol::Slice) }
-          content = items.map { |x| x.is_a?(::Parsanol::Slice) ? x.content : x.to_s }.join
-          return first_slice ? ::Parsanol::Slice.new(first_slice.offset, content, first_slice.input) : content
+        content = +""
+        first_slice = nil
+        all_stringlike = items.all? do |x|
+          if x.is_a?(::Parsanol::Slice)
+            first_slice ||= x
+            content << x.content
+            true
+          elsif x.is_a?(String)
+            content << x
+            true
+          else
+            false
+          end
+        end
+        if all_stringlike
+          return first_slice ? ::Parsanol::Slice.new(first_slice.offset, content,
+                                                     first_slice.input) : content
         end
 
         foldl(items.compact) { |acc, item| acc + item }
