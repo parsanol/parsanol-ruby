@@ -48,7 +48,8 @@ Gem::Specification.new do |spec|
   # `gem build`.
   spec.files.reject! do |f|
     f =~ /\.(dll|so|dylib|lib|bundle)\Z/ &&
-      !(ENV["PARSANOL_VENDOR_CDYLIB"] == "1" && f.start_with?("lib/parsanol/native/"))
+      !(ENV["PARSANOL_VENDOR_CDYLIB"] == "1" &&
+        f =~ %r{\Alib/parsanol/native/libparsanol\.(so|dylib|dll)\Z})
   end
   spec.require_paths = ["lib"]
 
