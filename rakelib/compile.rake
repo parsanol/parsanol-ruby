@@ -25,8 +25,8 @@ RbSys::ExtensionTask.new("parsanol_native", gemspec) do |ext|
     end
 
     sh "cargo", "build", "--release", "-p", "parsanol_cdylib", "--target", triple
-    art = Dir["target/#{triple}/release/libparsanol.*"].first ||
-          Dir["target/#{triple}/release/parsanol.dll"].first
+    art = Dir["target/#{triple}/release/libparsanol.{so,dylib,dll}",
+              "target/#{triple}/release/parsanol.dll"].first
     raise "cdylib artifact not found for #{plat} (#{triple})" unless art
 
     # rake-compiler stages callback-added files from the project tree
