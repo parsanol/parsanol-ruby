@@ -29,7 +29,9 @@ RbSys::ExtensionTask.new("parsanol_native", gemspec) do |ext|
               "target/#{triple}/release/parsanol.dll"].first
     raise "cdylib artifact not found for #{plat} (#{triple})" unless art
 
-    # rake-compiler stages callback-added files from the project tree
+    # rake-compiler stages callback-added files FROM the project tree —
+    # the source file must exist there when the staging task runs.
+    cp art, "lib/parsanol/native/"
     spec.files << "lib/parsanol/native/#{File.basename(art)}"
   end
 end
