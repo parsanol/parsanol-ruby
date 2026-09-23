@@ -34,3 +34,9 @@ end
 if ENV["PARSANOL_VENDOR_CDYLIB"] == "1"
   task "gem" => "gem:vendor_cdylib"
 end
+
+# rb-sys-dock exports RUST_TARGET for the whole container session, so the
+# vendor task runs as a prerequisite of `gem` exactly inside cross builds
+# (locally the env is unset and plain builds are untouched). The
+# cross_compiling guard above stays as the loud verifier.
+task "gem" => "gem:vendor_cdylib" if ENV["RUST_TARGET"] || ENV["CARGO_BUILD_TARGET"]
