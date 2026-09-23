@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby-platform: ${{ fromJSON(needs.ci-data.outputs.result).supported-ruby-platforms }}
+        ruby-platform: [aarch64-linux, aarch64-linux-musl, aarch64-mingw-ucrt, arm-linux, arm-linux-musl, arm64-darwin, x64-mingw-ucrt, x86-linux, x86_64-darwin, x86_64-linux, x86_64-linux-musl]
     steps:
       - uses: actions/checkout@v4
 
