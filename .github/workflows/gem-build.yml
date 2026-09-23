@@ -47,25 +47,6 @@ jobs:
         with:
           platform: ${{ matrix.ruby-platform }}
           ruby-versions: "3.2,3.3,3.4,4.0"
-          pre-script: |
-            case "${{ matrix.ruby-platform }}" in
-              x86_64-linux) triple=x86_64-unknown-linux-gnu ;;
-              x86_64-linux-musl) triple=x86_64-unknown-linux-musl ;;
-              aarch64-linux) triple=aarch64-unknown-linux-gnu ;;
-              aarch64-linux-musl) triple=aarch64-unknown-linux-musl ;;
-              arm-linux) triple=arm-unknown-linux-gnueabihf ;;
-              arm-linux-musl) triple=arm-unknown-linux-musleabihf ;;
-              arm64-darwin) triple=aarch64-apple-darwin ;;
-              x86_64-darwin) triple=x86_64-apple-darwin ;;
-              x64-mingw-ucrt) triple=x86_64-pc-windows-gnu ;;
-              aarch64-mingw-ucrt) triple=aarch64-pc-windows-gnullvm ;;
-            esac;
-            cargo build --release -p parsanol_cdylib --target "$triple";
-            art=$(find "target/$triple/release" -maxdepth 1 \( -name "libparsanol.*" -o -name "parsanol.dll" \) 2>/dev/null | head -1);
-            echo "VENDOR: platform=${{ matrix.ruby-platform }} triple=$triple artifact=$art";
-            if [ -n "$art" ]; then
-              cp "$art" lib/parsanol/native/;
-            fi
       - uses: actions/upload-artifact@v4
         with:
           name: cross-gem-${{ matrix.ruby-platform }}
