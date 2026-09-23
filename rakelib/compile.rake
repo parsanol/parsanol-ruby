@@ -35,5 +35,3 @@ RbSys::ExtensionTask.new("parsanol_native", gemspec) do |ext|
     spec.files << "lib/parsanol/native/#{File.basename(art)}"
   end
 end
-
-
