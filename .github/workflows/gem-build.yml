@@ -48,24 +48,21 @@ jobs:
           platform: ${{ matrix.ruby-platform }}
           ruby-versions: "3.2,3.3,3.4,4.0"
           pre-script: |
-            case "${{ matrix.ruby-platform }}" in
-              x86_64-linux) triple=x86_64-unknown-linux-gnu ;;
-              x86_64-linux-musl) triple=x86_64-unknown-linux-musl ;;
-              aarch64-linux) triple=aarch64-unknown-linux-gnu ;;
-              aarch64-linux-musl) triple=aarch64-unknown-linux-musl ;;
-              arm-linux) triple=armv7-unknown-linux-gnueabihf ;;
-              arm-linux-musl) triple=armv7-unknown-linux-musleabihf ;;
-              arm64-darwin) triple=aarch64-apple-darwin ;;
-              x86_64-darwin) triple=x86_64-apple-darwin ;;
-              x64-mingw-ucrt) triple=x86_64-pc-windows-gnu ;;
-              aarch64-mingw-ucrt) triple=aarch64-pc-windows-gnullvm ;;
-            esac;
-            cargo build --release -p parsanol_cdylib --target "$triple";
-            for f in libparsanol.so libparsanol.dylib parsanol.dll; do
-              if [ -f "target/$triple/release/$f" ]; then
-                cp "target/$triple/release/$f" lib/parsanol/native/;
+            triple=$(bundle exec ruby -e 'require "rb_sys/toolchain_info"; print RbSys::ToolchainInfo::DATA.fetch(ARGV[0]).fetch("rust-target")' "${{ matrix.ruby-platform }}" 2>/dev/null || echo "");
+            if [ -z "$triple" ]; then
+              case "${{ matrix.ruby-platform }}" in
+                arm-linux-musl) triple=arm-unknown-linux-musleabihf ;;
+              esac;
+            fi;
+            echo "VENDOR: platform=${{ matrix.ruby-platform }} triple=$triple";
+            if [ -n "$triple" ]; then
+              cargo build --release -p parsanol_cdylib --target "$triple";
+              art=$(find target -path "*$triple/release/libparsanol.*" -o -path "*$triple/release/parsanol.dll" 2>/dev/null | head -1);
+              echo "VENDOR: artifact=$art";
+              if [ -n "$art" ]; then
+                cp "$art" lib/parsanol/native/;
               fi;
-            done
+            fi
 
       - uses: actions/upload-artifact@v4
         with:
