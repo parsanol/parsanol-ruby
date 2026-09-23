@@ -47,7 +47,7 @@ jobs:
         with:
           platform: ${{ matrix.ruby-platform }}
           ruby-versions: "3.2,3.3,3.4,4.0"
-          pre-setup-command: |
+          pre-script: |
             case "${{ matrix.ruby-platform }}" in
             x86_64-linux)        triple=x86_64-unknown-linux-gnu ;;
             x86_64-linux-musl)   triple=x86_64-unknown-linux-musl ;;
