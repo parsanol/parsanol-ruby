@@ -43,7 +43,19 @@ engine. The parsanol crate now also builds as a cdylib exporting a C ABI
 
 ## Remaining (packaging)
 
-1. DECIDED + SHIPPED (2026-09-23): the **ruby (source) gem stays
+1. DECIDED (2026-09-23); LAST MILE UNFINISHED — the twin crate
+   (ext/parsanol_cdylib), the env-gated gemspec exception, the
+   **/target/** glob rejection and the workflow triple map all landed,
+   but the cdylib still does not reach the packaged gem: rake-compiler
+   packages cross gems from tmp/<platform>/stage/, and no hook fired
+   yet that both builds the cdylib in-dock AND stages it there
+   (additive rake prerequisite: not invoked; cross-gem
+   pre-setup-command: copies to the working tree, not the stage;
+   cross_compiling callback: never invoked under rb-sys's env-driven
+   cross flow). Next step: read rb_sys/extensiontask.rb for the seam
+   where the platform spec is finalized and hook build+stage there.
+   Experiments live on branch cross-gem/vendor-verify.
+   Original design notes: the **ruby (source) gem stays
    binary-free**; each **platform gem vendors its own triple's cdylib**
    at `lib/parsanol/native/` (where `locate_library` already probes).
    Mechanism: `ext/parsanol_cdylib` (gem-workspace twin of parsanol-rs's
