@@ -8,26 +8,22 @@ gemspec = defined?(GEMSPEC) ? GEMSPEC : Gem::Specification.load("parsanol.gemspe
 RbSys::ExtensionTask.new("parsanol_native", gemspec) do |ext|
   ext.lib_dir = "lib/parsanol"
 
-  # rake-compiler packages cross gems from tmp/<platform>/stage/, so the
-  # vendored cdylib must land THERE — the canonical hook is the platform
-  # spec itself. Env-gated (cross-gem jobs only).
+  # Vendor the pure-portable cdylib into platform gems (TODO.perf/9).
+  # rake-compiler auto-stages callback-added files from the project
+  # tree (define_staging_file_tasks), so the only job here is declaring
+  # the file — the cross-gem jobs' pre-setup-command builds it into the
+  # tree first. Platform-driven, not env-driven: the dock container
+  # does not inherit the job env.
   ext.cross_compiling do |spec|
-    next unless ENV["PARSANOL_VENDOR_CDYLIB"] == "1"
+    next if spec.platform == Gem::Platform::RUBY
 
-    triple = ENV.fetch("RUST_TARGET", nil)
-    args = ["cargo", "build", "--release", "-p", "parsanol_cdylib"]
-    args += ["--target", triple] if triple
-    sh(*args)
-    dir = triple ? "target/#{triple}/release" : "target/release"
-    name = %w[libparsanol.so libparsanol.dylib parsanol.dll]
-      .map { |n| File.join(dir, n) }
-      .find { |f| File.file?(f) }
-    raise "cdylib not found under #{dir}" unless name
+    vendored = Dir["lib/parsanol/native/libparsanol.{so,dylib,dll}"]
+    if vendored.empty?
+      raise "platform gem #{spec.platform} has no vendored cdylib — " \
+            "run `rake gem:vendor_cdylib` (or the workflow pre-setup-command) first"
+    end
 
-    stage_lib = File.join("tmp", spec.platform.to_s, "stage", "lib", "parsanol", "native")
-    mkdir_p stage_lib
-    cp name, stage_lib
-    spec.files += ["lib/parsanol/native/#{File.basename(name)}"]
+    spec.files += vendored
   end
 end
 
