@@ -47,8 +47,8 @@ jobs:
         with:
           platform: ${{ matrix.ruby-platform }}
           ruby-versions: "3.2,3.3,3.4,4.0"
-        pre-setup-command: |
-          case "${{ matrix.ruby-platform }}" in
+          pre-setup-command: |
+            case "${{ matrix.ruby-platform }}" in
             x86_64-linux)        triple=x86_64-unknown-linux-gnu ;;
             x86_64-linux-musl)   triple=x86_64-unknown-linux-musl ;;
             aarch64-linux)       triple=aarch64-unknown-linux-gnu ;;
@@ -59,13 +59,13 @@ jobs:
             x86_64-darwin)       triple=x86_64-apple-darwin ;;
             x64-mingw-ucrt)      triple=x86_64-pc-windows-gnu ;;
             aarch64-mingw-ucrt)  triple=aarch64-pc-windows-gnullvm ;;
-          esac
-          cargo build --release -p parsanol_cdylib --target "$triple"
-          for f in libparsanol.so libparsanol.dylib parsanol.dll; do
+            esac
+            cargo build --release -p parsanol_cdylib --target "$triple"
+            for f in libparsanol.so libparsanol.dylib parsanol.dll; do
             if [ -f "target/$triple/release/$f" ]; then
               cp "target/$triple/release/$f" lib/parsanol/native/
             fi
-          done
+            done
           env: |
             PARSANOL_VENDOR_CDYLIB=1
 
