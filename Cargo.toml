@@ -8,11 +8,7 @@ lto = "off"
 codegen-units = 1
 debug = true
 
-# Patches for Ruby 4.0 support and 32-bit musl (magnus timespec fix).
-# magnus 0.9 is not on crates.io yet; pin a git rev that includes
-# https://github.com/matsadler/magnus/pull/183 (32-bit musl timespec).
-# parsanol-rs must use the same rev (direct git dep, not patchable here).
+# rb-sys is pinned to a git rev (daa12b65) that includes fixes not yet on
+# crates.io. magnus 0.9 is now on crates.io — no magnus patch is needed.
 [patch.crates-io]
-magnus = { git = "https://github.com/matsadler/magnus", rev = "9407bd9" }
-magnus-macros = { git = "https://github.com/matsadler/magnus", rev = "9407bd9" }
 rb-sys = { git = "https://github.com/oxidize-rb/rb-sys.git", rev = "daa12b6521a0c442a705d7f9a929029119aab1d6" }
