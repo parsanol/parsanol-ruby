@@ -204,3 +204,20 @@ interpreter that has NO guard at all — an unbounded hang (paren
 grammar, depth 10 = minutes of CPU). A progress guard mirroring
 documented acceptance would make both engines terminate; needs its own
 round with a parity decision.
+
+## Re-benchmark after the FAIL-dispatch fix (2026-09-24, later)
+
+First cold-start numbers with the VM actually alive (structure-seeded
+memoization on, fresh parser instance per parse, min-of-5):
+
+| input | kv repeat+maybe | kv strict (linear) |
+|---|---|---|
+| 400 pairs (5.0 KiB) | 14.2 ms | 7.4 ms |
+| 800 pairs (10.2 KiB) | 27.7 ms | 14.3 ms |
+
+Linear in input size, cold == warm, on grammars that measured
+4.0 s / 29.6 s pre-fix. The "heavy-backtracking grammars 0.56–0.6x
+parslet" gap above was measured while the VM was silently disabled —
+every historical pure-Ruby number needs re-measurement before more
+engineering is justified. Consumer-corpus re-benchmarks
+(asciichem/pubid/coradoc/expressir) are the next step.
