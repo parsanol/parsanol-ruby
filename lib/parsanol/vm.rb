@@ -175,6 +175,36 @@ module Parsanol
         compiler.to_program
       end
 
+      def validate_choice_branches(atom)
+        atom.alternatives.each_with_index do |branch, idx|
+          walk_branch = branch
+          next if idx == atom.alternatives.size - 1
+
+          # Entities resolve lazily and may be recursive; resolve
+          # through the wrapper for the nullability check only.
+          while walk_branch.is_a?(Parsanol::Atoms::Entity) ||
+              walk_branch.is_a?(Parsanol::Atoms::Named)
+            walk_branch = begin
+              walk_branch.parslet
+            rescue StandardError
+              nil
+            end
+            break if walk_branch.nil?
+          end
+          next if walk_branch.nil?
+          next unless Compiler.new.nullable?(walk_branch)
+
+          raise Parsanol::GrammarError,
+                "wrong grammar: alternative branch #{idx} " \
+                "(#{branch.inspect}) can match empty input and is not " \
+                "the last branch — ordered choice commits to its empty " \
+                "match, so #{atom.alternatives.size - idx - 1} later " \
+                "branch(es) can never match at positions where it " \
+                "matches empty. Reorder branches so empty-matchable " \
+                "ones come last, or make the branch non-empty."
+        end
+      end
+
       # Grammar validation, run once per compile: an ordered-choice
       # branch that can match empty input while not being last commits
       # to its empty match and permanently shadows every later branch —
@@ -183,40 +213,14 @@ module Parsanol
       def validate_alternatives(root)
         visited = {}.compare_by_identity
         walk = lambda do |atom, depth|
-          return if atom.nil? || depth > 20
-          return if visited[atom]
+          next if atom.nil? || depth > 20
+          next if visited[atom]
 
           visited[atom] = true
           case atom
           when Parsanol::Atoms::Alternative
-            atom.alternatives.each_with_index do |branch, idx|
-              walk.call(branch, depth + 1)
-              next if idx == atom.alternatives.size - 1
-
-              # Entities resolve lazily and may be recursive; resolve
-              # through the wrapper for the nullability check only.
-              branch_inner = branch
-              while branch_inner.is_a?(Parsanol::Atoms::Entity) ||
-                  branch_inner.is_a?(Parsanol::Atoms::Named)
-                branch_inner = begin
-                  branch_inner.parslet
-                rescue StandardError
-                  nil
-                end
-                break if branch_inner.nil?
-              end
-              next if branch_inner.nil?
-              next unless Compiler.new.nullable?(branch_inner)
-
-              raise Parsanol::GrammarError,
-                    "wrong grammar: alternative branch #{idx} " \
-                    "(#{branch.inspect}) can match empty input and is not " \
-                    "the last branch — ordered choice commits to its empty " \
-                    "match, so #{atom.alternatives.size - idx - 1} later " \
-                    "branch(es) can never match at positions where it " \
-                    "matches empty. Reorder branches so empty-matchable " \
-                    "ones come last, or make the branch non-empty."
-            end
+            validate_choice_branches(atom)
+            atom.alternatives.each { |c| walk.call(c, depth + 1) }
           when Parsanol::Atoms::Sequence
             atom.parslets.each { |c| walk.call(c, depth + 1) }
           when Parsanol::Atoms::Repetition, Parsanol::Atoms::Named

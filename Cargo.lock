@@ -204,7 +204,8 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 [[package]]
 name = "magnus"
 version = "0.9.0"
-source = "git+https://github.com/matsadler/magnus?rev=9407bd9#9407bd98afef6692edca706426c15ea6bef60d0e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "379d50b6eea4ca84074ccd3e551eb9b07f7865194d5b3198325317e9ef78e5e9"
 dependencies = [
  "magnus-macros",
  "rb-sys",
@@ -215,7 +216,8 @@ dependencies = [
 [[package]]
 name = "magnus-macros"
 version = "0.9.0"
-source = "git+https://github.com/matsadler/magnus?rev=9407bd9#9407bd98afef6692edca706426c15ea6bef60d0e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ca70566af98184bb92d4d9853daaf533c1a3418b9570d0547ea44970035f3fe"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -252,9 +254,9 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "parsanol"
-version = "0.8.8"
+version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5709d5bc971fa4e28fccf401709ab1d275d180e447e3ab82fde7ebef2ecc787b"
+checksum = "c28a0cd3b3e2491ef72c99f3dc59ef25ea2e0f13b8cd6ea31a05eb085a33f801"
 dependencies = [
  "ahash",
  "getrandom 0.3.4",
@@ -269,9 +271,9 @@ dependencies = [
 
 [[package]]
 name = "parsanol-derive"
-version = "0.8.8"
+version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93258404b7032b85dffd9a60e3fb1ed003a268282b4f3385f1ab1aba98db34e5"
+checksum = "0ccfdf8325c4890930bbc1510bc9dfc929d485d1aa6c29cb563c5dc77d7a0080"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -280,7 +282,7 @@ dependencies = [
 
 [[package]]
 name = "parsanol_cdylib"
-version = "1.3.50"
+version = "1.3.52"
 dependencies = [
  "parsanol",
 ]
