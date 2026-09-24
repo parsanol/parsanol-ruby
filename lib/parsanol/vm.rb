@@ -181,12 +181,12 @@ module Parsanol
       # the grammar is wrong, and inputs it would mis-parse fail with a
       # baffling cause. Raise before any input is seen.
       def validate_alternatives(root)
-        visited = {}
+        visited = {}.compare_by_identity
         walk = lambda do |atom, depth|
           return if atom.nil? || depth > 20
-          return if visited[atom.object_id]
+          return if visited[atom]
 
-          visited[atom.object_id] = true
+          visited[atom] = true
           case atom
           when Parsanol::Atoms::Alternative
             atom.alternatives.each_with_index do |branch, idx|
@@ -219,9 +219,7 @@ module Parsanol
             end
           when Parsanol::Atoms::Sequence
             atom.parslets.each { |c| walk.call(c, depth + 1) }
-          when Parsanol::Atoms::Repetition
-            walk.call(atom.parslet, depth + 1)
-          when Parsanol::Atoms::Named
+          when Parsanol::Atoms::Repetition, Parsanol::Atoms::Named
             walk.call(atom.parslet, depth + 1)
           when Parsanol::Atoms::Lookahead
             walk.call(atom.bound_parslet, depth + 1)

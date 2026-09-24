@@ -66,27 +66,28 @@ RSpec.describe "zero-width repetition guard" do
   end
 end
 
-RSpec.describe "grammar validation: empty-matchable non-final alternative branches" do
-  it "raises GrammarError naming the shadowing branch" do
-    parser_class = Class.new(Parsanol::Parser) do
-      # The leading maybe can match empty and is not last: ordered
-      # choice commits to its empty match, so the digit branch is dead.
-      rule(:expr)     { (str("(") >> expr >> str(")")).maybe | match(/[0-9]/) }
-      rule(:document) { expr.repeat(1) >> str("!") }
-      root(:document)
+  describe "grammar validation: empty-matchable non-final alternative branches" do
+    it "raises GrammarError naming the shadowing branch" do
+      parser_class = Class.new(Parsanol::Parser) do
+        # The leading maybe can match empty and is not last: ordered
+        # choice commits to its empty match, so the digit branch is dead.
+        rule(:expr)     { (str("(") >> expr >> str(")")).maybe | match(/[0-9]/) }
+        rule(:document) { expr.repeat(1) >> str("!") }
+        root(:document)
+      end
+
+      expect { parser_class.new.parse("7!", mode: :ruby) }
+        .to raise_error(Parsanol::GrammarError, /branch 0.*can match empty/i)
     end
 
-    expect { parser_class.new.parse("7!", mode: :ruby) }
-      .to raise_error(Parsanol::GrammarError, /branch 0.*can match empty/i)
-  end
+    it "allows empty-matchable branches in final position" do
+      parser_class = Class.new(Parsanol::Parser) do
+        rule(:expr)     { match(/[0-9]/) | (str("(") >> expr >> str(")")).maybe }
+        rule(:document) { expr.repeat(1) >> str("!") }
+        root(:document)
+      end
 
-  it "allows empty-matchable branches in final position" do
-    parser_class = Class.new(Parsanol::Parser) do
-      rule(:expr)     { match(/[0-9]/) | (str("(") >> expr >> str(")")).maybe }
-      rule(:document) { expr.repeat(1) >> str("!") }
-      root(:document)
+      expect(parser_class.new.parse("(((7)))!", mode: :ruby)).not_to be_nil
     end
-
-    expect(parser_class.new.parse("(((7)))!", mode: :ruby)).not_to be_nil
   end
 end
