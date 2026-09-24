@@ -306,6 +306,10 @@ describe Parsanol::Atoms::Alternative do
       parser = choice_from(
         atoms.map { |atom| slash >> atom.as(:symbol) },
       )
+      # The attempt counter observes the interpreter's Alternative index;
+      # the compiled VM would satisfy the same tree without touching the
+      # counted atoms at all.
+      Parsanol::VM.disable_for!(parser)
 
       expect(parser.parse("\\item21")).to eq({ symbol: "item21" })
       # The successful first pass selects exactly the one matching branch; a
