@@ -183,6 +183,7 @@ module Parsanol
         last_failure = nil
 
         loop do
+          iteration_start = source.bytepos
           success, value = @parslet.apply(source, context, false)
 
           unless success
@@ -192,6 +193,11 @@ module Parsanol
 
           occurrence += 1
           result[occurrence] = value
+
+          # A body match that consumes nothing cannot make progress;
+          # looping again would re-match empty forever. Count the empty
+          # match, then stop — the min check below applies as usual.
+          break if source.bytepos == iteration_start
 
           break if @max && occurrence >= @max
         end
@@ -254,6 +260,7 @@ module Parsanol
         last_failure = nil
 
         loop do
+          iteration_start = source.bytepos
           success, value = @parslet.apply(source, context, false)
 
           unless success
@@ -264,6 +271,10 @@ module Parsanol
           occurrence += 1
           result[occurrence] = value
           positions << source.bytepos
+
+          # Zero-width body match: count it, stop iterating (the min
+          # check below applies as usual) — mirrors try_general.
+          break if source.bytepos == iteration_start
 
           break if @max && occurrence >= @max
         end
