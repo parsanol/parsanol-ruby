@@ -103,6 +103,15 @@ module Parsanol
 
     alias kind_of? is_a?
 
+    # The delegated interface: Array's full class contract (including
+    # Enumerable), computed once against the type rather than probed on
+    # instances.
+    ARRAY_METHODS = (
+      Array.instance_methods(true) + Enumerable.instance_methods + [:to_ary]
+    ).freeze
+
+    private_constant :ARRAY_METHODS
+
     # Respond to array methods.
     #
     # @param method [Symbol] Method name
@@ -110,7 +119,7 @@ module Parsanol
     # @return [Boolean] true if responds
     #
     def respond_to?(method, include_private = false)
-      super || to_a.respond_to?(method, include_private)
+      super || ARRAY_METHODS.include?(method)
     end
 
     # Delegate unknown methods to materialized array.
@@ -121,7 +130,7 @@ module Parsanol
     # @return [Object] Result of method call
     #
     def method_missing(method, ...)
-      if to_a.respond_to?(method)
+      if ARRAY_METHODS.include?(method)
         to_a.public_send(method, ...)
       else
         super
@@ -135,7 +144,7 @@ module Parsanol
     # @return [Boolean] true if method is supported
     #
     def respond_to_missing?(method, include_private = false)
-      to_a.respond_to?(method, include_private) || super
+      ARRAY_METHODS.include?(method) || super
     end
 
     # Compare with another object.

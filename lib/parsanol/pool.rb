@@ -119,7 +119,7 @@ module Parsanol
       end
 
       # Reset object state if it supports the protocol
-      obj.reset! if obj.respond_to?(:reset!)
+      obj.reset! if obj.is_a?(Parsanol::Resettable)
 
       @stats[:released] += 1
       @available.push(obj)

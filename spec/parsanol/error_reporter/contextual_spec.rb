@@ -5,7 +5,7 @@ require "spec_helper"
 describe Parsanol::ErrorReporter::Contextual do
   let(:reporter) { described_class.new }
   let(:fake_source) { double("source") }
-  let(:fake_atom) { double("atom") }
+  let(:fake_atom) { double("atom", label: nil) }
   let(:fake_cause) { double("cause") }
 
   describe "#err" do
@@ -106,10 +106,10 @@ describe Parsanol::ErrorReporter::Contextual do
     end
 
     it "sets label if atom has one" do
-      expect(fake_atom).to receive(:label).once.and_return("label")
+      labeled_atom = Parsanol.str("atom").tap { |a| a.label = "label" }
       expect(fake_cause).to receive(:set_label).once
       expect(reporter).to receive(:deepest).and_return(fake_cause)
-      expect(reporter.err(fake_atom, fake_source, "message")).to eq(fake_cause)
+      expect(reporter.err(labeled_atom, fake_source, "message")).to eq(fake_cause)
     end
 
     it "does not set label if atom does not have one" do

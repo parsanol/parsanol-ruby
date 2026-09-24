@@ -4,6 +4,8 @@ require "spec_helper"
 
 # Test class that supports reset protocol
 class TestPoolable
+  include Parsanol::Resettable
+
   attr_accessor :value
 
   def initialize

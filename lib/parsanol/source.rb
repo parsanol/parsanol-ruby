@@ -33,9 +33,9 @@ module Parsanol
     # @raise [ArgumentError] if input doesn't respond to to_str
     #
     def initialize(input)
-      unless input.respond_to?(:to_str)
+      unless input.is_a?(String)
         raise ArgumentError,
-              "Source requires a string-like object (responds to to_str)"
+              "Source requires a String (got #{input.class})"
       end
 
       @raw_string = input.to_str

@@ -44,6 +44,12 @@ module Parsanol
     base.extend(ClassMethods)
   end
 
+  # Raised when the GRAMMAR itself is malformed — detected before any
+  # input is parsed. The canonical case: an ordered-choice branch that
+  # can match empty input while not being last, which commits to its
+  # empty match and permanently shadows every later branch.
+  class GrammarError < StandardError; end
+
   # Exception raised when parsing fails. Contains detailed error information
   # in the #parse_failure_cause attribute.
   class ParseFailed < StandardError

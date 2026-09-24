@@ -72,7 +72,7 @@ module Parsanol
         cause = super
 
         # Apply label if the atom has one
-        if atom.respond_to?(:label) && (lbl = atom.label)
+        if atom.is_a?(Parsanol::Atoms::Base) && (lbl = atom.label)
           maybe_update_label(lbl, src.pos.bytepos)
           cause.set_label(@active_label_text)
         end

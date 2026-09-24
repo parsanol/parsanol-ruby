@@ -391,15 +391,19 @@ module Parsanol
           return left.is_a?(Hash) ? left.merge(right) : left + right
         end
 
-        if left.respond_to?(:to_str) && right.respond_to?(:to_str)
-          return right if right.respond_to?(:to_slice)
-          return left if left.respond_to?(:to_slice)
+        # String-like = String or Slice (both implement to_str). When
+        # only ONE side is string-like, the OTHER side wins — the
+        # original duck-typed priority, preserved exactly.
+        left_stringlike = left.is_a?(String) || left.is_a?(Parsanol::Slice)
+        right_stringlike = right.is_a?(String) || right.is_a?(Parsanol::Slice)
+        if left_stringlike && right_stringlike
+          return right if right.is_a?(Parsanol::Slice)
+          return left if left.is_a?(Parsanol::Slice)
 
-          return left.to_str + right.to_str
+          return left + right
         end
-
-        return left if right.respond_to?(:to_str)
-        return right if left.respond_to?(:to_str)
+        return left if right_stringlike
+        return right if left_stringlike
 
         return left + [right] if right.is_a?(Hash)
         return [left] + right if left.is_a?(Hash)

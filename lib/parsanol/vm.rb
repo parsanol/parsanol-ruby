@@ -149,6 +149,7 @@ module Parsanol
       def compile_with_inline(atom, inline)
         root = atom.is_a?(Parsanol::Parser) ? atom.root : atom
         compiler = Compiler.new(inline: inline)
+        validate_alternatives(root)
         return nil unless compiler.compile_atom(root, true)
 
         # HALT terminates the MAIN program; subroutines follow it so the
@@ -172,6 +173,79 @@ module Parsanol
         end
 
         compiler.to_program
+      end
+
+      # Grammar validation, run once per compile: an ordered-choice
+      # branch that can match empty input while not being last commits
+      # to its empty match and permanently shadows every later branch —
+      # the grammar is wrong, and inputs it would mis-parse fail with a
+      # baffling cause. Raise before any input is seen.
+      def validate_alternatives(root)
+        visited = {}
+        walk = lambda do |atom, depth|
+          return if atom.nil? || depth > 20
+          return if visited[atom.object_id]
+
+          visited[atom.object_id] = true
+          case atom
+          when Parsanol::Atoms::Alternative
+            atom.alternatives.each_with_index do |branch, idx|
+              walk.call(branch, depth + 1)
+              next if idx == atom.alternatives.size - 1
+
+              # Entities resolve lazily and may be recursive; resolve
+              # through the wrapper for the nullability check only.
+              branch_inner = branch
+              while branch_inner.is_a?(Parsanol::Atoms::Entity) ||
+                  branch_inner.is_a?(Parsanol::Atoms::Named)
+                branch_inner = begin
+                  branch_inner.parslet
+                rescue StandardError
+                  nil
+                end
+                break if branch_inner.nil?
+              end
+              next if branch_inner.nil?
+              next unless Compiler.new.nullable?(branch_inner)
+
+              raise Parsanol::GrammarError,
+                    "wrong grammar: alternative branch #{idx} " \
+                    "(#{branch.inspect}) can match empty input and is not " \
+                    "the last branch — ordered choice commits to its empty " \
+                    "match, so #{atom.alternatives.size - idx - 1} later " \
+                    "branch(es) can never match at positions where it " \
+                    "matches empty. Reorder branches so empty-matchable " \
+                    "ones come last, or make the branch non-empty."
+            end
+          when Parsanol::Atoms::Sequence
+            atom.parslets.each { |c| walk.call(c, depth + 1) }
+          when Parsanol::Atoms::Repetition
+            walk.call(atom.parslet, depth + 1)
+          when Parsanol::Atoms::Named
+            walk.call(atom.parslet, depth + 1)
+          when Parsanol::Atoms::Lookahead
+            walk.call(atom.bound_parslet, depth + 1)
+          when Parsanol::Atoms::Ignored
+            walk.call(atom.wrapped_atom, depth + 1)
+          when Parsanol::Atoms::Entity
+            begin
+              walk.call(atom.parslet, depth + 1)
+            rescue Parsanol::GrammarError
+              raise
+            rescue StandardError
+              # Lazily resolved / recursive entity that cannot resolve
+              # outside a parse: skip this branch of the walk.
+              nil
+            end
+          when Parsanol::Atoms::Scope
+            begin
+              walk.call(atom.block.call, depth + 1)
+            rescue StandardError
+              nil
+            end
+          end
+        end
+        walk.call(root, 0)
       end
 
       # Executes a compiled program. Returns [true, value] on success;

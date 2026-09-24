@@ -56,15 +56,9 @@ describe Parsanol::Atoms::Base do
   end
 
   describe "#parse(source)" do
-    context "when given something that looks like a source" do
-      let(:source) do
-        double("source lookalike",
-               line_and_column: [1, 2],
-               bytepos: 1,
-               chars_left: 0)
-      end
-
+    context "when given a Source" do
       it "does not rewrap in a source" do
+        source = Parsanol::Source.new("foo")
         expect(Parsanol::Source).not_to receive(:new)
 
         begin

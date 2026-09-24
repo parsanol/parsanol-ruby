@@ -34,7 +34,7 @@ module Parsanol
       def line_and_column(position)
         scan_buffer_once
 
-        position = position.bytepos if position.respond_to?(:bytepos)
+        position = position.bytepos if position.is_a?(Parsanol::Source)
 
         line_idx = @breaks.lower_bound_index(position)
 

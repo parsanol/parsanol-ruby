@@ -255,7 +255,7 @@ module Parsanol
     # already produced. The full per-atom event stream of the Ruby
     # engine remains available via an explicit `mode: :ruby`.
     def feed_native_reporter(reporter, input, error)
-      return unless reporter.respond_to?(:err_at)
+      return unless reporter.is_a?(Parsanol::ErrorReporter::Base)
 
       source = Parsanol::Source.new(input)
       cause = error.parse_failure_cause

@@ -142,18 +142,16 @@ module Parsanol
 
     # Unified line/column computation:
     # - String input: compute from input string
-    # - LineCache: delegate to cache
+    # - Source / LineCache: delegate
     def line_and_column_at(pos)
-      if @input.respond_to?(:line_and_column)
-        # LineCache or duck-typed object
-        @input.line_and_column(pos)
-      else
-        # String input
+      if @input.is_a?(String)
         prefix = @input.byteslice(0, pos) || ""
         line = 1 + prefix.count("\n")
         last_nl = prefix.rindex("\n")
         column = last_nl ? pos - last_nl : pos + 1
         [line, column]
+      else
+        @input.line_and_column(pos)
       end
     end
   end
