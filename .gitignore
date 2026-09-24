@@ -11,3 +11,9 @@ TODO*.md
 # Local versioned native extension builds
 lib/parsanol/*/parsanol_native.bundle
 lib/parsanol/native/libparsanol.*
+
+# Local extension build artifacts
+ext/parsanol_native/Makefile
+ext/parsanol_native/mkmf.log
+ext/parsanol_native/*.bundle
+ext/parsanol_native/*.bundle.dSYM/
