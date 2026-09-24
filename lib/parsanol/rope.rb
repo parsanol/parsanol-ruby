@@ -67,7 +67,7 @@ module Parsanol
     #
     # @return [Integer] The sum of all segment sizes
     def size
-      @segments.sum { |s| s.respond_to?(:size) ? s.size : s.to_s.size }
+      @segments.sum(&:size)
     end
 
     # Creates a rope from an existing string.

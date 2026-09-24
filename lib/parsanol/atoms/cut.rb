@@ -42,7 +42,7 @@ module Parsanol
         # 1. Mark the current position as a cut point
         # 2. Empty the backtrack stack (we won't backtrack past here)
         # 3. Aggressively evict cache entries before this position
-        context.cut!(source.bytepos) if context.respond_to?(:cut!)
+        context.cut!(source.bytepos)
 
         [success, value]
       end

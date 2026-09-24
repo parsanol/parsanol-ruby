@@ -90,7 +90,7 @@ module Parsanol
       return true if pattern_val === target
 
       # Check if pattern is a binding expression (like simple(:x))
-      if pattern_val.respond_to?(:can_bind?) && pattern_val.can_bind?(target)
+      if pattern_val.is_a?(Parsanol::Pattern::SubtreeBind) && pattern_val.can_bind?(target)
         return capture_binding(target, pattern_val, captured)
       end
 

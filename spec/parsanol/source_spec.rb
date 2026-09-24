@@ -38,12 +38,12 @@ describe Parsanol::Source do
       end
     end
 
-    it "accepts string-like input for line cache lookups" do
-      string_like = Class.new do
+    it "accepts String input (and subclasses) for line cache lookups" do
+      string_like = Class.new(String) do
         def to_str
           "a\nb"
         end
-      end.new
+      end.new("a\nb")
 
       described_class.new(string_like).line_and_column(2).should == [2, 1]
     end

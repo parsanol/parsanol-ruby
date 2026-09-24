@@ -216,7 +216,9 @@ module Parsanol
         # cause from that directly — the failure path never needs a
         # reporter reparse. The single interpreter pass below stays only
         # to recover inputs from grammars native cannot express.
-        if grammar.respond_to?(:parse) && (m = error.message.match(NATIVE_POS_MARKER))
+        parsanol_grammar =
+          grammar.is_a?(Parsanol::Atoms::Base) || grammar.is_a?(Parsanol::Parser)
+        if parsanol_grammar && (m = error.message.match(NATIVE_POS_MARKER))
           source = Parsanol::Source.new(input)
           success, value = grammar.run_with_context(source, nil, true)
           return grammar.finalize_result(value) if success
@@ -227,7 +229,7 @@ module Parsanol
           raise Parsanol::ParseFailed.new(cause.to_s, cause)
         end
 
-        if grammar.respond_to?(:parse)
+        if parsanol_grammar
           # No native diagnostics (e.g. incomplete-input errors): one
           # interpreter pass with the reporter attached — a success
           # recovers the tree, a failure raises the cause tree.

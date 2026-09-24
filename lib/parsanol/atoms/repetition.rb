@@ -66,7 +66,7 @@ module Parsanol
       # @return [Array(Boolean, Object)] result
       def try(source, context, consume_all)
         # Check for tree memoization support
-        if context.respond_to?(:use_tree_memoization?) && context.use_tree_memoization?
+        if context.use_tree_memoization?
           return with_tree_cache(source, context, consume_all)
         end
 
@@ -298,7 +298,7 @@ module Parsanol
           context.store_tree_memo(cache_key, start_pos,
                                   result[1, occurrence], end_pos)
         end
-        context.release_array(positions) if context.respond_to?(:release_array)
+        context.release_array(positions)
 
         # Check minimum
         if occurrence < @min

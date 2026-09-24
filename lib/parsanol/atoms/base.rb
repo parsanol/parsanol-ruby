@@ -208,7 +208,7 @@ module Parsanol
 
       # Converts raw input to Source if needed.
       def normalize_input(source)
-        source.respond_to?(:line_and_column) ? source : Parsanol::Source.new(source)
+        source.is_a?(Parsanol::Source) ? source : Parsanol::Source.new(source)
       end
 
       # Detects if we're in a Parser context.

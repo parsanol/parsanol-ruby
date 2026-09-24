@@ -74,7 +74,7 @@ module Parsanol
       line_num, col_num = @source.line_and_column(@position)
 
       formatted_msg = @message.map do |msg|
-        msg.respond_to?(:to_slice) ? msg.content.inspect : msg.to_s
+        msg.is_a?(Parsanol::Slice) ? msg.content.inspect : msg.to_s
       end.join
 
       "#{formatted_msg} at line #{line_num} char #{col_num}#{@parsing_label}."
