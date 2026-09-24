@@ -156,6 +156,22 @@ module Parsanol
         compiler.ops << [HALT, nil, nil, nil]
         return nil unless compiler.append_subroutines
 
+        # Terminal failures jump to pc = FAIL without testing the pc
+        # register on the hot path; the dispatch case instead lands on
+        # this dedicated instruction (the last slot in the flat program),
+        # whose opcode is FAIL itself.
+        compiler.ops << [FAIL, nil, nil, nil]
+
+        # Structure-seeded memoization: a grammar containing repeat/maybe
+        # starts memoized on its very first parse (fresh parser instances
+        # included — the seed is recomputed at every compile), so the
+        # cold-start never pays the doomed unmemoized exploration.
+        if compiler.backtracking_prone
+          # rubocop:disable Lint/HashCompareByIdentity -- object_id keys match run_for's heavy flag; would otherwise pin every grammar alive
+          (@heavy ||= {})[root.object_id] = true
+          # rubocop:enable Lint/HashCompareByIdentity
+        end
+
         compiler.to_program
       end
 
@@ -248,9 +264,10 @@ module Parsanol
         @inline = inline
         @subs = {}      # [obj_id, flag] => pc or :pending
         @pending = {}   # [obj_id, flag] => [[call_idx, body], ...]
+        @backtracking_prone = false
       end
 
-      attr_reader :ops
+      attr_reader :ops, :backtracking_prone
 
       def to_program
         return :oversize if @ops.size > MAX_PROGRAM
@@ -608,6 +625,11 @@ module Parsanol
       # * unbounded-plus of a single terminal (non-spine sites) -> greedy
       #   RUN_* op
       def compile_repetition(atom, consume_all)
+        # Any repetition (repeat, maybe, repeat(0)) can re-explore the
+        # same rule+position pairs when a later sibling fails; grammars
+        # containing one memoize from the first parse instead of waiting
+        # for the naive pass to prove the need.
+        @backtracking_prone = true
         min = atom.min
         max = atom.max
         return nil if max&.zero?
@@ -737,6 +759,10 @@ module Parsanol
       def execute # rubocop:disable Metrics/MethodLength, Metrics/BlockLength, Metrics/BlockNesting -- single dispatch loop; hot path
         ops = @ops
         input = @input
+        # Dedicated FAIL landing instruction appended after HALT and the
+        # subroutines: `pc = fail_pc` dispatches straight into when-FAIL
+        # on the next cycle, no sentinel comparison per step.
+        fail_pc = ops.size - 4
         bytes = input.unpack("C*")
         # Regexp#match?(str, pos) searches FORWARD from pos (unanchored);
         # StringScanner#match? is position-anchored, matching the
@@ -800,7 +826,7 @@ module Parsanol
               pos += ops[pc + 3]
               pc += 4
             else
-              pc = FAIL
+              pc = fail_pc
             end
           when RE
             b = bytes[pos]
@@ -819,7 +845,7 @@ module Parsanol
               pos += w
               pc += 4
             else
-              pc = FAIL
+              pc = fail_pc
             end
           when ANY
             if pos < n
@@ -829,7 +855,7 @@ module Parsanol
               pos += w
               pc += 4
             else
-              pc = FAIL
+              pc = fail_pc
             end
           when SEQ_BEGIN
             rstack << SEQ_MARK
@@ -878,7 +904,7 @@ module Parsanol
                   # PENDING — re-entry at the same rule+position (left
                   # recursion); the interpreter loops forever here, so
                   # failing this path keeps the VM bounded.
-                  pc = FAIL
+                  pc = fail_pc
                   next
                 end
                 # Memo hit: replay the subroutine's stack effect without
@@ -926,7 +952,7 @@ module Parsanol
             rlen = bt[-BT_STRIDE + 2]
             rstack.slice!(rlen..) if rstack.size > rlen
             bt.pop(BT_STRIDE)
-            pc = FAIL
+            pc = fail_pc
           when DROP
             rstack.pop
             rstack << nil
@@ -967,7 +993,7 @@ module Parsanol
 
             if ops[pc + 2] == 1 && pos != n
               frames.slice!(cbase..)
-              pc = FAIL
+              pc = fail_pc
             else
               rbase = frames[cbase + 2]
               values = rstack.pop(rstack.size - rbase)
@@ -980,7 +1006,7 @@ module Parsanol
             table = ops[pc + 1]
             b = pos < n ? bytes[pos] : -1
             target = b == -1 ? -1 : table[b]
-            pc = target >= 0 ? target : FAIL
+            pc = target >= 0 ? target : fail_pc
           when SEQ_SIMPLE
             kids = ops[pc + 1]
             kn = kids.size
@@ -1115,7 +1141,7 @@ module Parsanol
               ki += 4
             end
             if failed
-              pc = FAIL
+              pc = fail_pc
             else
               rstack << values
               pc += 4
@@ -1180,7 +1206,7 @@ module Parsanol
               pos += w
             end
             if min && values.size - 1 < min
-              pc = FAIL
+              pc = fail_pc
             else
               rstack << values
               pc += 4
@@ -1206,14 +1232,14 @@ module Parsanol
               pos += ln
             end
             if min && values.size - 1 < min
-              pc = FAIL
+              pc = fail_pc
             else
               rstack << values
               pc += 4
             end
           when HALT
             if @consume_all && pos != n
-              pc = FAIL
+              pc = fail_pc
               next
             end
             value = VM.materialize(rstack[0], input)

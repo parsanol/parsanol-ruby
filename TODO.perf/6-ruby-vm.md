@@ -158,3 +158,49 @@ parslet-beating performance out of the box on these workloads today.
    grammars hit this only as native-failure → Ruby-fallback (correct but
    2x cost). Fix by threading a consume_all flag through try_atom the way
    sequences pass it to their last child.
+
+## Cold-start round (2026-09-24)
+
+The reported "VM cold-start superlinear slowdown" on repeat+maybe
+grammars turned out to be a **broken FAIL dispatch**, not a
+memoization-activation gap:
+
+- ab1a17b ("FAIL dispatches through the case table") replaced the
+  `if pc == FAIL` register check with `case ops[pc]; when FAIL`. The FAIL
+  sentinel lives in the pc register, not in program memory: a failing
+  terminal sets pc = 17 and the next dispatch read whatever operand sat
+  at slot 17. It missed every branch, hit the `else` catch-all, returned
+  BAIL, and sticky-disabled the VM for the grammar.
+- Consequence: any parse whose control flow includes a terminal failure —
+  which is how every repetition ends — silently ran the interpreter
+  instead. Suites stayed green (BAIL→interpreter is semantically
+  transparent); the cost was performance-only. A KV repeat+maybe grammar
+  measured 4.0s at 100 pairs / 29.6s at 800 pairs pre-fix (interpreter
+  probe work), vs ~12ms at 200 pairs post-fix (VM, linear).
+- Fix: the compiler appends a dedicated `[FAIL, nil, nil, nil]`
+  instruction after HALT and the subroutines; the executor derives
+  `fail_pc = ops.size - 4` and every `pc = FAIL` site jumps there, so
+  `when FAIL` is a true dispatch target. The per-step comparison the
+  original commit saved stays saved. Regression spec:
+  `spec/parsanol/vm_fail_dispatch_spec.rb`.
+
+Structure-seeded memoization (compile-time repeat/maybe analysis →
+`@heavy` pre-seed, memoize from step 0, recomputed per compile so fresh
+parser instances get it too): implemented as mandated. Honest A/B
+(min-of-9, GC.start): **neutral post-Fix-A** on valid and failing
+inputs, inline and subroutine-tier grammars alike — the naive pass is
+already linear once the VM stays enabled; the seed neither helped nor
+hurt (linear_kv 6.0ms, expr_subr 37ms, unchanged). Kept as insurance for
+grammars whose naive pass would bust `200n+10k` before the memoized
+retry; the TODO.perf/7-style dense-memo regression does not appear at
+CALL-site granularity. Lowering thresholds as the alternative approach:
+interpreter `BACKTRACK_ACTIVATION_LIMIT` 64→16→1 measured no consistent
+gain (1 was worse); the VM density threshold is moot with seeding.
+
+Follow-up finding (out of scope, flagged): neither engine guards
+zero-width repetition loops. `(str("(") >> expr >> str(")")).maybe`
+matched empty loops the VM into its step budget and then BAILs to an
+interpreter that has NO guard at all — an unbounded hang (paren
+grammar, depth 10 = minutes of CPU). A progress guard mirroring
+documented acceptance would make both engines terminate; needs its own
+round with a parity decision.
