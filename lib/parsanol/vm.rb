@@ -167,9 +167,8 @@ module Parsanol
         # included — the seed is recomputed at every compile), so the
         # cold-start never pays the doomed unmemoized exploration.
         if compiler.backtracking_prone
-          # rubocop:disable Lint/HashCompareByIdentity -- object_id keys match run_for's heavy flag; would otherwise pin every grammar alive
+          # rubocop:disable-next Lint/HashCompareByIdentity -- object_id keys match run_for's heavy flag; would otherwise pin every grammar alive
           (@heavy ||= {})[root.object_id] = true
-          # rubocop:enable Lint/HashCompareByIdentity
         end
 
         compiler.to_program
