@@ -64,7 +64,6 @@ RSpec.describe "zero-width repetition guard" do
     parser = parser_class.new
     expect(parser.parse("abc", mode: :ruby).to_s).to eq("abc")
   end
-end
 
   describe "grammar validation: empty-matchable non-final alternative branches" do
     it "raises GrammarError naming the shadowing branch" do
