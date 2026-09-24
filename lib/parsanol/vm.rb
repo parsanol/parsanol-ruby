@@ -977,12 +977,24 @@ module Parsanol
             count = frames[cbase]
             return BAIL if count.nil?
 
+            old_end = frames[cbase + 1]
             count += 1
             frames[cbase] = count
             frames[cbase + 1] = pos
             max = ops[pc + 3]
             pc = if max && count >= max
                    ops[pc + 2] # exit
+                 elsif pos == old_end
+                   # Zero-width body match: count it, stop iterating.
+                   # Mirrors Repetition#try_general: success with the
+                   # prefix when min is met, failure of the repetition
+                   # otherwise.
+                   if count >= frames[cbase + 3]
+                     ops[pc + 2] # exit
+                   else
+                     frames.slice!(cbase..)
+                     fail_pc
+                   end
                  else
                    ops[pc + 1] # test
                  end
