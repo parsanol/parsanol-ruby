@@ -68,6 +68,35 @@ module Parsanol
         apply_bindings(entry_name, parse(entry_name, input, mode: mode))
       end
 
+      # Re-run the grammar's in-file tests against this artifact. Returns
+      # the failure descriptions; empty means every test passes.
+      def run_tests(mode: :native)
+        envelope.fetch("tests", []).filter_map do |test|
+          entry_name = test["entry"] || entries.first
+          begin
+            bound = parse_and_bind(entry_name, test["input"], mode: mode)
+            if test["kind"] == "reject"
+              "test #{test['input'].inspect}: expected the input to be rejected"
+            elsif test["kind"] == "example"
+              mismatched = test["expect"].reject do |key, value|
+                bound.key?(key.to_sym) && bound[key.to_sym] == value
+              end
+              next if mismatched.empty?
+
+              "test #{test['input'].inspect}: expected captures " \
+                "#{mismatched.transform_values(&:inspect).inspect}, got #{bound.inspect}"
+            end
+          rescue Parsanol::ParseFailed
+            unless test["kind"] == "reject"
+              "test #{test['input'].inspect}: expected the input to parse"
+            end
+          end
+        end
+      end
+
+      # Rule documentation embedded from ## doc comments.
+      def rule_docs = envelope.fetch("docs", {})
+
       def table_rows(name)
         @table_cache ||= {}
         return @table_cache[name] if @table_cache.key?(name)

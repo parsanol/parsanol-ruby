@@ -5,9 +5,12 @@ module Parsanol
     # Parsed PG document: grammar rules plus the binding sections.
     class Document
       Binding = Struct.new(:capture, :path, :type, :card, :preprocess)
+      TEST_KINDS = %i[accept reject example].freeze
+
+      Test = Struct.new(:entry, :kind, :input, :expect)
 
       attr_accessor :grammar_name, :version, :source
-      attr_reader :rules, :bindings, :preprocess, :entries
+      attr_reader :rules, :bindings, :preprocess, :entries, :docs, :tests
 
       def initialize
         @grammar_name = nil
@@ -17,6 +20,8 @@ module Parsanol
         @bindings = {}
         @preprocess = {}
         @entries = {}
+        @docs = {}
+        @tests = []
       end
 
       def validate!
@@ -41,6 +46,15 @@ module Parsanol
                   "binding #{binding.capture.inspect} references unknown " \
                   "preprocess step #{binding.preprocess.inspect}"
           end
+        end
+        tests.each do |test|
+          unless TEST_KINDS.include?(test.kind)
+            raise ParseError, "unknown test kind #{test.kind.inspect}"
+          end
+          next if test.entry.nil? || entries.key?(test.entry)
+
+          raise ParseError,
+                "test references unknown entry #{test.entry.inspect}"
         end
       end
     end
