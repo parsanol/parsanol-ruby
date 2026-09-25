@@ -219,5 +219,18 @@ RSpec.describe Parsanol::PG do
       bound = artifact.parse_and_bind("identifier", "ISO IS 7")
       expect(bound[:publisher]).to eq("ISO")
     end
+
+    it "parses identically through the native and ruby paths" do
+      skip "native extension not available" unless Parsanol::Native.available?
+
+      native = artifact.parse_and_bind("identifier", "ISO CD 12345-89")
+      ruby = artifact.parse_and_bind("identifier", "ISO CD 12345-89", mode: :ruby)
+      expect(native).to eq(ruby)
+    end
+
+    it "rejects unknown parse modes" do
+      expect { artifact.parse("identifier", "ISO IS 7", mode: :warp) }
+        .to raise_error(ArgumentError, /mode/)
+    end
   end
 end

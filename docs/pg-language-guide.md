@@ -56,6 +56,13 @@ artifact.parse_and_bind("identifier", "iso 12345")
 # => { publisher: "iso", number: 12345 }
 ```
 
+`parse` is **native-first**: the envelope's grammar section is the exact
+portable JSON the Rust engine registers, so the default path is a straight
+register-and-run through `parsanol-rs` — no Ruby recompilation. The Ruby
+atom runtime remains available explicitly (`mode: :ruby`) and serves as
+the fallback on platforms without the native extension. The two paths are
+held to parity by spec.
+
 `Parsanol::PG::Import.import(:abnf, text)` (also `:ebnf`, `:pest`) returns
 PG source generated from a foreign grammar — commit the result and compile
 it like hand-written PG.

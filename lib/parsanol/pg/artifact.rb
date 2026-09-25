@@ -40,16 +40,32 @@ module Parsanol
         end
       end
 
-      def parse(entry_name, input)
-        root_atom(entry_name).parse(input)
+      # Parse via the native engine: the envelope's grammar section is the
+      # exact portable JSON the Rust side registers, so the artifact parse
+      # path is a straight register-and-run — no Ruby recompilation. The
+      # Ruby atom runtime (mode: :ruby) remains available explicitly, and
+      # serves as the fallback on platforms without the extension.
+      def parse(entry_name, input, mode: :native)
+        case mode
+        when :native
+          if Native.available?
+            return Native.parse(JSON.generate(entry(entry_name).fetch("grammar")), input)
+          end
+
+          root_atom(entry_name).parse(input)
+        when :ruby
+          root_atom(entry_name).parse(input)
+        else
+          raise ArgumentError, "unknown mode #{mode.inspect} (use :native or :ruby)"
+        end
       end
 
       def apply_bindings(entry_name, shape)
         Bindings.apply(self, entry(entry_name), shape)
       end
 
-      def parse_and_bind(entry_name, input)
-        apply_bindings(entry_name, parse(entry_name, input))
+      def parse_and_bind(entry_name, input, mode: :native)
+        apply_bindings(entry_name, parse(entry_name, input, mode: mode))
       end
 
       def table_rows(name)
