@@ -26,5 +26,9 @@ gem "benchmark-ips", "~> 2.0"
 # For the ffi-tier specs (runtime stays a soft-require)
 gem "ffi"
 
+# For the lutaml-model string-format bridge specs (runtime stays a
+# soft-require of the consumer)
+gem "lutaml-model", require: false
+
 # For type checking
 gem "rbs", "~> 3.0"
