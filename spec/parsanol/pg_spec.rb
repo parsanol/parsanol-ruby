@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "parsanol"
+require "fileutils"
 require "json"
 require "tmpdir"
 
@@ -63,7 +64,7 @@ RSpec.describe Parsanol::PG do
       expect(document.entries).to eq("identifier" => "iso_identifier")
       expect(document.bindings["iso_identifier"].length).to eq(4)
       expect(document.preprocess["stage_code"]).to eq(
-        [{ "op" => "table_lookup", "table" => "stages", "from" => "abbr", "to" => "code" }]
+        [{ "op" => "table_lookup", "table" => "stages", "from" => "abbr", "to" => "code" }],
       )
     end
 
@@ -162,18 +163,18 @@ RSpec.describe Parsanol::PG do
       Parsanol::PG::Artifact.load(path, tables_dir: tables_dir)
     end
 
-    around do |example|
-      Dir.mktmpdir do |dir|
-        File.write(File.join(dir, "stages.yaml"), stages_yaml)
-        env = compile_source(source, tables_dir: dir).envelope
-        @path = write_artifact(env, dir)
-        @tables_dir = dir
-        example.run
-      end
+    let(:tables_dir) do
+      dir = Dir.mktmpdir
+      File.write(File.join(dir, "stages.yaml"), stages_yaml)
+      dir
     end
 
-    let(:path) { @path }
-    let(:tables_dir) { @tables_dir }
+    let(:path) do
+      write_artifact(compile_source(source, tables_dir: tables_dir).envelope,
+                     tables_dir)
+    end
+
+    after { FileUtils.rm_rf(tables_dir) }
 
     it "verifies the checksum and loads" do
       expect(artifact.version).to eq("1.2.0")
@@ -205,7 +206,7 @@ RSpec.describe Parsanol::PG do
         publisher: "ISO",
         stage: "draft20",
         number: 12_345,
-        part: "89"
+        part: "89",
       )
     end
 

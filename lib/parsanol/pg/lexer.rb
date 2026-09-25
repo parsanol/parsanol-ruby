@@ -9,6 +9,8 @@ module Parsanol
     class Lexer
       Token = Struct.new(:type, :value, :offset)
 
+      DROPPED = %i[ws comment].freeze
+
       TOKEN = /
         (?<newline>\r?\n)
       | (?<ws>[ \t]+)
@@ -43,7 +45,7 @@ module Parsanol
           end
 
           type = matched_type(match)
-          if type && !%i[ws comment].include?(type)
+          if type && !DROPPED.include?(type)
             value = token_value(type, match)
             @tokens << Token.new(type, value, pos)
           end
@@ -61,7 +63,6 @@ module Parsanol
       def token_value(type, match)
         case type
         when :hex, :istr, :sstr then match[0][2..]
-        when :str then match[0]
         else match[0]
         end
       end

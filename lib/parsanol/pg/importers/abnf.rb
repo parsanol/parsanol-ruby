@@ -27,6 +27,11 @@ module Parsanol
         | (?<punct>[*\/()\[\]])
         /x
 
+        INLINE_WS = %i[ws comment].freeze
+        LEADING = %i[ws comment crlf].freeze
+        ELEMENT_START_TYPES = %i[name cistr sstr numval num].freeze
+        ELEMENT_START_PUNCT = ["*", "(", "["].freeze
+
         CORE_RULES = {
           "ALPHA" => "%x41-5A / %x61-7A",
           "BIT" => '"0" / "1"',
@@ -92,7 +97,7 @@ module Parsanol
         end
 
         def skip_inline_ws
-          advance while peek && %i[ws comment].include?(peek[0])
+          advance while peek && INLINE_WS.include?(peek[0])
         end
 
         def parse_rules
@@ -107,7 +112,7 @@ module Parsanol
         def skip_leading
           loop do
             token = peek
-            break unless token && %i[ws comment crlf].include?(token[0])
+            break unless token && LEADING.include?(token[0])
 
             advance
           end
@@ -171,8 +176,8 @@ module Parsanol
         end
 
         def element_start?(token)
-          %i[name cistr sstr numval num].include?(token[0]) ||
-            (token[0] == :punct && %w[* ( \[].include?(token[1]))
+          ELEMENT_START_TYPES.include?(token[0]) ||
+            (token[0] == :punct && ELEMENT_START_PUNCT.include?(token[1]))
         end
 
         def parse_repetition

@@ -173,14 +173,12 @@ module Parsanol
         errors = []
         branches = node.a
         branches.each_with_index do |branch, index|
-          next unless nullable(branch) && index < branches.length - 1
-
-          errors << "rule #{name}: branch #{index + 1} can match empty input " \
-                    "and shadows all later branches"
-        end
-        branches.each_with_index do |earlier, i|
-          branches[(i + 1)..].each_with_index do |later, j|
-            compare_branches(name, earlier, i + 1, later, i + j + 2, errors)
+          if nullable?(branch) && index < branches.length - 1
+            errors << "rule #{name}: branch #{index + 1} can match empty input " \
+                      "and shadows all later branches"
+          end
+          branches[(index + 1)..].each_with_index do |later, j|
+            compare_branches(name, branch, index + 1, later, index + j + 2, errors)
           end
         end
         errors
@@ -248,7 +246,7 @@ module Parsanol
           refs = []
           node.a.each do |item|
             refs.concat(leftmost_refs(item))
-            break unless nullable(item)
+            break unless nullable?(item)
           end
           refs.uniq
         when :alt then node.a.flat_map { |branch| leftmost_refs(branch) }.uniq
@@ -258,7 +256,7 @@ module Parsanol
         end
       end
 
-      def nullable(node)
+      def nullable?(node)
         first_set(node).include?(EPS)
       end
 

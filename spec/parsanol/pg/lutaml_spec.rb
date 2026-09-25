@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "parsanol"
+require "fileutils"
 require "json"
 require "tmpdir"
 
@@ -37,19 +38,22 @@ RSpec.describe Parsanol::PG::Lutaml do
     PG
   end
 
-  around do |example|
-    Dir.mktmpdir do |dir|
-      File.write(File.join(dir, "stages.yaml"), "CD: { abbr: CD, code: draft20 }\n")
-      document = Parsanol::PG::Parser.new(source).parse
-      env = Parsanol::PG::Compiler.compile(document, tables_dir: dir).envelope
-      @path = File.join(dir, "demo.json")
-      File.write(@path, JSON.generate(env))
-      @dir = dir
-      example.run
-    end
+  let(:tables_dir) do
+    dir = Dir.mktmpdir
+    File.write(File.join(dir, "stages.yaml"), "CD: { abbr: CD, code: draft20 }\n")
+    dir
+  end
+
+  let(:artifact_path) do
+    document = Parsanol::PG::Parser.new(source).parse
+    env = Parsanol::PG::Compiler.compile(document, tables_dir: tables_dir).envelope
+    file = File.join(tables_dir, "demo.json")
+    File.write(file, JSON.generate(env))
+    file
   end
 
   after do
+    FileUtils.rm_rf(tables_dir)
     if defined?(Lutaml::Model) && described_class.respond_to?(:register)
       Lutaml::Model::FormatRegistry.instance_variable_get(:@registered_formats)&.delete(:pg_demo)
     end
@@ -59,9 +63,9 @@ RSpec.describe Parsanol::PG::Lutaml do
     described_class.register(
       PgLutamlDemoIdentifier,
       format_name: :pg_demo,
-      artifact: @path,
+      artifact: artifact_path,
       entry: "identifier",
-      tables_dir: @dir
+      tables_dir: tables_dir,
     )
 
     model = PgLutamlDemoIdentifier.from_pg_demo("ISO CD 12345")
@@ -73,7 +77,7 @@ RSpec.describe Parsanol::PG::Lutaml do
   it "raises loudly without lutaml-model" do
     unless defined?(Lutaml::Model)
       expect do
-        described_class.register(Object, format_name: :pg_demo, artifact: @path, entry: "identifier")
+        described_class.register(Object, format_name: :pg_demo, artifact: artifact_path, entry: "identifier")
       end.to raise_error(Parsanol::PG::Error, /lutaml-model/)
     end
   end
