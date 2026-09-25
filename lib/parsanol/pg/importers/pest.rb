@@ -42,6 +42,9 @@ module Parsanol
           "NEWLINE" => '"\n" / "\r\n"',
         }.freeze
 
+        SKIPPED_NAMES = %w[ws comment].freeze
+        MODIFIER_CHARS = %w[_ @ $].freeze
+
         REJECTED = %w[SOI EOI WHITESPACE COMMENT PUSH POP PEEK PEEK_ALL DROP
                       RESET].freeze
 
@@ -76,7 +79,7 @@ module Parsanol
             end
 
             name = TOKEN.names.find { |n| match[n] }
-            @tokens << [name.to_sym, match[0], pos] unless ["ws", "comment"].include?(name)
+            @tokens << [name.to_sym, match[0], pos] unless SKIPPED_NAMES.include?(name)
             pos = match.end(0)
           end
         end
@@ -111,7 +114,7 @@ module Parsanol
             end
 
             nil
-            if peek&.[](0) == :punct && %w[_ @ $].include?(peek[1])
+            if peek&.[](0) == :punct && MODIFIER_CHARS.include?(peek[1])
               modifier = advance[1]
               @notes << "rule #{name.inspect}: modifier #{modifier.inspect} " \
                         "accepted; PG captures stay enabled inside it"

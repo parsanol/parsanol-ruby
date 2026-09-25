@@ -13,6 +13,9 @@ module Parsanol
     # Keywords: grammar version as alt from_table column bindings
     #           preprocess entry table_lookup
     class Parser
+      PATH_CONTINUATION = [".", "["].freeze
+      CARD_CONTINUATION = [".", "*"].freeze
+
       KEYWORDS = %w[grammar version as alt from_table column bindings
                     preprocess entry table_lookup].freeze
 
@@ -263,7 +266,7 @@ module Parsanol
         parts = [ident.value]
         loop do
           token = peek
-          break unless token&.type == :punct && %w[. \[].include?(token.value)
+          break unless token&.type == :punct && PATH_CONTINUATION.include?(token.value)
 
           advance
           if token.value == "."
@@ -281,7 +284,7 @@ module Parsanol
         loop do
           token = peek
           break unless token&.type == :num ||
-            (token&.type == :punct && %w[. *].include?(token.value))
+            (token&.type == :punct && CARD_CONTINUATION.include?(token.value))
 
           pieces << advance.value
         end
