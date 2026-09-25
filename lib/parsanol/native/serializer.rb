@@ -95,9 +95,12 @@ module Parsanol
 
     def serialize_re(atom)
       # Ruby's Regexp#to_s produces "(?-mix:pattern)" format
-      # We need to extract just the pattern for the Rust parser
+      # The pattern must reach the Rust regex engine verbatim, including
+      # inline flag groups: stripping (?i:...) silently turned every
+      # case-insensitive regex into a case-sensitive one on the native
+      # path (the Ruby atom still compiled it with the flag, so the two
+      # engines disagreed). Rust regex understands the same inline groups.
       pattern = atom.match
-      pattern = ::Regexp.last_match(1) if pattern =~ /^\(\?[-mix]*:(.+)\)$/
       {
         "Re" => {
           "pattern" => pattern,
