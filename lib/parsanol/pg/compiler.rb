@@ -52,9 +52,10 @@ module Parsanol
 
       def compile
         @document.rules.each_key { |name| atom_for(name) }
-        errors = lint
+        errors = Lints.errors(@document, self)
         raise CompileError, errors.join("\n") unless errors.empty?
 
+        @warnings = Lints.warnings(@document, self)
         failures = run_tests
         raise CompileError, failures.join("\n") unless failures.empty?
 
@@ -64,6 +65,22 @@ module Parsanol
 
       def atom_for(name)
         @atom_cache[name] ||= build_atom(fetch_rule(name))
+      end
+
+      def record_warning(message)
+        @warnings << message
+      end
+
+      def nullable?(node)
+        first_set(node).include?(EPS)
+      end
+
+      def first_set(node)
+        @first_cache[node] ||= compute_first(node)
+      end
+
+      def find_left_cycle(name)
+        find_left_cycle_from(name, [], {})
       end
 
       private
@@ -256,48 +273,6 @@ module Parsanol
         errors
       end
 
-      def compare_branches(name, earlier, earlier_n, later, later_n, errors)
-        earlier_lit = literal_string(earlier)
-        later_lit = literal_string(later)
-        shadowed = false
-        if earlier_lit && later_lit
-          if earlier_lit == later_lit
-            errors << "rule #{name}: branches #{earlier_n} and #{later_n} are identical"
-            return
-          elsif later_lit.start_with?(earlier_lit)
-            errors << "rule #{name}: branch #{earlier_n} (#{earlier_lit.inspect}) " \
-                      "shadows branch #{later_n} (#{later_lit.inspect}) — " \
-                      "reorder longest-first or the shorter always wins"
-            shadowed = true
-          end
-        end
-        first_earlier = first_set(earlier) - [EPS]
-        first_later = first_set(later) - [EPS]
-        return if shadowed
-
-        if first_earlier.include?(ANY) || first_later.include?(ANY)
-          @warnings << "rule #{name}: branches #{earlier_n} and #{later_n} are " \
-                       "order-dependent (first set not statically known)"
-          return
-        end
-        return if !first_earlier.intersect?(first_later)
-
-        @warnings << "rule #{name}: branches #{earlier_n} and #{later_n} are " \
-                     "order-dependent (shared first bytes); ordered choice is decisive"
-      end
-
-      def literal_string(node)
-        case node.kind
-        when :lit then node.a
-        when :seq
-          node.a.map { |child| literal_string(child) }.join if node.a.all? { |child| child.kind == :lit }
-        end
-      end
-
-      def find_left_cycle(name)
-        find_left_cycle_from(name, [], {})
-      end
-
       def find_left_cycle_from(name, path, visiting)
         return path[(path.index(name))..] if path.include?(name)
         return nil if visiting[name] == :done
@@ -326,14 +301,6 @@ module Parsanol
         when :pred, :cap then leftmost_refs(node.b)
         else []
         end
-      end
-
-      def nullable?(node)
-        first_set(node).include?(EPS)
-      end
-
-      def first_set(node)
-        @first_cache[node] ||= compute_first(node)
       end
 
       def compute_first(node)

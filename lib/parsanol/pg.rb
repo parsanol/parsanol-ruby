@@ -23,6 +23,8 @@ module Parsanol
     autoload :Lutaml, "parsanol/pg/lutaml"
     autoload :Import, "parsanol/pg/import"
     autoload :CLI, "parsanol/pg/cli"
+    autoload :Lints, "parsanol/pg/lints"
+    autoload :Preprocess, "parsanol/pg/preprocess"
     autoload :Suite, "parsanol/pg/authoring"
     autoload :Schema, "parsanol/pg/authoring"
   end
