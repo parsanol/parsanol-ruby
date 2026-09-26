@@ -142,9 +142,14 @@ module Parsanol
         @table_cache ||= {}
         return @table_cache[name] if @table_cache.key?(name)
 
-        file = envelope["tables"].fetch(name) do
+        declared = envelope["tables"].fetch(name) do
           raise ArtifactError, "artifact does not declare table #{name.inspect}"
         end
+        if declared.is_a?(Hash) && declared.key?("rows")
+          return @table_cache[name] = declared["rows"]
+        end
+
+        file = declared
         path = File.join(@tables_dir.to_s, file)
         raw = path.end_with?(".json") ? JSON.parse(File.read(path)) : YAML.safe_load_file(path, aliases: true)
         rows = case raw

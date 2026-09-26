@@ -130,11 +130,13 @@ module Parsanol
       # Bindings.apply needs the envelope-shaped preprocess/tables surface;
       # at compile time the document and loaded tables play that role.
       def test_view
+        document = @document
+        rows = ->(name) { table_rows(name) }
         @test_view ||= Object.new.tap do |view|
           view.define_singleton_method(:envelope) do
-            { "preprocess" => @document.preprocess }
+            { "preprocess" => document.preprocess }
           end
-          view.define_singleton_method(:table_rows) { |name| table_rows(name) }
+          view.define_singleton_method(:table_rows) { |name| rows.call(name) }
         end
       end
 
@@ -157,6 +159,10 @@ module Parsanol
       def build_atom(node)
         case node.kind
         when :lit
+          if node.a.empty?
+            raise CompileError,
+                  "empty string literal: zero-width matches are not expressible"                   " — use [ … ] for optional content instead"
+          end
           if node.b
             Atoms::Re.new("(?i:#{Regexp.escape(node.a)})")
           else
@@ -405,9 +411,15 @@ module Parsanol
         Parsanol::Native::Parser.serialize_grammar(atom_for(rule))
       end
 
+      # Tables embed their resolved rows in the envelope (self-contained
+      # artifacts): every engine - Ruby, Rust, wasm, TS - reads rows from
+      # the artifact; no engine touches the filesystem, and the rows are
+      # covered by the checksum.
       def table_manifest
         @document.rules.each_value { |node| collect_tables(node) }
-        @tables.keys.to_h { |name| [name, "#{name}.yaml"] }
+        @tables.keys.to_h do |name|
+          [name, { "file" => "#{name}.yaml", "rows" => table_rows(name) }]
+        end
       end
 
       def collect_tables(node)
