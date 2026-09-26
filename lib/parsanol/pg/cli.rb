@@ -45,6 +45,7 @@ module Parsanol
           @tables_dir = @argv.delete_at(index + 1)
           @argv.delete_at(index)
         end
+        @json = !!@argv.delete("--json")
         command = @argv.shift
         case command
         when "compile" then compile
@@ -63,6 +64,18 @@ module Parsanol
       end
 
       private
+
+      # parsanol-tree/v2 JSON: leaves become {value, line, column, offset,
+      # length}; Ruby atom-runtime leaves are Parsanol::Slice (to_s is the
+      # captured text, positions unknown at this layer).
+      def json_shape(node)
+        case node
+        when Hash then node.to_h { |k, v| [k.to_s, json_shape(v)] }
+        when Array then node.map { |item| json_shape(item) }
+        when Parsanol::Slice then { "value" => node.to_s }
+        else node
+        end
+      end
 
       def compile
         source = @argv.shift
@@ -87,10 +100,18 @@ module Parsanol
           failures.concat(artifact.run_test_list(tests))
         end
         if failures.empty?
-          puts suites.empty? ? "all tests pass" : "all tests pass (#{suites.keys.join(', ')})"
+          if @json
+            puts JSON.generate({ "ok" => true, "failures" => [] })
+          else
+            puts suites.empty? ? "all tests pass" : "all tests pass (#{suites.keys.join(', ')})"
+          end
           0
         else
-          failures.each { |failure| warn failure }
+          if @json
+            puts JSON.generate({ "ok" => false, "failures" => failures })
+          else
+            failures.each { |failure| warn failure }
+          end
           1
         end
       end
@@ -118,8 +139,16 @@ module Parsanol
         artifact = artifact_for(file)
         entry_name = entry || artifact.entries.first
         shape = artifact.parse(entry_name, input)
-        puts "tree: #{shape.inspect}"
-        puts "captures: #{artifact.apply_bindings(entry_name, shape).inspect}"
+        if @json
+          puts JSON.generate({
+            "entry" => entry_name,
+            "shape" => json_shape(shape),
+            "bound" => artifact.apply_bindings(entry_name, shape),
+          })
+        else
+          puts "tree: #{shape.inspect}"
+          puts "captures: #{artifact.apply_bindings(entry_name, shape).inspect}"
+        end
         0
       end
 
