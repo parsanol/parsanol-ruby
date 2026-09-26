@@ -37,6 +37,7 @@ module Parsanol
 
           section = expect(:ident)
           case section.value
+          when "use" then document.uses << ident.value
           when "grammar" then parse_grammar(document)
           when "entry" then parse_entry(document)
           when "bindings" then parse_bindings(document)

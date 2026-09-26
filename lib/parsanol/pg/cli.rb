@@ -74,7 +74,11 @@ module Parsanol
       end
 
       def test
-        artifact = artifact_for(@argv.shift)
+        target = @argv.shift
+        if File.directory?(target)
+          return batch(target) { |file| artifact_for(file).run_tests }
+        end
+        artifact = artifact_for(target)
         failures = artifact.run_tests
         suite_dir = flag_value("--suite")
         suites = suite_dir ? Parsanol::PG::Suite.load(suite_dir) : {}
@@ -91,7 +95,14 @@ module Parsanol
       end
 
       def schema
-        puts JSON.pretty_generate(Parsanol::PG::Schema.from_artifact(artifact_for(@argv.shift)))
+        ts = @argv.delete("--ts")
+        artifact = artifact_for(@argv.shift)
+        schema = Parsanol::PG::Schema.from_artifact(artifact)
+        if ts
+          puts Parsanol::PG::Schema.to_typescript(schema)
+        else
+          puts JSON.pretty_generate(schema)
+        end
         0
       end
 
@@ -168,11 +179,28 @@ module Parsanol
       def compile_source(file)
         tables = @tables_dir || default_tables_dir(file)
         document = Parsanol::PG::Parser.new(File.read(file)).parse
+        Parsanol::PG::Imports.merge!(document, [File.dirname(file)])
         Parsanol::PG::Compiler.compile(document, tables_dir: tables)
       end
 
       def default_artifact_name(source)
         "#{File.basename(source, '.pg')}.artifact.json"
+      end
+
+      # Batch mode: run a command over every *.pg in a directory.
+      def batch(target)
+        failures = {}
+        Dir.glob(File.join(target, "*.pg")).sort.each do |file|
+          result = yield artifact_for(file)
+          failures[file] = result unless result.empty?
+        end
+        if failures.empty?
+          puts "all flavors pass"
+          0
+        else
+          failures.each { |file, list| list.each { |f| warn "#{file}: #{f}" } }
+          1
+        end
       end
 
       # Tables conventionally live in a "tables" directory beside the

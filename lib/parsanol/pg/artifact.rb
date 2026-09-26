@@ -22,7 +22,14 @@ module Parsanol
         new(JSON.parse(text), nil, tables_dir)
       end
 
+      SUPPORTED_SHAPE = "parsanol-tree/v2"
+
       def initialize(envelope, path, tables_dir)
+        unless envelope["shape"] == SUPPORTED_SHAPE
+          raise ArtifactError,
+                "unsupported artifact shape #{envelope["shape"].inspect} " \
+                "(this runtime implements #{SUPPORTED_SHAPE.inspect})"
+        end
         @envelope = envelope
         @path = path
         @tables_dir = tables_dir
@@ -111,6 +118,25 @@ module Parsanol
 
       # Rule documentation embedded from ## doc comments.
       def rule_docs = envelope.fetch("docs", {})
+
+      # Structured parse diagnostics (PN 2): {offset, message} for the
+      # deepest failure of the most recent parse attempt on this entry.
+      def parse_with_diagnostics(entry_name, input, mode: :native)
+        shape = parse(entry_name, input, mode: mode)
+        { "ok" => true, "offset" => nil, "message" => nil, "shape" => shape }
+      rescue Parsanol::ParseFailed => e
+        cause = deepest_cause(e.parse_failure_cause)
+        { "ok" => false, "offset" => cause&.position,
+          "message" => cause&.message || e.message, "shape" => nil }
+      end
+
+      def deepest_cause(cause)
+        return cause if cause.nil? || cause.children.empty?
+
+        deepest = cause.children.map { |child| deepest_cause(child) }
+                         .compact.max_by { |node| node.position.to_i }
+        (deepest&.position.to_i >= cause.position.to_i ? deepest : cause)
+      end
 
       def table_rows(name)
         @table_cache ||= {}

@@ -9,7 +9,7 @@ module Parsanol
 
       Test = Struct.new(:entry, :kind, :input, :expect)
 
-      attr_accessor :grammar_name, :version, :source
+      attr_accessor :grammar_name, :version, :source, :uses
       attr_reader :rules, :bindings, :preprocess, :entries, :docs, :tests
 
       def initialize
@@ -22,6 +22,7 @@ module Parsanol
         @entries = {}
         @docs = {}
         @tests = []
+        @uses = []
       end
 
       def validate!
