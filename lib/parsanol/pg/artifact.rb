@@ -71,6 +71,15 @@ module Parsanol
         Bindings.apply(self, entry(entry_name), shape)
       end
 
+      # Render the identifier string from a bound attribute map (F6).
+      def render(entry_name, bound, variant: "default")
+        Render.apply(envelope["render"] || {}, variant, bound)
+      end
+
+      def render_string(entry_name, input, variant: "default")
+        render(entry_name, parse_and_bind(entry_name, input), variant: variant)
+      end
+
       def parse_and_bind(entry_name, input, mode: :native)
         apply_bindings(entry_name, parse(entry_name, input, mode: mode))
       end

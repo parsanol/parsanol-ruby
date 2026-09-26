@@ -18,7 +18,7 @@ module Parsanol
 
       IN_BLOCK_SECTIONS = %w[entry bindings preprocess test].freeze
 
-      KEYWORDS = %w[grammar as alt from_table column bindings
+      KEYWORDS = %w[grammar as alt from_table column bindings render
                     preprocess entry table_lookup].freeze
 
       def initialize(text)
@@ -42,6 +42,7 @@ module Parsanol
           when "entry" then parse_entry(document)
           when "bindings" then parse_bindings(document)
           when "preprocess" then parse_preprocess(document)
+          when "render" then parse_render(document)
           when "test" then parse_test(document)
           else
             raise ParseError,
@@ -372,6 +373,45 @@ module Parsanol
           pieces << advance.value
         end
         pieces.join
+      end
+
+      # F6 v1: render specs as data - named variants of ordered segments.
+      # Segments: field <path>, literal "<text>", cond <path> { segs }.
+      # Conditions are field-presence only; expressions disallowed, so the
+      # graduation to an output grammar stays mechanical.
+      def parse_render(document)
+        variant = ident.value
+        punct("{")
+        segments = document.render[variant] ||= []
+        skip_newlines
+        until peek&.type == :punct && peek.value == "}"
+          segments << parse_render_segment(document)
+          skip_newlines
+        end
+        punct("}")
+      end
+
+      def parse_render_segment(document)
+        case (word = ident.value)
+        when "field"
+          { "type" => "field", "field" => ident.value }
+        when "literal"
+          { "type" => "literal", "text" => unquote(expect(:str).value) }
+        when "cond"
+          field = ident.value
+          punct("{")
+          then_segments = []
+          skip_newlines
+          until peek&.type == :punct && peek.value == "}"
+            then_segments << parse_render_segment(document)
+            skip_newlines
+          end
+          punct("}")
+          { "type" => "cond", "field" => field, "then" => then_segments }
+        else
+          raise ParseError,
+                "expected a render segment (field/literal/cond), got #{word.inspect}"
+        end
       end
 
       def parse_preprocess(document)

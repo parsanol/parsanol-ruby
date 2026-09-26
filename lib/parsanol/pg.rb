@@ -20,6 +20,7 @@ module Parsanol
     autoload :Compiler, "parsanol/pg/compiler"
     autoload :Artifact, "parsanol/pg/artifact"
     autoload :Bindings, "parsanol/pg/bindings"
+    autoload :Render, "parsanol/pg/render"
     autoload :Lutaml, "parsanol/pg/lutaml"
     autoload :Import, "parsanol/pg/import"
     autoload :CLI, "parsanol/pg/cli"
