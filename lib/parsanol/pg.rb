@@ -23,6 +23,7 @@ module Parsanol
     autoload :Render, "parsanol/pg/render"
     autoload :Derive, "parsanol/pg/derive"
     autoload :SelfHost, "parsanol/pg/selfhost"
+    autoload :Frontend, "parsanol/pg/frontend"
     autoload :Lutaml, "parsanol/pg/lutaml"
     autoload :Import, "parsanol/pg/import"
     autoload :CLI, "parsanol/pg/cli"
