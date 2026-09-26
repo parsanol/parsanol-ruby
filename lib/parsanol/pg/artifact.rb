@@ -71,27 +71,42 @@ module Parsanol
       # Re-run the grammar's in-file tests against this artifact. Returns
       # the failure descriptions; empty means every test passes.
       def run_tests(mode: :native)
-        envelope.fetch("tests", []).filter_map do |test|
-          entry_name = test["entry"] || entries.first
+        run_test_list(envelope.fetch("tests", []), mode: mode)
+      end
+
+      # Run an external test list (suite files yield Document::Test
+      # structs; embedded tests are artifact-shaped hashes).
+      def run_test_list(tests, mode: :native)
+        tests.filter_map do |test|
+          hash = test.is_a?(Document::Test) ? test_to_hash(test) : test
+          entry_name = hash["entry"] || entries.first
           begin
-            bound = parse_and_bind(entry_name, test["input"], mode: mode)
-            if test["kind"] == "reject"
-              "test #{test['input'].inspect}: expected the input to be rejected"
-            elsif test["kind"] == "example"
-              mismatched = test["expect"].reject do |key, value|
-                bound.key?(key.to_sym) && bound[key.to_sym] == value
-              end
+            bound = parse_and_bind(entry_name, hash["input"], mode: mode)
+            if hash["kind"] == "reject"
+              "test #{hash['input'].inspect}: expected the input to be rejected"
+            elsif hash["kind"] == "example"
+              expect = hash["expect"].to_h { |key, value| [key.to_sym, value] }
+              mismatched = expect.reject { |key, value| bound.key?(key) && bound[key] == value }
               next if mismatched.empty?
 
-              "test #{test['input'].inspect}: expected captures " \
+              "test #{hash['input'].inspect}: expected captures " \
                 "#{mismatched.transform_values(&:inspect).inspect}, got #{bound.inspect}"
             end
           rescue Parsanol::ParseFailed
-            unless test["kind"] == "reject"
-              "test #{test['input'].inspect}: expected the input to parse"
+            unless hash["kind"] == "reject"
+              "test #{hash['input'].inspect}: expected the input to parse"
             end
           end
         end
+      end
+
+      def test_to_hash(test)
+        {
+          "entry" => test.entry,
+          "kind" => test.kind.to_s,
+          "input" => test.input,
+          "expect" => test.expect,
+        }
       end
 
       # Rule documentation embedded from ## doc comments.
@@ -121,8 +136,6 @@ module Parsanol
           Compiler.new(document, @tables_dir)
         end
       end
-
-      private
 
       def root_atom(entry_name)
         rule = entry(entry_name).fetch("root")

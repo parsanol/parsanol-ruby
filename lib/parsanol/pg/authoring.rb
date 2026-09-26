@@ -1,0 +1,68 @@
+# frozen_string_literal: true
+
+require "json"
+
+module Parsanol
+  module PG
+    # External test suites: *.pgtest files carrying the same test syntax
+    # as the inline test section (accept / reject / example). Suites are
+    # development-time corpora — they iterate a grammar against its
+    # binding requirements without being embedded in the artifact.
+    #
+    #   suite smoke for entry identifier {
+    #     accept "ISO 8601-1:2019"
+    #     example "ISO/CD 12345" { stage: "draft20" }
+    #   }
+    module Suite
+      module_function
+
+      # Load every *.pgtest file in a directory.
+      # Returns { suite_name => [Document::Test, ...] }.
+      def load(dir)
+        Dir.glob(File.join(dir, "*.pgtest")).to_h do |file|
+          [File.basename(file, ".pgtest"), read_file(file)]
+        end
+      end
+
+      def read_file(file)
+        content = File.read(file).gsub(/^#[^\n]*\n/, "")
+        header = content.match(/suite\s+\w+(?:\s+for\s+entry\s+(?<entry>\w+))?\s*\{/)
+        unless header
+          raise ParseError,
+                "#{file}: expected 'suite <name> [for <entry>] { ... }'"
+        end
+
+        body = content[header.end(0)..].sub(/\}\s*\z/, "")
+        document = Parser.new("grammar Suite version \"0.0.0\" {\n}\ntest {\n#{body}\n}\n").parse
+        document.tests.map do |test|
+          Document::Test.new(header[:entry] || test.entry, test.kind, test.input, test.expect)
+        end
+      end
+    end
+
+    # The binding-requirements schema: what a language-specific data model
+    # must implement for an entry. Derived from the declared bindings plus
+    # the observed example values.
+    module Schema
+      module_function
+
+      def from_artifact(artifact)
+        artifact.entries.to_h do |entry|
+          entry_data = artifact.entry(entry)
+          fields = entry_data["bindings"].to_h do |binding|
+            requirements = {
+              "type" => binding["type"],
+              "card" => binding["card"] || "1",
+            }
+            requirements["preprocess"] = binding["preprocess"] if binding["preprocess"]
+            [binding["path"], requirements]
+          end
+          examples = artifact.envelope.fetch("tests", [])
+            .select { |test| (test["kind"] == "example" && test["entry"].nil?) || test["entry"] == entry }
+            .map { |test| { "input" => test["input"], "captures" => test["expect"] } }
+          [entry, { "root" => entry_data["root"], "fields" => fields, "examples" => examples }]
+        end
+      end
+    end
+  end
+end
