@@ -204,11 +204,16 @@ module Parsanol
       # Range endpoints always use explicit escapes so the range operator
       # can never be ambiguous with an escaped literal.
       def endpoint(code)
+        # Above the BMP the four-hex \uXXXX form cannot express the
+        # codepoint; both engines accept the braced \u{...} form.
+        return format("\\u{%x}", code) if code > 0xFFFF
+
         code < 0x7F ? format("\\x%02x", code) : format("\\u%04x", code)
       end
 
       def escape_codepoint(code)
         return format("\\x%02x", code) if code < 0x20 || code == 0x7F
+        return format("\\u{%x}", code) if code > 0xFFFF
         return format("\\u%04x", code) if code > 0x7E
         return "\\#{code.chr}" if ["\\", "]", "[", "^", "-"].include?(code.chr)
 
