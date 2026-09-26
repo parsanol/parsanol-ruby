@@ -127,6 +127,45 @@ module Parsanol
 
       register :left_recursion, LeftRecursion.new
       register :alternatives, Alternatives.new
+
+      # An unbounded repetition whose body can match empty input is an
+      # INVALID GRAMMAR: the parse can never terminate, and any VM that
+      # tolerates it allocates without bound. Rejected at compile time —
+      # unboundedness is a grammar-validity property, not a runtime
+      # hazard to be hardened against.
+      class Repetitions
+        def errors(document, compiler)
+          document.rules.flat_map do |name, node|
+            walk(name, node, compiler)
+          end
+        end
+
+        def warnings(_document, _compiler) = []
+
+        private
+
+        def walk(name, node, compiler)
+          return [] if node.nil?
+
+          kind = node.kind
+          errors =
+            if kind == :rep && node.c.nil? && compiler.nullable?(node.a)
+              ["rule #{name}: repetition body can match empty input — " \
+               "unbounded repetition is an invalid grammar"]
+            else
+              []
+            end
+          children =
+            case kind
+            when :rep, :opt then [node.a]
+            when :pred, :cap then [node.b]
+            when :seq, :alt then node.a
+            else []
+            end
+          errors + children.flat_map { |child| walk(name, child, compiler) }
+        end
+      end
+      register :repetitions, Repetitions.new
     end
   end
 end

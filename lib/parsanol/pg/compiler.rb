@@ -389,9 +389,13 @@ module Parsanol
           "preprocess" => @document.preprocess,
           "tables" => table_manifest,
           "lint" => { "order_warnings" => @warnings.uniq },
+          "default_entry" => (resolve_default_entry rescue nil),
           "tests" => @document.tests.map do |test|
             {
-              "entry" => test.entry,
+              # Baked explicitly: JSON object key order is not preserved by
+              # every engine, so consumers cannot rederive the author's
+              # default entry from the entries map.
+              "entry" => test.entry || (@document.own_entries.first if @document.own_entries.size == 1),
               "kind" => test.kind.to_s,
               "input" => test.input,
               "expect" => test.expect.transform_keys(&:to_s),
