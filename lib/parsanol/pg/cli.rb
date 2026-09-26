@@ -54,6 +54,7 @@ module Parsanol
         when "parse" then parse
         when "repl" then repl
         when "doc" then doc
+        when "lsp" then Lsp.new.run && 0
         else
           warn USAGE
           1
