@@ -92,7 +92,7 @@ module Parsanol
             compiler = Compiler.new(document, tables_dir)
             document.rules.each_key { |rule| compiler.atom_for(rule) }
             Lints.errors(document, compiler).each do |error|
-              diagnostics << diagnostic(0, error)
+              diagnostics << diagnostic(rule_line(source, error[/\Arule (\w+):/, 1]), error)
             end
             compiler.run_tests.each do |failure|
               diagnostics << diagnostic(0, failure)
@@ -103,6 +103,13 @@ module Parsanol
         end
         notify("textDocument/publishDiagnostics",
                "uri" => uri, "diagnostics" => diagnostics)
+      end
+
+      # Rule-granular position: the line the named rule is defined on.
+      def rule_line(source, rule_name)
+        return 0 unless rule_name
+
+        source.lines.index { |l| l.match?(/^\s*#{rule_name}\s*=/) } || 0
       end
 
       def diagnostic(line, message)
