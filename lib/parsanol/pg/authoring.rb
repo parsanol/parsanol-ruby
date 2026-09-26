@@ -81,7 +81,7 @@ module Parsanol
       end
 
       def ts_name(entry)
-        entry.split("_").map(&:capitalize).join
+        entry.split(/[_.]/).map(&:capitalize).join
       end
 
       def ts_prop(path)
