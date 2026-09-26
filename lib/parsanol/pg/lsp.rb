@@ -86,7 +86,17 @@ module Parsanol
         begin
           document = Parser.new(source).parse
         rescue ParseError => e
-          diagnostics << diagnostic(0, e.message)
+          line = 0
+          # The self-hosting artifact yields a precise offset (F7 wire);
+          # prefer it when the artifact is available.
+          if SelfHost.available?
+            begin
+              SelfHost.validate(source)
+            rescue Parsanol::ParseFailed
+              # fall through to line 0
+            end
+          end
+          diagnostics << diagnostic(line, e.message)
         end
         if document
           begin
