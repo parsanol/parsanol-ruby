@@ -57,6 +57,8 @@ module Parsanol
           @documents[doc["uri"]] =
             doc["text"] || message.dig("params", "contentChanges", -1, "text")
           publish_diagnostics(doc["uri"])
+        when "textDocument/codeAction"
+          respond(message, code_action(message["params"]))
         when "textDocument/hover"
           respond(message, hover(message.dig("params", "textDocument", "uri"),
                                  message.dig("params", "position")))
@@ -120,6 +122,49 @@ module Parsanol
           "source" => "parsanol-pg",
           "message" => message,
         }
+      end
+
+      # Reorder code action: only when EVERY top-level alternative of the
+      # rule is a quoted literal is the reorder mechanically safe.
+      def code_action(params)
+        uri = params.dig("textDocument", "uri")
+        source = @documents[uri]
+        return [] unless source
+
+        line_no = params.dig("range", "start", "line").to_i
+        text = source.lines[line_no].to_s
+        return [] unless text.match?(/^\s*[a-z_]+\s*=\s*"/)
+
+        alternatives = top_level_literals(text)
+        return [] if alternatives.nil? || alternatives.size < 2
+
+        sorted = alternatives.sort_by { |a| -a.length }
+        return [] if sorted == alternatives
+
+        [{
+          "title" => "Reorder alternatives longest-first",
+          "kind" => "refactor",
+          "edit" => {
+            "changes" => {
+              uri => [{ "range" => whole_line_range(line_no),
+                        "newText" => "#{text[/^\s*[a-z_]+\s*=\s*/]}#{sorted.join(' / ').inspect}" }],
+            },
+          },
+        }]
+      end
+
+      def top_level_literals(line)
+        rhs = line.sub(/^\s*[a-z_]+\s*=\s*/, "")
+        parts = rhs.split(/ (?=")/).flat_map { |p| p.split(%r{ / (?=")} ) }
+        literals = parts.map { |p| p.match(/^"((?:[^"\\]|\\.)*)"$/) }
+        return nil if literals.any?(&:nil?)
+
+        literals.map { |m| m[1] }
+      end
+
+      def whole_line_range(line_no)
+        { "start" => { "line" => line_no, "character" => 0 },
+          "end" => { "line" => line_no, "character" => 1000 } }
       end
 
       def hover(uri, position)
