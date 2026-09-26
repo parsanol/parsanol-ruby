@@ -78,6 +78,7 @@ module Parsanol
         if File.directory?(target)
           return batch(target) { |file| artifact_for(file).run_tests }
         end
+
         artifact = artifact_for(target)
         failures = artifact.run_tests
         suite_dir = flag_value("--suite")
@@ -190,7 +191,7 @@ module Parsanol
       # Batch mode: run a command over every *.pg in a directory.
       def batch(target)
         failures = {}
-        Dir.glob(File.join(target, "*.pg")).sort.each do |file|
+        Dir.glob(File.join(target, "*.pg")).each do |file|
           result = yield artifact_for(file)
           failures[file] = result unless result.empty?
         end

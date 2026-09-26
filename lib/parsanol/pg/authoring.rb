@@ -77,7 +77,7 @@ module Parsanol
           end
           lines << "}"
         end
-        lines.join("\n") + "\n"
+        "#{lines.join("\n")}\n"
       end
 
       def ts_name(entry)

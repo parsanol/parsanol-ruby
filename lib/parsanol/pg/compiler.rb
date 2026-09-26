@@ -117,6 +117,9 @@ module Parsanol
       end
 
       def resolve_default_entry
+        own = @document.own_entries
+        return own.first if own && own.size == 1
+
         entries = @document.entries.keys
         return entries.first if entries.size == 1
 

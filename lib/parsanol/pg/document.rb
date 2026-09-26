@@ -11,6 +11,9 @@ module Parsanol
 
       attr_accessor :grammar_name, :version, :source, :uses
       attr_reader :rules, :bindings, :preprocess, :entries, :docs, :tests
+      # Entries authored in this file (pre-import); nil-entry tests resolve
+      # against these first.
+      attr_accessor :own_entries
 
       def initialize
         @grammar_name = nil
@@ -23,6 +26,7 @@ module Parsanol
         @docs = {}
         @tests = []
         @uses = []
+        @own_entries = nil
       end
 
       def validate!

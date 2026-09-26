@@ -51,6 +51,7 @@ module Parsanol
           skip_newlines
         end
         document.validate!
+        document.own_entries = document.entries.keys
         document
       end
 
@@ -281,7 +282,15 @@ module Parsanol
           raise ParseError,
                 "#{token.value.inspect} is a keyword and cannot be referenced"
         else
-          Node.new(:ref, token.value)
+          name = token.value
+          # Dotted cross-grammar references: `use cen_cenelec` makes
+          # cen_cenelec.identifier addressable.
+          while peek&.type == :punct && peek.value == "." &&
+              @tokens[@pos + 1]&.type == :ident
+            advance
+            name = "#{name}.#{advance.value}"
+          end
+          Node.new(:ref, name)
         end
       end
 

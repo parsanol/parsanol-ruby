@@ -27,7 +27,7 @@ module Parsanol
       def initialize(envelope, path, tables_dir)
         unless envelope["shape"] == SUPPORTED_SHAPE
           raise ArtifactError,
-                "unsupported artifact shape #{envelope["shape"].inspect} " \
+                "unsupported artifact shape #{envelope['shape'].inspect} " \
                 "(this runtime implements #{SUPPORTED_SHAPE.inspect})"
         end
         @envelope = envelope
@@ -133,8 +133,8 @@ module Parsanol
       def deepest_cause(cause)
         return cause if cause.nil? || cause.children.empty?
 
-        deepest = cause.children.map { |child| deepest_cause(child) }
-                         .compact.max_by { |node| node.position.to_i }
+        deepest = cause.children.filter_map { |child| deepest_cause(child) }
+          .max_by { |node| node.position.to_i }
         (deepest&.position.to_i >= cause.position.to_i ? deepest : cause)
       end
 
