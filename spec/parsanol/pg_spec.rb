@@ -79,7 +79,7 @@ RSpec.describe Parsanol::PG do
       expect { Parsanol::PG::Parser.new("nonsense").parse }
         .to raise_error(Parsanol::PG::ParseError)
       expect { Parsanol::PG::Parser.new('grammar X version "1" { entry = "a" }').parse }
-        .to raise_error(Parsanol::PG::ParseError, /keyword/)
+        .to raise_error(Parsanol::PG::ParseError, /expected ident/)
     end
 
     it "rejects duplicate rules and dangling references" do
@@ -154,6 +154,65 @@ RSpec.describe Parsanol::PG do
         grammar = result.envelope["entries"]["identifier"]["grammar"]
         expect(grammar).to include("atoms", "root")
         expect(grammar["atoms"]).not_to be_empty
+      end
+    end
+  end
+
+  describe "tests and doc comments" do
+    let(:authored) do
+      <<~PG
+        grammar T version "1.0.0" {
+          digit = %x30-39
+          ## The two-letter publisher code.
+          pub = %x41-5A %x41-5A
+          identifier = pub as pub 4digit
+        }
+
+        bindings identifier {
+          pub -> pub (string)
+        }
+
+        entry identifier: identifier
+
+        test {
+          accept "AB2020"
+          reject "AB20"
+          example "AB2020" { pub: "AB" }
+        }
+      PG
+    end
+
+    it "runs accept/reject/example tests at compile time" do
+      expect { compile_source(authored, tables_dir: nil) }.not_to raise_error
+    end
+
+    it "fails the build when an accept test does not parse" do
+      broken = authored.sub('accept "AB2020"', 'accept "AB-2020"')
+      expect { compile_source(broken, tables_dir: nil) }
+        .to raise_error(Parsanol::PG::CompileError, /expected the input to parse/)
+    end
+
+    it "fails the build when a reject test parses" do
+      broken = authored.sub('reject "AB20"', 'reject "AB2020"')
+      expect { compile_source(broken, tables_dir: nil) }
+        .to raise_error(Parsanol::PG::CompileError, /expected the input to be rejected/)
+    end
+
+    it "fails the build when an example capture mismatches" do
+      broken = authored.sub('{ pub: "AB" }', '{ pub: "XY" }')
+      expect { compile_source(broken, tables_dir: nil) }
+        .to raise_error(Parsanol::PG::CompileError, /expected captures/)
+    end
+
+    it "embeds tests and docs in the artifact and re-runs them" do
+      Dir.mktmpdir do |dir|
+        env = compile_source(authored, tables_dir: dir).envelope
+        expect(env["docs"]["pub"]).to eq("The two-letter publisher code.")
+        expect(env["tests"].size).to eq(3)
+        path = write_artifact(env, dir)
+        artifact = Parsanol::PG::Artifact.load(path, tables_dir: dir)
+        expect(artifact.run_tests).to be_empty
+        expect(artifact.rule_docs["pub"]).to eq("The two-letter publisher code.")
       end
     end
   end

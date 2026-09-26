@@ -52,8 +52,12 @@ module Parsanol
 
       def compile
         @document.rules.each_key { |name| atom_for(name) }
-        errors = lint
+        errors = Lints.errors(@document, self)
         raise CompileError, errors.join("\n") unless errors.empty?
+
+        @warnings = Lints.warnings(@document, self)
+        failures = run_tests
+        raise CompileError, failures.join("\n") unless failures.empty?
 
         envelope = build_envelope
         Result.new(@atom_cache, @warnings, envelope)
@@ -63,7 +67,88 @@ module Parsanol
         @atom_cache[name] ||= build_atom(fetch_rule(name))
       end
 
+      def record_warning(message)
+        @warnings << message
+      end
+
+      def nullable?(node)
+        first_set(node).include?(EPS)
+      end
+
+      def first_set(node)
+        @first_cache[node] ||= compute_first(node)
+      end
+
+      def find_left_cycle(name)
+        find_left_cycle_from(name, [], {})
+      end
+
       private
+
+      # In-file grammar tests run at compile time: the build fails when an
+      # accept/example test does not parse or an example's expected capture
+      # pairs do not match the bound result.
+      def run_tests
+        return [] if @document.tests.empty?
+
+        default_entry = resolve_default_entry
+        view = test_view
+        @document.tests.filter_map do |test|
+          entry_name = test.entry || default_entry
+          rule = @document.entries.fetch(entry_name)
+          begin
+            shape = atom_for(rule).parse(test.input)
+            if test.kind == :reject
+              "test #{test.input.inspect}: expected the input to be rejected"
+            elsif test.kind == :example
+              bound = Bindings.apply(view, { "bindings" => binding_list(rule) }, shape)
+              mismatched = test.expect.reject { |key, value| bound.key?(key) && bound[key] == value }
+              next if mismatched.empty?
+
+              "test #{test.input.inspect}: expected captures " \
+                "#{mismatched.transform_values(&:inspect).inspect}, got #{bound.inspect}"
+            end
+          rescue Parsanol::ParseFailed
+            unless test.kind == :reject
+              "test #{test.input.inspect}: expected the input to parse"
+            end
+          end
+        end
+      end
+
+      def resolve_default_entry
+        own = @document.own_entries
+        return own.first if own && own.size == 1
+
+        entries = @document.entries.keys
+        return entries.first if entries.size == 1
+
+        raise CompileError,
+              "tests need an explicit entry (grammar has #{entries.size})"
+      end
+
+      # Bindings.apply needs the envelope-shaped preprocess/tables surface;
+      # at compile time the document and loaded tables play that role.
+      def test_view
+        @test_view ||= Object.new.tap do |view|
+          view.define_singleton_method(:envelope) do
+            { "preprocess" => @document.preprocess }
+          end
+          view.define_singleton_method(:table_rows) { |name| table_rows(name) }
+        end
+      end
+
+      def binding_list(rule)
+        @document.bindings[rule].to_a.map do |binding|
+          {
+            "capture" => binding.capture,
+            "path" => binding.path,
+            "type" => binding.type,
+            "card" => binding.card,
+            "preprocess" => binding.preprocess,
+          }
+        end
+      end
 
       def fetch_rule(name)
         @document.rules[name] || raise(CompileError, "unknown rule #{name.inspect}")
@@ -98,23 +183,30 @@ module Parsanol
       end
 
       def class_pattern(ranges)
-        body = ranges.flat_map do |lo, hi|
+        body = ranges.map do |lo, hi|
           if lo == hi
-            [escape_class_char(lo.chr)]
-          elsif (hi - lo + 1) > 256
-            [escape_class_char(lo.chr), "-", escape_class_char(hi.chr)]
+            escape_codepoint(lo)
+          elsif hi - lo + 1 > 2
+            "#{endpoint(lo)}-#{endpoint(hi)}"
           else
-            lo.upto(hi).map { |byte| escape_class_char(byte.chr) }
+            lo.upto(hi).map { |code| escape_codepoint(code) }.join
           end
         end
         "[#{body.join}]"
       end
 
-      def escape_class_char(char)
-        return format("\\x%02x", char.ord) if char.ord < 0x20 || char.ord == 0x7F
-        return "\\#{char}" if ["\\", "]", "[", "^", "-"].include?(char)
+      # Range endpoints always use explicit escapes so the range operator
+      # can never be ambiguous with an escaped literal.
+      def endpoint(code)
+        code < 0x7F ? format("\\x%02x", code) : format("\\u%04x", code)
+      end
 
-        char
+      def escape_codepoint(code)
+        return format("\\x%02x", code) if code < 0x20 || code == 0x7F
+        return format("\\u%04x", code) if code > 0x7E
+        return "\\#{code.chr}" if ["\\", "]", "[", "^", "-"].include?(code.chr)
+
+        code.chr
       end
 
       def table_column(table, column)
@@ -184,48 +276,6 @@ module Parsanol
         errors
       end
 
-      def compare_branches(name, earlier, earlier_n, later, later_n, errors)
-        earlier_lit = literal_string(earlier)
-        later_lit = literal_string(later)
-        shadowed = false
-        if earlier_lit && later_lit
-          if earlier_lit == later_lit
-            errors << "rule #{name}: branches #{earlier_n} and #{later_n} are identical"
-            return
-          elsif later_lit.start_with?(earlier_lit)
-            errors << "rule #{name}: branch #{earlier_n} (#{earlier_lit.inspect}) " \
-                      "shadows branch #{later_n} (#{later_lit.inspect}) — " \
-                      "reorder longest-first or the shorter always wins"
-            shadowed = true
-          end
-        end
-        first_earlier = first_set(earlier) - [EPS]
-        first_later = first_set(later) - [EPS]
-        return if shadowed
-
-        if first_earlier.include?(ANY) || first_later.include?(ANY)
-          @warnings << "rule #{name}: branches #{earlier_n} and #{later_n} are " \
-                       "order-dependent (first set not statically known)"
-          return
-        end
-        return if !first_earlier.intersect?(first_later)
-
-        @warnings << "rule #{name}: branches #{earlier_n} and #{later_n} are " \
-                     "order-dependent (shared first bytes); ordered choice is decisive"
-      end
-
-      def literal_string(node)
-        case node.kind
-        when :lit then node.a
-        when :seq
-          node.a.map { |child| literal_string(child) }.join if node.a.all? { |child| child.kind == :lit }
-        end
-      end
-
-      def find_left_cycle(name)
-        find_left_cycle_from(name, [], {})
-      end
-
       def find_left_cycle_from(name, path, visiting)
         return path[(path.index(name))..] if path.include?(name)
         return nil if visiting[name] == :done
@@ -254,14 +304,6 @@ module Parsanol
         when :pred, :cap then leftmost_refs(node.b)
         else []
         end
-      end
-
-      def nullable?(node)
-        first_set(node).include?(EPS)
-      end
-
-      def first_set(node)
-        @first_cache[node] ||= compute_first(node)
       end
 
       def compute_first(node)
@@ -336,6 +378,15 @@ module Parsanol
           "preprocess" => @document.preprocess,
           "tables" => table_manifest,
           "lint" => { "order_warnings" => @warnings.uniq },
+          "tests" => @document.tests.map do |test|
+            {
+              "entry" => test.entry,
+              "kind" => test.kind.to_s,
+              "input" => test.input,
+              "expect" => test.expect.transform_keys(&:to_s),
+            }
+          end,
+          "docs" => @document.docs,
           "source" => @document.source,
         }
         envelope["checksum"] = Compiler.checksum(envelope)
@@ -346,15 +397,7 @@ module Parsanol
         {
           "root" => rule,
           "grammar" => JSON.parse(portable_json(rule)),
-          "bindings" => @document.bindings[rule].to_a.map do |binding|
-            {
-              "capture" => binding.capture,
-              "path" => binding.path,
-              "type" => binding.type,
-              "card" => binding.card,
-              "preprocess" => binding.preprocess,
-            }
-          end,
+          "bindings" => binding_list(rule),
         }
       end
 

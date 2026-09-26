@@ -22,7 +22,14 @@ module Parsanol
         new(JSON.parse(text), nil, tables_dir)
       end
 
+      SUPPORTED_SHAPE = "parsanol-tree/v2"
+
       def initialize(envelope, path, tables_dir)
+        unless envelope["shape"] == SUPPORTED_SHAPE
+          raise ArtifactError,
+                "unsupported artifact shape #{envelope['shape'].inspect} " \
+                "(this runtime implements #{SUPPORTED_SHAPE.inspect})"
+        end
         @envelope = envelope
         @path = path
         @tables_dir = tables_dir
@@ -68,6 +75,69 @@ module Parsanol
         apply_bindings(entry_name, parse(entry_name, input, mode: mode))
       end
 
+      # Re-run the grammar's in-file tests against this artifact. Returns
+      # the failure descriptions; empty means every test passes.
+      def run_tests(mode: :native)
+        run_test_list(envelope.fetch("tests", []), mode: mode)
+      end
+
+      # Run an external test list (suite files yield Document::Test
+      # structs; embedded tests are artifact-shaped hashes).
+      def run_test_list(tests, mode: :native)
+        tests.filter_map do |test|
+          hash = test.is_a?(Document::Test) ? test_to_hash(test) : test
+          entry_name = hash["entry"] || entries.first
+          begin
+            bound = parse_and_bind(entry_name, hash["input"], mode: mode)
+            if hash["kind"] == "reject"
+              "test #{hash['input'].inspect}: expected the input to be rejected"
+            elsif hash["kind"] == "example"
+              expect = hash["expect"].to_h { |key, value| [key.to_sym, value] }
+              mismatched = expect.reject { |key, value| bound.key?(key) && bound[key] == value }
+              next if mismatched.empty?
+
+              "test #{hash['input'].inspect}: expected captures " \
+                "#{mismatched.transform_values(&:inspect).inspect}, got #{bound.inspect}"
+            end
+          rescue Parsanol::ParseFailed
+            unless hash["kind"] == "reject"
+              "test #{hash['input'].inspect}: expected the input to parse"
+            end
+          end
+        end
+      end
+
+      def test_to_hash(test)
+        {
+          "entry" => test.entry,
+          "kind" => test.kind.to_s,
+          "input" => test.input,
+          "expect" => test.expect,
+        }
+      end
+
+      # Rule documentation embedded from ## doc comments.
+      def rule_docs = envelope.fetch("docs", {})
+
+      # Structured parse diagnostics (PN 2): {offset, message} for the
+      # deepest failure of the most recent parse attempt on this entry.
+      def parse_with_diagnostics(entry_name, input, mode: :native)
+        shape = parse(entry_name, input, mode: mode)
+        { "ok" => true, "offset" => nil, "message" => nil, "shape" => shape }
+      rescue Parsanol::ParseFailed => e
+        cause = deepest_cause(e.parse_failure_cause)
+        { "ok" => false, "offset" => cause&.position,
+          "message" => cause&.message || e.message, "shape" => nil }
+      end
+
+      def deepest_cause(cause)
+        return cause if cause.nil? || cause.children.empty?
+
+        deepest = cause.children.filter_map { |child| deepest_cause(child) }
+          .max_by { |node| node.position.to_i }
+        (deepest&.position.to_i >= cause.position.to_i ? deepest : cause)
+      end
+
       def table_rows(name)
         @table_cache ||= {}
         return @table_cache[name] if @table_cache.key?(name)
@@ -92,8 +162,6 @@ module Parsanol
           Compiler.new(document, @tables_dir)
         end
       end
-
-      private
 
       def root_atom(entry_name)
         rule = entry(entry_name).fetch("root")
