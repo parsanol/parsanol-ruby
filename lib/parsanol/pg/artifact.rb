@@ -80,6 +80,15 @@ module Parsanol
         render(entry_name, parse_and_bind(entry_name, input), variant: variant)
       end
 
+      # Evaluate a named derive spec against a bound map (F6).
+      def derive(name, bound)
+        Derive.apply(envelope["derive"] || {}, name, bound)
+      end
+
+      def derive_string(entry_name, input, name)
+        derive(name, parse_and_bind(entry_name, input))
+      end
+
       def parse_and_bind(entry_name, input, mode: :native)
         apply_bindings(entry_name, parse(entry_name, input, mode: mode))
       end

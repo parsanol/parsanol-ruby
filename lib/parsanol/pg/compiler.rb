@@ -391,6 +391,7 @@ module Parsanol
           "lint" => { "order_warnings" => @warnings.uniq },
           "default_entry" => (resolve_default_entry rescue nil),
           "render" => @document.render,
+          "derive" => @document.derive,
           "tests" => @document.tests.map do |test|
             {
               # Baked explicitly: JSON object key order is not preserved by

@@ -18,7 +18,7 @@ module Parsanol
 
       IN_BLOCK_SECTIONS = %w[entry bindings preprocess test].freeze
 
-      KEYWORDS = %w[grammar as alt from_table column bindings render
+      KEYWORDS = %w[grammar as alt from_table column bindings render derive
                     preprocess entry table_lookup].freeze
 
       def initialize(text)
@@ -43,6 +43,7 @@ module Parsanol
           when "bindings" then parse_bindings(document)
           when "preprocess" then parse_preprocess(document)
           when "render" then parse_render(document)
+          when "derive" then parse_derive(document)
           when "test" then parse_test(document)
           else
             raise ParseError,
@@ -379,6 +380,15 @@ module Parsanol
       # Segments: field <path>, literal "<text>", cond <path> { segs }.
       # Conditions are field-presence only; expressions disallowed, so the
       # graduation to an output grammar stays mechanical.
+      # F6 v1: derive specs - named field-composition templates
+      # ("urn:{publisher}:{number}"); {field} interpolates from the bound
+      # map. Tier-1 data, language-neutral by construction.
+      def parse_derive(document)
+        name = ident.value
+        template = unquote(expect(:str).value)
+        document.derive[name] = template
+      end
+
       def parse_render(document)
         variant = ident.value
         punct("{")
