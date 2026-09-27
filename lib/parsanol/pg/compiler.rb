@@ -161,7 +161,9 @@ module Parsanol
         when :lit
           if node.a.empty?
             raise CompileError,
-                  "empty string literal: zero-width matches are not expressible"                   " — use [ … ] for optional content instead"
+                  "empty string literal: zero-width matches are not " \
+                  "expressible — capture it (\"\" as name) to use it as " \
+                  "a marker, or use [ … ] for optional content"
           end
           if node.b
             Atoms::Re.new("(?i:#{Regexp.escape(node.a)})")
@@ -178,7 +180,15 @@ module Parsanol
           Atoms::Repetition.new(build_atom(node.a), node.b, node.c)
         when :opt then Atoms::Repetition.new(build_atom(node.a), 0, 1, :maybe)
         when :pred then Atoms::Lookahead.new(build_atom(node.b), node.a)
-        when :cap then Atoms::Named.new(build_atom(node.b), node.a.to_sym)
+        when :cap
+          # "" as name is the PG spelling of Ruby parslet's
+          # str("").as(:name): an always-succeeding zero-width marker
+          # that records presence in the tree (oiml space_before_lang).
+          inner = node.b
+          if inner.kind == :lit && inner.a.empty?
+            return Atoms::Named.new(Atoms::Str.new(""), node.a.to_sym)
+          end
+          Atoms::Named.new(build_atom(node.b), node.a.to_sym)
         when :ref then Atoms::Entity.new(node.a) { atom_for(node.a) }
         when :table
           values = table_column(node.a, node.b)
