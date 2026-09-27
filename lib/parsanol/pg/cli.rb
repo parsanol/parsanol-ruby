@@ -81,7 +81,7 @@ module Parsanol
       def compile
         source = @argv.shift
         out = flag_value("-o") || default_artifact_name(source)
-        envelope = compile_source(source)
+        envelope = compile_source(source).envelope
         File.write(out, "#{JSON.generate(envelope)}\n")
         puts "#{out}  #{envelope['checksum']}  warnings=#{envelope['lint']['order_warnings'].size}"
         0
