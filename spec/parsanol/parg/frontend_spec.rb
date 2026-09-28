@@ -11,7 +11,7 @@ RSpec.describe Parsanol::PARG::Frontend do
   end
 
   it "compiles to the identical envelope as the reference, for every flavor" do
-    Dir.glob(File.join(base, "grammars", "*.parg")).sort.each do |file|
+    Dir.glob(File.join(base, "grammars", "*.parg")).each do |file|
       source = File.read(file)
       reference = Parsanol::PARG::Parser.new(source).parse
       Parsanol::PARG::Imports.merge!(reference, [File.join(base, "grammars")])

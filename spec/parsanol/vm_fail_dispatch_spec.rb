@@ -63,8 +63,9 @@ RSpec.describe "VM FAIL dispatch and memoization seeding" do
       parser.parse("k1=1\nk2=2\n", mode: :ruby)
 
       heavy = Parsanol::VM.instance_variable_get(:@heavy) || {}
-      # rubocop:disable-next Lint/HashCompareByIdentity -- mirrors the VM's object_id-keyed heavy flag
+      # rubocop:disable Lint/HashCompareByIdentity -- mirrors the VM's object_id-keyed heavy flag
       expect(heavy[parser.root.object_id]).to be(true)
+      # rubocop:enable Lint/HashCompareByIdentity
     end
 
     it "leaves grammars without repetition unseeded" do
@@ -77,8 +78,9 @@ RSpec.describe "VM FAIL dispatch and memoization seeding" do
       parser.parse("hello world", mode: :ruby)
 
       heavy = Parsanol::VM.instance_variable_get(:@heavy) || {}
-      # rubocop:disable-next Lint/HashCompareByIdentity -- mirrors the VM's object_id-keyed heavy flag
+      # rubocop:disable Lint/HashCompareByIdentity -- mirrors the VM's object_id-keyed heavy flag
       expect(heavy[parser.root.object_id]).to be_falsey
+      # rubocop:enable Lint/HashCompareByIdentity
     end
   end
 end

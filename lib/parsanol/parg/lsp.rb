@@ -15,7 +15,7 @@ module Parsanol
     # Diagnostics and hover run entirely on the compiler API — one
     # language implementation, every editor.
     class Lsp
-      ContentLength = "Content-Length: ".freeze
+      CONTENT_LENGTH = "Content-Length: "
 
       def initialize(input = $stdin, output = $stdout)
         @input = input
@@ -42,12 +42,12 @@ module Parsanol
         case message["method"]
         when "initialize"
           respond(message, {
-            "capabilities" => {
-              "textDocumentSync" => 1,
-              "hoverProvider" => true,
-            },
-            "serverInfo" => { "name" => "parsanol-parg-lsp" },
-          })
+                    "capabilities" => {
+                      "textDocumentSync" => 1,
+                      "hoverProvider" => true,
+                    },
+                    "serverInfo" => { "name" => "parsanol-parg-lsp" },
+                  })
         when "shutdown"
           respond(message, nil)
         when "exit"
@@ -100,7 +100,7 @@ module Parsanol
         end
         if document
           begin
-            tables_dir = ENV["PG_TABLES_DIR"]
+            tables_dir = ENV.fetch("PG_TABLES_DIR", nil)
             compiler = Compiler.new(document, tables_dir)
             document.rules.each_key { |rule| compiler.atom_for(rule) }
             Lints.errors(document, compiler).each do |error|
@@ -165,7 +165,7 @@ module Parsanol
 
       def top_level_literals(line)
         rhs = line.sub(/^\s*[a-z_]+\s*=\s*/, "")
-        parts = rhs.split(/ (?=")/).flat_map { |p| p.split(%r{ / (?=")} ) }
+        parts = rhs.split(/ (?=")/).flat_map { |p| p.split(%r{ / (?=")}) }
         literals = parts.map { |p| p.match(/^"((?:[^"\\]|\\.)*)"$/) }
         return nil if literals.any?(&:nil?)
 

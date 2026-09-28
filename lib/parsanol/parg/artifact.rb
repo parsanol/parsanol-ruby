@@ -72,7 +72,7 @@ module Parsanol
       end
 
       # Render the identifier string from a bound attribute map (F6).
-      def render(entry_name, bound, variant: "default")
+      def render(_entry_name, bound, variant: "default")
         Render.apply(envelope["render"] || {}, variant, bound)
       end
 

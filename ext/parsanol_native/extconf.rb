@@ -36,7 +36,7 @@ create_rust_makefile("parsanol/parsanol_native") do |r|
   # every link must tolerate undefined symbols. (extconf runs as a
   # subprocess, so this must be baked into the Makefile — env changes
   # here would not survive it.)
-  if RbConfig::CONFIG["host_os"] =~ /darwin/
+  if RbConfig::CONFIG["host_os"].include?("darwin")
     r.extra_rustflags = %w[-C link-arg=-Wl,-undefined,dynamic_lookup]
   end
 

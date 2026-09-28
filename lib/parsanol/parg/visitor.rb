@@ -56,7 +56,7 @@ module Parsanol
         when :pred, :cap
           Node.new(node.kind, node.a, rewrite(node.b))
         else
-          yield(node) ? node : node
+          yield(node) || node
         end
       end
     end

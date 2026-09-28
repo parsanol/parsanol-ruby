@@ -188,6 +188,7 @@ module Parsanol
           if inner.kind == :lit && inner.a.empty?
             return Atoms::Named.new(Atoms::Str.new(""), node.a.to_sym)
           end
+
           Atoms::Named.new(build_atom(node.b), node.a.to_sym)
         when :ref then Atoms::Entity.new(node.a) { atom_for(node.a) }
         when :table
@@ -403,7 +404,11 @@ module Parsanol
           "preprocess" => @document.preprocess,
           "tables" => table_manifest,
           "lint" => { "order_warnings" => @warnings.uniq },
-          "default_entry" => (resolve_default_entry rescue nil),
+          "default_entry" => begin
+            resolve_default_entry
+          rescue StandardError
+            nil
+          end,
           "render" => @document.render,
           "derive" => @document.derive,
           "tests" => @document.tests.map do |test|

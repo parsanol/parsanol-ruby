@@ -3,7 +3,7 @@
 require "parsanol"
 
 RSpec.describe Parsanol::PARG::SelfHost do
-  let(:artifact_dir) { ENV.fetch("PG_ARTIFACT_DIR") { "../../../pubid/pubid-grammar/artifacts" } }
+  let(:artifact_dir) { ENV.fetch("PARG_ARTIFACT_DIR", "../../../pubid/pubid-grammar/artifacts") }
 
   before do
     skip "parg artifact not available" unless described_class.available?

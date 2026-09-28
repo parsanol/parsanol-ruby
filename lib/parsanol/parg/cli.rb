@@ -142,10 +142,10 @@ module Parsanol
         shape = artifact.parse(entry_name, input)
         if @json
           puts JSON.generate({
-            "entry" => entry_name,
-            "shape" => json_shape(shape),
-            "bound" => artifact.apply_bindings(entry_name, shape),
-          })
+                               "entry" => entry_name,
+                               "shape" => json_shape(shape),
+                               "bound" => artifact.apply_bindings(entry_name, shape),
+                             })
         else
           puts "tree: #{shape.inspect}"
           puts "captures: #{artifact.apply_bindings(entry_name, shape).inspect}"
@@ -203,7 +203,7 @@ module Parsanol
         else
           artifact = compile_source(file)
           Parsanol::PARG::Artifact.from_json(JSON.generate(artifact.envelope),
-                                           tables_dir: @tables_dir || default_tables_dir(file))
+                                             tables_dir: @tables_dir || default_tables_dir(file))
         end
       end
 

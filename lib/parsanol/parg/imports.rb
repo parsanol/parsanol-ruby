@@ -27,11 +27,13 @@ module Parsanol
         document
       end
 
+      IMPORT_EXTENSIONS = %w[.yaml .parg .json].freeze
+
       def find_file(name, import_dirs)
         dirs = Array(import_dirs)
         raise CompileError, "no import directories configured for `use #{name}`" if dirs.empty?
 
-        path = dirs.flat_map { |dir| %w[.yaml .parg .json].map { |ext| File.join(dir, "#{name}#{ext}") } }
+        path = dirs.flat_map { |dir| IMPORT_EXTENSIONS.map { |ext| File.join(dir, "#{name}#{ext}") } }
           .select { |candidate| candidate.end_with?(".parg") }
           .find { |candidate| File.file?(candidate) }
         path || raise(CompileError, "import `use #{name}` not found in #{dirs.inspect}")
