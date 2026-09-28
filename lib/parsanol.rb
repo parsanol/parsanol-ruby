@@ -39,8 +39,8 @@
 # Inspired by Parslet (MIT License).
 
 module Parsanol
-  # The PG grammar language (text source -> checksummed artifact).
-  autoload :PG, "parsanol/pg"
+  # The PARG grammar language (text source -> checksummed artifact).
+  autoload :PARG, "parsanol/parg"
 
   # Hook to extend including classes with ClassMethods.
   def self.included(base)

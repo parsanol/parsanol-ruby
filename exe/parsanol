@@ -2,6 +2,6 @@
 # frozen_string_literal: true
 
 require "parsanol"
-require "parsanol/pg/cli"
-argv = ARGV[0] == "pg" ? ARGV[1..] : ARGV
-exit Parsanol::PG::CLI.run(argv)
+require "parsanol/parg/cli"
+argv = ARGV[0] == "parg" ? ARGV[1..] : ARGV
+exit Parsanol::PARG::CLI.run(argv)
