@@ -30,6 +30,7 @@ Gem::Specification.new do |spec|
   spec.extensions = ["ext/parsanol_native/extconf.rb"]
 
   spec.executables = %w[parsanol]
+  spec.bindir = "exe"
   spec.files = Dir.glob("{lib,ext,exe}/**/*") + %w[
     HISTORY.txt
     LICENSE
