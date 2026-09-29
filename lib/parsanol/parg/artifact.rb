@@ -182,6 +182,13 @@ module Parsanol
       def compiler
         @compiler ||= begin
           document = Parser.new(envelope.fetch("source")).parse
+          # `use`-importing grammars carry dotted cross-grammar rule
+          # references that only resolve once the imported sources merge;
+          # without this the pure-Ruby path fails on artifacts whose
+          # native atom graphs inline everything. The imported sources
+          # sit beside the artifact (vendors ship them together).
+          imports_dir = path && File.directory?(File.dirname(path)) ? File.dirname(path) : nil
+          Imports.merge!(document, [imports_dir].compact) if imports_dir
           Compiler.new(document, @tables_dir)
         end
       end
