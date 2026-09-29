@@ -8,7 +8,9 @@ require "tmpdir"
 begin
   require "lutaml/model"
   require "nokogiri"
-rescue LoadError => e
+rescue LoadError, StandardError => e
+  # LoadError without nokogiri; Moxml::AdapterError when the adapter
+  # gem exists only as a platform variant that is not installed.
   warn "lutaml-model load failed: #{e.class}: #{e.message}"
 end
 
