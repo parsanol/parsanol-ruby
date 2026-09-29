@@ -7,11 +7,16 @@ require "tmpdir"
 
 begin
   require "lutaml/model"
+  require "nokogiri"
 rescue LoadError => e
   warn "lutaml-model load failed: #{e.class}: #{e.message}"
 end
 
 RSpec.describe Parsanol::PARG::Lutaml do
+  before do
+    skip "lutaml-model (with a working XML adapter) unavailable" unless defined?(Lutaml::Model)
+  end
+
   let(:source) do
     <<~PARG
       grammar Demo version "1.0.0" {
