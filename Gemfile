@@ -29,6 +29,8 @@ gem "ffi"
 # For the lutaml-model string-format bridge specs (runtime stays a
 # soft-require of the consumer)
 gem "lutaml-model", require: false
+# The lutaml bridge specs need a working XML adapter (moxml -> nokogiri)
+gem "nokogiri", require: false
 
 # For type checking
 gem "rbs", "~> 3.0"

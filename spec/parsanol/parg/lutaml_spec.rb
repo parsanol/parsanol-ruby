@@ -94,6 +94,13 @@ if defined?(Lutaml::Model)
   class PgLutamlDemoIdentifier
     include Lutaml::Model::Serialize
 
+    # lutaml-model 0.8.76's generated setters call this on
+    # plain-include models, but the method only lands in the ancestry
+    # on some rubies; order tracking is not needed here.
+    def record_mutation(_name, value = nil)
+      value
+    end
+
     attribute :publisher, :string
     attribute :number, :integer
     attribute :stage, :string
