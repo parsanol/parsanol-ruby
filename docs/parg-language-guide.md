@@ -1,16 +1,16 @@
-# PG — the parsanol grammar language
+# PARG — the parsanol grammar language
 
 *Programming guide and language reference. Version: 0.1 (this document
-describes what ships in parsanol-ruby `Parsanol::PG` today).*
+describes what ships in parsanol-ruby `Parsanol::PARG` today).*
 
-PG is a text language for writing parsanol grammars. One `.pg` file is the
+PARG is a text language for writing parsanol grammars. One `.parg` file is the
 **single source of truth** for a grammar: it compiles to a checksummed
 **artifact** whose grammar section is the same portable JSON the native
 engines (Ruby ext, FFI, wasm, Rust) register. Humans review the text;
 machines consume the JSON; the checksum binds them together.
 
 ```
-grammar.flavor.pg  ──compile──▶  artifact.json (portable grammar + bindings
+grammar.flavor.parg  ──compile──▶  artifact.json (portable grammar + bindings
      ▲                              + preprocess + tables + sha256)
      │                                      │
      └── the committed contract             ├── parsanol-ruby (atoms, parse)
@@ -25,7 +25,7 @@ checksum and the conformance corpus.
 ## Quick start
 
 ```
-# demo.pg
+# demo.parg
 grammar Demo version "1.0.0" {
   digit = %x30-39
   number = 1*digit
@@ -46,11 +46,11 @@ entry identifier: iso_identifier
 ```ruby
 require "parsanol"
 
-document = Parsanol::PG::Parser.new(File.read("demo.pg")).parse
-result   = Parsanol::PG::Compiler.compile(document, tables_dir: "tables")
+document = Parsanol::PARG::Parser.new(File.read("demo.parg")).parse
+result   = Parsanol::PARG::Compiler.compile(document, tables_dir: "tables")
 File.write("demo.artifact.json", JSON.generate(result.envelope))
 
-artifact = Parsanol::PG::Artifact.load("demo.artifact.json")
+artifact = Parsanol::PARG::Artifact.load("demo.artifact.json")
 artifact.parse("identifier", "iso 12345")        # parsanol-shape tree
 artifact.parse_and_bind("identifier", "iso 12345")
 # => { publisher: "iso", number: 12345 }
@@ -63,9 +63,9 @@ atom runtime remains available explicitly (`mode: :ruby`) and serves as
 the fallback on platforms without the native extension. The two paths are
 held to parity by spec.
 
-`Parsanol::PG::Import.import(:abnf, text)` (also `:ebnf`, `:pest`) returns
-PG source generated from a foreign grammar — commit the result and compile
-it like hand-written PG.
+`Parsanol::PARG::Import.import(:abnf, text)` (also `:ebnf`, `:pest`) returns
+PARG source generated from a foreign grammar — commit the result and compile
+it like hand-written PARG.
 
 ## Syntax reference
 
@@ -165,13 +165,13 @@ recorded in the artifact's `tables` manifest and shipped with it.
 
 ## Semantics
 
-PG has **PEG semantics**: ordered choice, greedy repetition, no ambiguity.
+PARG has **PEG semantics**: ordered choice, greedy repetition, no ambiguity.
 There is no global ambiguity to report because first match wins — which is
 exactly why the compile-time lint below exists.
 
 **Left recursion is rejected at compile time** (direct and indirect,
 leftmost-position analysis). An unguarded left-recursive PEG loops forever
-in every engine; PG refuses to emit such an artifact.
+in every engine; PARG refuses to emit such an artifact.
 
 ## The lint (order-dependence and shadowing)
 
@@ -209,7 +209,7 @@ every alternative and reports:
                                     "from": "abbr", "to": "code" } ] },
   "tables": { "stages": "stages.yaml" },
   "lint": { "order_warnings": ["…"] },
-  "source": "…the original .pg text…",
+  "source": "…the original .parg text…",
   "checksum": "sha256:…"
 }
 ```
@@ -217,7 +217,7 @@ every alternative and reports:
 - `entries[].grammar` is the **portable Grammar JSON** — the exact format
   `parsanol-rs` (`Grammar::from_json`), the wasm surface, and the Ruby
   native extension register. One serialization, four engines.
-- `source` embeds the PG text: an artifact is self-contained, and a Ruby
+- `source` embeds the PARG text: an artifact is self-contained, and a Ruby
   runtime can recompile atoms without the original file.
 - `checksum` = sha256 over the canonicalized envelope (sorted keys,
   checksum excluded). `Artifact.load` verifies it and **fails loudly on
@@ -228,14 +228,14 @@ every alternative and reports:
 
 ## Importing foreign grammars
 
-`Parsanol::PG::Import.import(kind, text)` parses a foreign grammar and
-returns equivalent **PG source** (self-checked by re-parsing). Commit the
-result; the `.pg` file stays the single source of truth. Each importer
+`Parsanol::PARG::Import.import(kind, text)` parses a foreign grammar and
+returns equivalent **PARG source** (self-checked by re-parsing). Commit the
+result; the `.parg` file stays the single source of truth. Each importer
 documents its semantic conversions in the emitted header.
 
 ### ABNF — RFC 5234 + RFC 7405 (`:abnf`)
 
-| ABNF | PG |
+| ABNF | PARG |
 |---|---|
 | bare `"abc"` — **case-insensitive** | `%i"abc"` |
 | `%s"abc"` (case-sensitive) | `"abc"` |
@@ -246,14 +246,14 @@ documents its semantic conversions in the emitted header.
 | RFC 5234 core rules (ALPHA…) | emitted unless locally defined |
 | `<prose-vals>` | **rejected** — not machine-parseable |
 
-**The one deep semantic difference:** ABNF alternation is unordered; PG's
+**The one deep semantic difference:** ABNF alternation is unordered; PARG's
 is ordered. The compile-time lint flags every order-dependent branch the
 import produces, so mechanical transliterations become reviewable instead
 of silently different.
 
 ### EBNF — ISO 14977 (`:ebnf`)
 
-| ISO EBNF | PG |
+| ISO EBNF | PARG |
 |---|---|
 | `"…"`, `'…'` terminals | exact strings |
 | `,` sequence / `|` alternation | juxtaposition / `/` |
@@ -264,25 +264,25 @@ of silently different.
 
 ### pest — Rust PEG (`:pest`)
 
-| pest | PG |
+| pest | PARG |
 |---|---|
-| `\|`, `!`, `&`, `*`, `+`, `?` | direct (postfix → PG prefix/`[ ]`) |
+| `\|`, `!`, `&`, `*`, `+`, `?` | direct (postfix → PARG prefix/`[ ]`) |
 | `"lit"` / `^"lit"` | `"lit"` / `%i"lit"` |
 | `'a'..'z'` | `%x61-7a` |
 | builtins (`ASCII_DIGIT`, `ASCII_ALPHA`, `ANY`, …) | `%x` ranges |
-| `~` | sequence **plus a header note**: pest inserts implicit WHITESPACE there, PG does not — whitespace must be explicit |
+| `~` | sequence **plus a header note**: pest inserts implicit WHITESPACE there, PARG does not — whitespace must be explicit |
 | `_{ }` / `@{ }` / `${ }` modifiers, `name_` silent rules | accepted, noted; captures stay enabled |
 | `PUSH/POP/PEEK/EOI/SOI`, `WHITESPACE`/`Comment` rules | **rejected** with an explanatory error |
 
 ## lutaml-model integration
 
-PG artifacts are the **"serialization from string" path** of lutaml-model:
+PARG artifacts are the **"serialization from string" path** of lutaml-model:
 the grammar fills information models declared with lutaml-model's
 attribute/mapping DSL. Registration goes through lutaml-model's own
 `FormatRegistry` extension point:
 
 ```ruby
-Parsanol::PG::Lutaml.register(
+Parsanol::PARG::Lutaml.register(
   IsoIdentifier,
   format_name: :pubid_iso,
   artifact: "artifacts/iso.json",
@@ -300,18 +300,18 @@ with artifact render specs.
 
 ## SOTA positioning (2023–2026 literature)
 
-The recent research converges on exactly the primitives PG ships:
+The recent research converges on exactly the primitives PARG ships:
 
 - **Grammar-constrained generation** (XGrammar, arXiv:2411.15100, 2024;
   XGrammar-2, 2026; llguidance/"Practical Grammar-Based Constrained
   Decoding", 2024) — treats *compiled, serialized grammar artifacts* as the
-  interchange unit and precomputes context-independent structure. PG's
+  interchange unit and precomputes context-independent structure. PARG's
   checksummed artifact + portable grammar JSON is the same contract for
   parsers, and is the natural export target for constrained-decoding
   backends later.
 - **PEG ordered choice as a hazard** ("PEGs Made Practical"; pegen's docs;
   community debates 2024) — silent shadowing is the recurring complaint.
-  PG's first-set lint turns the two detectable classes (prefix shadowing,
+  PARG's first-set lint turns the two detectable classes (prefix shadowing,
   empty-matchable non-final branches) into build failures and records the
   rest.
 - **PEG error recovery/reporting** (Medeiros 2018/2019; "Towards Automatic
@@ -320,9 +320,9 @@ The recent research converges on exactly the primitives PG ships:
   sets are the wire form the artifact format assumes (error wire-format
   decision: parsanol-rs#145).
 - **Incremental parsing** (tree-sitter line; parsanol's retained-tree
-  sessions) — grammars stay stable while edits reparse; PG changes nothing
+  sessions) — grammars stay stable while edits reparse; PARG changes nothing
   here because artifacts are immutable data.
-- **Bidirectionality** (render = parse in reverse) is the roadmap item PG
+- **Bidirectionality** (render = parse in reverse) is the roadmap item PARG
   reserves envelope space for (`render:`/`derive:` sections — see
   pubid-grammar TODO/6 and parsanol-rs#144).
 
@@ -335,6 +335,6 @@ tree-sitter/ANTLR (artifact compilation model), GrammarBuilder
 
 - `render:` / `derive:` sections in the envelope (string output side).
 - Multi-`[]`-level binding paths (or explicit binder hooks).
-- Rule parameters / module imports between `.pg` files.
-- Self-hosting: parse PG with PG.
+- Rule parameters / module imports between `.parg` files.
+- Self-hosting: parse PARG with PARG.
 - Export to constrained-decoding backends (XGrammar/llguidance formats).

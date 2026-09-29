@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 module Parsanol
-  module PG
-    # lutaml-model integration: register a PG artifact as a lutaml-model
+  module PARG
+    # lutaml-model integration: register a PARG artifact as a lutaml-model
     # string format, giving every Serializable class from_<format> —
     # artifact parse -> bindings -> model instance.
     #
-    #   Parsanol::PG::Lutaml.register(
+    #   Parsanol::PARG::Lutaml.register(
     #     IsoIdentifier,
     #     format_name: :pubid_iso,
     #     artifact: "artifacts/iso.json",

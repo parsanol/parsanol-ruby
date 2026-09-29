@@ -149,7 +149,7 @@ describe "Regressions from real examples" do
           a
           */
           b
-        ')
+        ', mode: :ruby)
       end
 
       # Verify the cause exists and contains meaningful error information
@@ -223,8 +223,9 @@ describe "Regressions from real examples" do
     end
 
     it "raises an error" do
+      # Exact cause trees are the Ruby engine's diagnostics contract.
       error = catch_failed_parse do
-        subject.parse("123")
+        subject.parse("123", mode: :ruby)
       end
       expect(di(error.ascii_tree)).to eq(di(%q(
         Failed to match sequence (. '2') at line 1 char 2.
@@ -316,6 +317,7 @@ describe "Regressions from real examples" do
     end
 
     it "fails gracefully on a missing end (2)" do
+      # Exact cause trees are the Ruby engine's diagnostics contract.
       error = catch_failed_parse do
         subject.parse('
           begin a
@@ -323,7 +325,7 @@ describe "Regressions from real examples" do
           begin b
             begin c
           end
-        ')
+        ', mode: :ruby)
       end
 
       expect(di(error.ascii_tree)).to eq(di(%q(

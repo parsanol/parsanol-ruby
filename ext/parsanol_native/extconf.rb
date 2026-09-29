@@ -30,6 +30,16 @@ create_rust_makefile("parsanol/parsanol_native") do |r|
   # Create debug builds in dev, release in production
   r.profile = ENV.fetch("RB_SYS_CARGO_PROFILE", :dev).to_sym
 
+  # cargo rustc builds dependency cdylibs verbatim, and parsanol ships
+  # a cdylib crate-type (the ffi tier). On macOS every dylib in the
+  # build resolves ruby symbols from the host process at load time, so
+  # every link must tolerate undefined symbols. (extconf runs as a
+  # subprocess, so this must be baked into the Makefile — env changes
+  # here would not survive it.)
+  if RbConfig::CONFIG["host_os"].include?("darwin")
+    r.extra_rustflags = %w[-C link-arg=-Wl,-undefined,dynamic_lookup]
+  end
+
   # Enable stable API compiled fallback for ruby-head and older Ruby versions
   r.use_stable_api_compiled_fallback = true
 

@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 module Parsanol
-  module PG
+  module PARG
     module Import
       # RFC 5234 (+ RFC 7405 case prefixes) ABNF importer.
       #
       # Semantic conversions (recorded in the emitted header):
       # - bare ABNF strings are CASE-INSENSITIVE -> emitted as %i"..."
       # - %s"..." (case-sensitive) -> emitted as plain "..."
-      # - ABNF alternation is unordered; PG's is ordered. The PG compiler's
+      # - ABNF alternation is unordered; PARG's is ordered. The PARG compiler's
       #   first-set lint flags order-dependent branches after import.
       # - rule names are case-insensitive in ABNF -> normalized to snake_case
       # - prose-vals (<...>) are rejected: they are not machine-parseable
@@ -283,7 +283,7 @@ module Parsanol
             "# Imported from ABNF (RFC 5234/7405).",
             "# Notes:",
             "# - bare ABNF strings are case-insensitive; imported as %i\"...\"",
-            "# - ABNF alternation is unordered; PG's is ordered — the compiler",
+            "# - ABNF alternation is unordered; PARG's is ordered — the compiler",
             "#   lints order-dependent branches",
             "grammar imported_abnf version \"0.0.0\" {",
           ]

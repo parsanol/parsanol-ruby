@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 module Parsanol
-  module PG
+  module PARG
     module Import
       # ISO 14977 EBNF importer.
       #
       # Semantic conversions (recorded in the emitted header):
       # - meta-identifiers are case-insensitive in ISO EBNF -> downcased
-      # - terminals are exact -> emitted as plain PG strings
+      # - terminals are exact -> emitted as plain PARG strings
       # - sequence "," -> juxtaposition; "|" -> ordered "/"
       # - { x } (zero-or-more) -> *( x )
       # - syntactic exceptions "term - exception" are approximated as
@@ -63,7 +63,7 @@ module Parsanol
               if name == "special"
                 raise Error,
                       "EBNF: special sequence #{match[0].inspect} cannot be " \
-                      "imported — express it with PG syntax"
+                      "imported — express it with PARG syntax"
               end
               @tokens << [name.to_sym, match[0], pos]
             end

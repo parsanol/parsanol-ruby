@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 module Parsanol
-  module PG
-    # Recursive-descent parser for PG source text.
+  module PARG
+    # Recursive-descent parser for PARG source text.
     #
     #   grammar PubidIso version "1.2.0" {
     #     digit = %x30-39
@@ -16,7 +16,9 @@ module Parsanol
       PATH_CONTINUATION = [".", "["].freeze
       CARD_CONTINUATION = [".", "*"].freeze
 
-      KEYWORDS = %w[grammar version as alt from_table column bindings
+      IN_BLOCK_SECTIONS = %w[entry bindings preprocess test].freeze
+
+      KEYWORDS = %w[grammar as alt from_table column bindings render derive
                     preprocess entry table_lookup].freeze
 
       def initialize(text)
@@ -30,20 +32,28 @@ module Parsanol
         document.source = @source_text
         skip_newlines
         until eof?
+          take_doc_comments
+          break if eof?
+
           section = expect(:ident)
           case section.value
+          when "use" then document.uses << ident.value
           when "grammar" then parse_grammar(document)
           when "entry" then parse_entry(document)
           when "bindings" then parse_bindings(document)
           when "preprocess" then parse_preprocess(document)
+          when "render" then parse_render(document)
+          when "derive" then parse_derive(document)
+          when "test" then parse_test(document)
           else
             raise ParseError,
-                  "expected a section (grammar/entry/bindings/preprocess), " \
+                  "expected a section (grammar/entry/bindings/preprocess/test), " \
                   "got #{section.value.inspect} at offset #{section.offset}"
           end
           skip_newlines
         end
         document.validate!
+        document.own_entries = document.entries.keys
         document
       end
 
@@ -51,6 +61,56 @@ module Parsanol
 
       def skip_newlines
         advance while peek&.type == :newline
+      end
+
+      # Doc comments (##) accumulate and attach to the next rule.
+      def take_doc_comments
+        docs = []
+        while peek&.type == :doc
+          docs << advance.value[2..].strip
+          skip_newlines
+        end
+        docs
+      end
+
+      def parse_test(document, default_entry: nil)
+        entry = peek&.type == :ident && peek.value != "{" ? advance.value : default_entry
+        punct("{")
+        skip_newlines
+        until peek&.type == :punct && peek.value == "}"
+          kind = ident.value
+          input = unquote(expect(:str).value)
+          expect_pairs = {}
+          if kind == "example" && peek&.type == :punct && peek.value == "{"
+            advance
+            skip_newlines
+            until peek&.type == :punct && peek.value == "}"
+              key = ident.value
+              punct(":")
+              expect_pairs[key.to_sym] = parse_test_value
+              skip_newlines
+            end
+            punct("}")
+          end
+          document.tests << Document::Test.new(entry, kind.to_sym, input, expect_pairs)
+          skip_newlines
+        end
+        punct("}")
+        skip_newlines
+      end
+
+      def parse_test_value
+        token = advance
+        case token&.type
+        when :str then unquote(token.value)
+        when :num then token.value.to_i
+        when :ident
+          raise ParseError, "expected true or false" unless %w[true false].include?(token.value)
+
+          token.value == "true"
+        else
+          raise ParseError, "expected a string, number, true or false"
+        end
       end
 
       def eof? = @pos >= @tokens.length
@@ -84,7 +144,24 @@ module Parsanol
         punct("{")
         skip_newlines
         until peek&.type == :punct && peek.value == "}"
+          docs = take_doc_comments
+          break if peek.nil? || (peek&.type == :punct && peek.value == "}")
+
+          # Sections may be authored inside the grammar block: the
+          # natural placement for entry/bindings/preprocess/test.
+          if peek&.type == :ident && IN_BLOCK_SECTIONS.include?(peek.value)
+            section = advance
+            case section.value
+            when "entry" then parse_entry(document)
+            when "bindings" then parse_bindings(document)
+            when "preprocess" then parse_preprocess(document)
+            when "test" then parse_test(document)
+            end
+            skip_newlines
+            next
+          end
           name = rule_name
+          document.docs[name] = docs.join("\n") unless docs.empty?
           punct("=")
           node = parse_choice
           if document.rules.key?(name)
@@ -207,7 +284,15 @@ module Parsanol
           raise ParseError,
                 "#{token.value.inspect} is a keyword and cannot be referenced"
         else
-          Node.new(:ref, token.value)
+          name = token.value
+          # Dotted cross-grammar references: `use cen_cenelec` makes
+          # cen_cenelec.identifier addressable.
+          while peek&.type == :punct && peek.value == "." &&
+              @tokens[@pos + 1]&.type == :ident
+            advance
+            name = "#{name}.#{advance.value}"
+          end
+          Node.new(:ref, name)
         end
       end
 
@@ -289,6 +374,54 @@ module Parsanol
           pieces << advance.value
         end
         pieces.join
+      end
+
+      # F6 v1: render specs as data - named variants of ordered segments.
+      # Segments: field <path>, literal "<text>", cond <path> { segs }.
+      # Conditions are field-presence only; expressions disallowed, so the
+      # graduation to an output grammar stays mechanical.
+      # F6 v1: derive specs - named field-composition templates
+      # ("urn:{publisher}:{number}"); {field} interpolates from the bound
+      # map. Tier-1 data, language-neutral by construction.
+      def parse_derive(document)
+        name = ident.value
+        template = unquote(expect(:str).value)
+        document.derive[name] = template
+      end
+
+      def parse_render(document)
+        variant = ident.value
+        punct("{")
+        segments = document.render[variant] ||= []
+        skip_newlines
+        until peek&.type == :punct && peek.value == "}"
+          segments << parse_render_segment(document)
+          skip_newlines
+        end
+        punct("}")
+      end
+
+      def parse_render_segment(document)
+        case (word = ident.value)
+        when "field"
+          { "type" => "field", "field" => ident.value }
+        when "literal"
+          { "type" => "literal", "text" => unquote(expect(:str).value) }
+        when "cond"
+          field = ident.value
+          punct("{")
+          then_segments = []
+          skip_newlines
+          until peek&.type == :punct && peek.value == "}"
+            then_segments << parse_render_segment(document)
+            skip_newlines
+          end
+          punct("}")
+          { "type" => "cond", "field" => field, "then" => then_segments }
+        else
+          raise ParseError,
+                "expected a render segment (field/literal/cond), got #{word.inspect}"
+        end
       end
 
       def parse_preprocess(document)

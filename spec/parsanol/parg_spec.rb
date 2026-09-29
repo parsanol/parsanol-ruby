@@ -5,10 +5,10 @@ require "fileutils"
 require "json"
 require "tmpdir"
 
-RSpec.describe Parsanol::PG do
+RSpec.describe Parsanol::PARG do
   def compile_source(src, tables_dir:)
-    document = Parsanol::PG::Parser.new(src).parse
-    Parsanol::PG::Compiler.compile(document, tables_dir: tables_dir)
+    document = Parsanol::PARG::Parser.new(src).parse
+    Parsanol::PARG::Compiler.compile(document, tables_dir: tables_dir)
   end
 
   def write_artifact(env, dir)
@@ -26,7 +26,7 @@ RSpec.describe Parsanol::PG do
   end
 
   let(:source) do
-    <<~PG
+    <<~PARG
       # demo grammar
       grammar Demo version "1.2.0" {
         digit = %x30-39
@@ -52,12 +52,12 @@ RSpec.describe Parsanol::PG do
       }
 
       entry identifier: iso_identifier
-    PG
+    PARG
   end
 
   describe "Parser" do
     it "parses the document" do
-      document = Parsanol::PG::Parser.new(source).parse
+      document = Parsanol::PARG::Parser.new(source).parse
       expect(document.version).to eq("1.2.0")
       expect(document.grammar_name).to eq("Demo")
       expect(document.rules).to include("iso_identifier", "stage_abbr")
@@ -69,76 +69,76 @@ RSpec.describe Parsanol::PG do
     end
 
     it "records the source text" do
-      document = Parsanol::PG::Parser.new(source).parse
+      document = Parsanol::PARG::Parser.new(source).parse
       expect(document.source).to eq(source)
     end
 
     it "rejects malformed input" do
-      expect { Parsanol::PG::Parser.new("grammar X { a = }").parse }
-        .to raise_error(Parsanol::PG::ParseError)
-      expect { Parsanol::PG::Parser.new("nonsense").parse }
-        .to raise_error(Parsanol::PG::ParseError)
-      expect { Parsanol::PG::Parser.new('grammar X version "1" { entry = "a" }').parse }
-        .to raise_error(Parsanol::PG::ParseError, /keyword/)
+      expect { Parsanol::PARG::Parser.new("grammar X { a = }").parse }
+        .to raise_error(Parsanol::PARG::ParseError)
+      expect { Parsanol::PARG::Parser.new("nonsense").parse }
+        .to raise_error(Parsanol::PARG::ParseError)
+      expect { Parsanol::PARG::Parser.new('grammar X version "1" { entry = "a" }').parse }
+        .to raise_error(Parsanol::PARG::ParseError, /expected ident/)
     end
 
     it "rejects duplicate rules and dangling references" do
-      src = <<~PG
+      src = <<~PARG
         grammar X version "1" { a = "x" }
         entry e: missing
-      PG
-      expect { Parsanol::PG::Parser.new(src).parse }
-        .to raise_error(Parsanol::PG::ParseError, /unknown rule/)
+      PARG
+      expect { Parsanol::PARG::Parser.new(src).parse }
+        .to raise_error(Parsanol::PARG::ParseError, /unknown rule/)
 
-      dup = <<~PG
+      dup = <<~PARG
         grammar X version "1" {
           a = "x"
           a = "y"
         }
-      PG
-      expect { Parsanol::PG::Parser.new(dup).parse }
-        .to raise_error(Parsanol::PG::ParseError, /duplicate/)
+      PARG
+      expect { Parsanol::PARG::Parser.new(dup).parse }
+        .to raise_error(Parsanol::PARG::ParseError, /duplicate/)
     end
   end
 
   describe "Compiler" do
     it "rejects left recursion (direct and indirect)" do
       expect do
-        compile_source(<<~PG, tables_dir: nil)
+        compile_source(<<~PARG, tables_dir: nil)
           grammar X version "1" {
             a = a "x"
           }
-        PG
-      end.to raise_error(Parsanol::PG::CompileError, /left recursion/)
+        PARG
+      end.to raise_error(Parsanol::PARG::CompileError, /left recursion/)
 
       expect do
-        compile_source(<<~PG, tables_dir: nil)
+        compile_source(<<~PARG, tables_dir: nil)
           grammar X version "1" {
             a = b "x"
             b = a / "y"
           }
-        PG
-      end.to raise_error(Parsanol::PG::CompileError, /left recursion/)
+        PARG
+      end.to raise_error(Parsanol::PARG::CompileError, /left recursion/)
     end
 
     it "rejects unknown rule references" do
       expect do
         compile_source('grammar X version "1" { a = missing }', tables_dir: nil)
-      end.to raise_error(Parsanol::PG::CompileError, /unknown rule/)
+      end.to raise_error(Parsanol::PARG::CompileError, /unknown rule/)
     end
 
     it "rejects a non-final branch that can match empty" do
       src = 'grammar X version "1" { a = [ "b" ] / "c" }'
       expect do
         compile_source(src, tables_dir: nil)
-      end.to raise_error(Parsanol::PG::CompileError, /match empty/)
+      end.to raise_error(Parsanol::PARG::CompileError, /match empty/)
     end
 
     it "rejects a shorter literal shadowing a longer later branch" do
       src = 'grammar X version "1" { p = "iso" / "iso/iec" }'
       expect do
         compile_source(src, tables_dir: nil)
-      end.to raise_error(Parsanol::PG::CompileError, /shadows branch 2/)
+      end.to raise_error(Parsanol::PARG::CompileError, /shadows branch 2/)
     end
 
     it "records an order-dependent warning for overlapping branches" do
@@ -158,9 +158,68 @@ RSpec.describe Parsanol::PG do
     end
   end
 
+  describe "tests and doc comments" do
+    let(:authored) do
+      <<~PARG
+        grammar T version "1.0.0" {
+          digit = %x30-39
+          ## The two-letter publisher code.
+          pub = %x41-5A %x41-5A
+          identifier = pub as pub 4digit
+        }
+
+        bindings identifier {
+          pub -> pub (string)
+        }
+
+        entry identifier: identifier
+
+        test {
+          accept "AB2020"
+          reject "AB20"
+          example "AB2020" { pub: "AB" }
+        }
+      PARG
+    end
+
+    it "runs accept/reject/example tests at compile time" do
+      expect { compile_source(authored, tables_dir: nil) }.not_to raise_error
+    end
+
+    it "fails the build when an accept test does not parse" do
+      broken = authored.sub('accept "AB2020"', 'accept "AB-2020"')
+      expect { compile_source(broken, tables_dir: nil) }
+        .to raise_error(Parsanol::PARG::CompileError, /expected the input to parse/)
+    end
+
+    it "fails the build when a reject test parses" do
+      broken = authored.sub('reject "AB20"', 'reject "AB2020"')
+      expect { compile_source(broken, tables_dir: nil) }
+        .to raise_error(Parsanol::PARG::CompileError, /expected the input to be rejected/)
+    end
+
+    it "fails the build when an example capture mismatches" do
+      broken = authored.sub('{ pub: "AB" }', '{ pub: "XY" }')
+      expect { compile_source(broken, tables_dir: nil) }
+        .to raise_error(Parsanol::PARG::CompileError, /expected captures/)
+    end
+
+    it "embeds tests and docs in the artifact and re-runs them" do
+      Dir.mktmpdir do |dir|
+        env = compile_source(authored, tables_dir: dir).envelope
+        expect(env["docs"]["pub"]).to eq("The two-letter publisher code.")
+        expect(env["tests"].size).to eq(3)
+        path = write_artifact(env, dir)
+        artifact = Parsanol::PARG::Artifact.load(path, tables_dir: dir)
+        expect(artifact.run_tests).to be_empty
+        expect(artifact.rule_docs["pub"]).to eq("The two-letter publisher code.")
+      end
+    end
+  end
+
   describe "Artifact" do
     subject(:artifact) do
-      Parsanol::PG::Artifact.load(path, tables_dir: tables_dir)
+      Parsanol::PARG::Artifact.load(path, tables_dir: tables_dir)
     end
 
     let(:tables_dir) do
@@ -191,13 +250,13 @@ RSpec.describe Parsanol::PG do
       env = compile_source(source, tables_dir: tables_dir).envelope
       env["version"] = "9.9.9"
       path = write_artifact(env, tables_dir)
-      expect { Parsanol::PG::Artifact.load(path, tables_dir: tables_dir) }
-        .to raise_error(Parsanol::PG::ArtifactError, /checksum mismatch/)
+      expect { Parsanol::PARG::Artifact.load(path, tables_dir: tables_dir) }
+        .to raise_error(Parsanol::PARG::ArtifactError, /checksum mismatch/)
     end
 
     it "rejects unknown entries" do
       expect { artifact.parse("nope", "x") }
-        .to raise_error(Parsanol::PG::ArtifactError, /unknown entry/)
+        .to raise_error(Parsanol::PARG::ArtifactError, /unknown entry/)
     end
 
     it "parses and applies bindings end to end" do

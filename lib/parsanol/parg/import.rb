@@ -1,17 +1,17 @@
 # frozen_string_literal: true
 
 module Parsanol
-  module PG
+  module PARG
     # Foreign-grammar importers. Each converts a foreign grammar notation to
-    # PG source text — the .pg file is committed as the single source of
+    # PARG source text — the .parg file is committed as the single source of
     # truth, then compiled like any hand-written grammar. Import results are
-    # self-checked: the emitted source must round-trip through PG::Parser.
+    # self-checked: the emitted source must round-trip through PARG::Parser.
     module Import
-      class Error < PG::Error; end
+      class Error < PARG::Error; end
 
-      autoload :Abnf, "parsanol/pg/importers/abnf"
-      autoload :Ebnf, "parsanol/pg/importers/ebnf"
-      autoload :Pest, "parsanol/pg/importers/pest"
+      autoload :Abnf, "parsanol/parg/importers/abnf"
+      autoload :Ebnf, "parsanol/parg/importers/ebnf"
+      autoload :Pest, "parsanol/parg/importers/pest"
 
       KINDS = %i[abnf ebnf pest].freeze
 

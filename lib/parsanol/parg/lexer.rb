@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 module Parsanol
-  module PG
-    # Tokenizer for PG source text.
+  module PARG
+    # Tokenizer for PARG source text.
     #
     # Emits Token structs. Comments (# to end of line) and whitespace are
     # dropped. Punctuation arrives as :punct tokens carrying the character.
@@ -14,8 +14,9 @@ module Parsanol
       TOKEN = /
         (?<newline>\r?\n)
       | (?<ws>[ \t]+)
+      | (?<doc>\#\#[^\n]*)
       | (?<comment>\#[^\n]*)
-      | (?<hex>%x[0-9A-Fa-f]{2}(?:-[0-9A-Fa-f]{2}|(?:\.[0-9A-Fa-f]{2})+)?)
+      | (?<hex>%x[0-9A-Fa-f]{2,6}(?:-[0-9A-Fa-f]{2,6}|(?:\.[0-9A-Fa-f]{2,6})+)?)
       | (?<istr>%i"(?:[^"\\]|\\.)*")
       | (?<sstr>%s"(?:[^"\\]|\\.)*")
       | (?<str>"(?:[^"\\]|\\.)*")

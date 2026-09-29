@@ -1,19 +1,19 @@
 # frozen_string_literal: true
 
 module Parsanol
-  module PG
+  module PARG
     module Import
-      # pest (Rust PEG) importer — the common subset, mapped to PG.
+      # pest (Rust PEG) importer — the common subset, mapped to PARG.
       #
       # Conversions:
       # - ordered choice "|", predicates "!"/"&", postfix "*"/"+"/"?" map
-      #   directly (PG: *x / 1*x / [ x ])
+      #   directly (PARG: *x / 1*x / [ x ])
       # - "lit" exact; ^"lit" case-insensitive -> %i"..."
       # - 'a'..'z' ranges -> %x61-7A
       # - builtin character classes (ASCII_DIGIT, ...) -> %x ranges
-      # - "a" ~ "b": pest inserts implicit WHITESPACE at ~; PG emits plain
+      # - "a" ~ "b": pest inserts implicit WHITESPACE at ~; PARG emits plain
       #   sequence — whitespace must be explicit (recorded in the header)
-      # - rule modifiers _/@/$ are accepted and noted (PG captures stay
+      # - rule modifiers _/@/$ are accepted and noted (PARG captures stay
       #   enabled inside them); silent name_ rules keep their name
       # - PUSH/POP/PEEK/EOI/SOI and the implicit WHITESPACE/Comment rules
       #   are rejected with an explanatory error
@@ -105,7 +105,7 @@ module Parsanol
             if REJECTED.include?(name)
               raise Error,
                     "pest: #{name} is not importable — " \
-                    "#{name == 'WHITESPACE' ? 'pest applies it implicitly; define whitespace explicitly in PG' : 'express it in PG syntax'}"
+                    "#{name == 'WHITESPACE' ? 'pest applies it implicitly; define whitespace explicitly in PARG' : 'express it in PARG syntax'}"
             end
             @notes << "silent rule #{name.inspect} imported as a normal rule" if name.end_with?("_")
             equals = advance
@@ -117,7 +117,7 @@ module Parsanol
             if peek&.[](0) == :punct && MODIFIER_CHARS.include?(peek[1])
               modifier = advance[1]
               @notes << "rule #{name.inspect}: modifier #{modifier.inspect} " \
-                        "accepted; PG captures stay enabled inside it"
+                        "accepted; PARG captures stay enabled inside it"
             end
             expect_punct("{")
             if @rules.key?(name)
@@ -195,7 +195,7 @@ module Parsanol
             elsif REJECTED.include?(token[1])
               raise Error,
                     "pest: #{token[1]} is not importable — " \
-                    "#{token[1] == 'WHITESPACE' ? 'pest applies it implicitly; define whitespace explicitly in PG' : 'express it in PG syntax'}"
+                    "#{token[1] == 'WHITESPACE' ? 'pest applies it implicitly; define whitespace explicitly in PARG' : 'express it in PARG syntax'}"
             else
               Node.new(:ref, token[1])
             end
@@ -207,7 +207,7 @@ module Parsanol
             elsif token[1] == "~"
               unless @noted_tilde
                 @notes << "~ treated as plain sequence (pest inserts implicit " \
-                          "WHITESPACE; PG does not)"
+                          "WHITESPACE; PARG does not)"
               end
               @noted_tilde = true
               Node.new(:lit, " ", false)

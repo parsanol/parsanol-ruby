@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "parsanol"
+require "parsanol/parg/cli"
+argv = ARGV[0] == "parg" ? ARGV[1..] : ARGV
+exit Parsanol::PARG::CLI.run(argv)

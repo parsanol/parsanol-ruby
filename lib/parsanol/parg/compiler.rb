@@ -5,7 +5,7 @@ require "json"
 require "yaml"
 
 module Parsanol
-  module PG
+  module PARG
     # Compiles a Document to executable atoms and an artifact envelope.
     #
     # Responsibilities:
@@ -52,8 +52,12 @@ module Parsanol
 
       def compile
         @document.rules.each_key { |name| atom_for(name) }
-        errors = lint
+        errors = Lints.errors(@document, self)
         raise CompileError, errors.join("\n") unless errors.empty?
+
+        @warnings = Lints.warnings(@document, self)
+        failures = run_tests
+        raise CompileError, failures.join("\n") unless failures.empty?
 
         envelope = build_envelope
         Result.new(@atom_cache, @warnings, envelope)
@@ -63,7 +67,90 @@ module Parsanol
         @atom_cache[name] ||= build_atom(fetch_rule(name))
       end
 
+      def record_warning(message)
+        @warnings << message
+      end
+
+      def nullable?(node)
+        first_set(node).include?(EPS)
+      end
+
+      def first_set(node)
+        @first_cache[node] ||= compute_first(node)
+      end
+
+      def find_left_cycle(name)
+        find_left_cycle_from(name, [], {})
+      end
+
       private
+
+      # In-file grammar tests run at compile time: the build fails when an
+      # accept/example test does not parse or an example's expected capture
+      # pairs do not match the bound result.
+      def run_tests
+        return [] if @document.tests.empty?
+
+        default_entry = resolve_default_entry
+        view = test_view
+        @document.tests.filter_map do |test|
+          entry_name = test.entry || default_entry
+          rule = @document.entries.fetch(entry_name)
+          begin
+            shape = atom_for(rule).parse(test.input)
+            if test.kind == :reject
+              "test #{test.input.inspect}: expected the input to be rejected"
+            elsif test.kind == :example
+              bound = Bindings.apply(view, { "bindings" => binding_list(rule) }, shape)
+              mismatched = test.expect.reject { |key, value| bound.key?(key) && bound[key] == value }
+              next if mismatched.empty?
+
+              "test #{test.input.inspect}: expected captures " \
+                "#{mismatched.transform_values(&:inspect).inspect}, got #{bound.inspect}"
+            end
+          rescue Parsanol::ParseFailed
+            unless test.kind == :reject
+              "test #{test.input.inspect}: expected the input to parse"
+            end
+          end
+        end
+      end
+
+      def resolve_default_entry
+        own = @document.own_entries
+        return own.first if own && own.size == 1
+
+        entries = @document.entries.keys
+        return entries.first if entries.size == 1
+
+        raise CompileError,
+              "tests need an explicit entry (grammar has #{entries.size})"
+      end
+
+      # Bindings.apply needs the envelope-shaped preprocess/tables surface;
+      # at compile time the document and loaded tables play that role.
+      def test_view
+        document = @document
+        rows = ->(name) { table_rows(name) }
+        @test_view ||= Object.new.tap do |view|
+          view.define_singleton_method(:envelope) do
+            { "preprocess" => document.preprocess }
+          end
+          view.define_singleton_method(:table_rows) { |name| rows.call(name) }
+        end
+      end
+
+      def binding_list(rule)
+        @document.bindings[rule].to_a.map do |binding|
+          {
+            "capture" => binding.capture,
+            "path" => binding.path,
+            "type" => binding.type,
+            "card" => binding.card,
+            "preprocess" => binding.preprocess,
+          }
+        end
+      end
 
       def fetch_rule(name)
         @document.rules[name] || raise(CompileError, "unknown rule #{name.inspect}")
@@ -72,6 +159,12 @@ module Parsanol
       def build_atom(node)
         case node.kind
         when :lit
+          if node.a.empty?
+            raise CompileError,
+                  "empty string literal: zero-width matches are not " \
+                  "expressible — capture it (\"\" as name) to use it as " \
+                  "a marker, or use [ … ] for optional content"
+          end
           if node.b
             Atoms::Re.new("(?i:#{Regexp.escape(node.a)})")
           else
@@ -87,7 +180,16 @@ module Parsanol
           Atoms::Repetition.new(build_atom(node.a), node.b, node.c)
         when :opt then Atoms::Repetition.new(build_atom(node.a), 0, 1, :maybe)
         when :pred then Atoms::Lookahead.new(build_atom(node.b), node.a)
-        when :cap then Atoms::Named.new(build_atom(node.b), node.a.to_sym)
+        when :cap
+          # "" as name is the PARG spelling of Ruby parslet's
+          # str("").as(:name): an always-succeeding zero-width marker
+          # that records presence in the tree (oiml space_before_lang).
+          inner = node.b
+          if inner.kind == :lit && inner.a.empty?
+            return Atoms::Named.new(Atoms::Str.new(""), node.a.to_sym)
+          end
+
+          Atoms::Named.new(build_atom(node.b), node.a.to_sym)
         when :ref then Atoms::Entity.new(node.a) { atom_for(node.a) }
         when :table
           values = table_column(node.a, node.b)
@@ -98,23 +200,35 @@ module Parsanol
       end
 
       def class_pattern(ranges)
-        body = ranges.flat_map do |lo, hi|
+        body = ranges.map do |lo, hi|
           if lo == hi
-            [escape_class_char(lo.chr)]
-          elsif (hi - lo + 1) > 256
-            [escape_class_char(lo.chr), "-", escape_class_char(hi.chr)]
+            escape_codepoint(lo)
+          elsif hi - lo + 1 > 2
+            "#{endpoint(lo)}-#{endpoint(hi)}"
           else
-            lo.upto(hi).map { |byte| escape_class_char(byte.chr) }
+            lo.upto(hi).map { |code| escape_codepoint(code) }.join
           end
         end
         "[#{body.join}]"
       end
 
-      def escape_class_char(char)
-        return format("\\x%02x", char.ord) if char.ord < 0x20 || char.ord == 0x7F
-        return "\\#{char}" if ["\\", "]", "[", "^", "-"].include?(char)
+      # Range endpoints always use explicit escapes so the range operator
+      # can never be ambiguous with an escaped literal.
+      def endpoint(code)
+        # Above the BMP the four-hex \uXXXX form cannot express the
+        # codepoint; both engines accept the braced \u{...} form.
+        return format("\\u{%x}", code) if code > 0xFFFF
 
-        char
+        code < 0x7F ? format("\\x%02x", code) : format("\\u%04x", code)
+      end
+
+      def escape_codepoint(code)
+        return format("\\x%02x", code) if code < 0x20 || code == 0x7F
+        return format("\\u{%x}", code) if code > 0xFFFF
+        return format("\\u%04x", code) if code > 0x7E
+        return "\\#{code.chr}" if ["\\", "]", "[", "^", "-"].include?(code.chr)
+
+        code.chr
       end
 
       def table_column(table, column)
@@ -184,48 +298,6 @@ module Parsanol
         errors
       end
 
-      def compare_branches(name, earlier, earlier_n, later, later_n, errors)
-        earlier_lit = literal_string(earlier)
-        later_lit = literal_string(later)
-        shadowed = false
-        if earlier_lit && later_lit
-          if earlier_lit == later_lit
-            errors << "rule #{name}: branches #{earlier_n} and #{later_n} are identical"
-            return
-          elsif later_lit.start_with?(earlier_lit)
-            errors << "rule #{name}: branch #{earlier_n} (#{earlier_lit.inspect}) " \
-                      "shadows branch #{later_n} (#{later_lit.inspect}) — " \
-                      "reorder longest-first or the shorter always wins"
-            shadowed = true
-          end
-        end
-        first_earlier = first_set(earlier) - [EPS]
-        first_later = first_set(later) - [EPS]
-        return if shadowed
-
-        if first_earlier.include?(ANY) || first_later.include?(ANY)
-          @warnings << "rule #{name}: branches #{earlier_n} and #{later_n} are " \
-                       "order-dependent (first set not statically known)"
-          return
-        end
-        return if !first_earlier.intersect?(first_later)
-
-        @warnings << "rule #{name}: branches #{earlier_n} and #{later_n} are " \
-                     "order-dependent (shared first bytes); ordered choice is decisive"
-      end
-
-      def literal_string(node)
-        case node.kind
-        when :lit then node.a
-        when :seq
-          node.a.map { |child| literal_string(child) }.join if node.a.all? { |child| child.kind == :lit }
-        end
-      end
-
-      def find_left_cycle(name)
-        find_left_cycle_from(name, [], {})
-      end
-
       def find_left_cycle_from(name, path, visiting)
         return path[(path.index(name))..] if path.include?(name)
         return nil if visiting[name] == :done
@@ -256,17 +328,13 @@ module Parsanol
         end
       end
 
-      def nullable?(node)
-        first_set(node).include?(EPS)
-      end
-
-      def first_set(node)
-        @first_cache[node] ||= compute_first(node)
-      end
-
       def compute_first(node)
         case node.kind
         when :lit
+          # The zero-width marker ("" as name) consumes nothing: its
+          # first set is empty, which also marks the node nullable.
+          return Set.new if node.a.empty?
+
           set = Set.new(node.a[0].bytes)
           set += node.a[0].upcase.bytes + node.a[0].downcase.bytes if node.b
           set
@@ -336,6 +404,25 @@ module Parsanol
           "preprocess" => @document.preprocess,
           "tables" => table_manifest,
           "lint" => { "order_warnings" => @warnings.uniq },
+          "default_entry" => begin
+            resolve_default_entry
+          rescue StandardError
+            nil
+          end,
+          "render" => @document.render,
+          "derive" => @document.derive,
+          "tests" => @document.tests.map do |test|
+            {
+              # Baked explicitly: JSON object key order is not preserved by
+              # every engine, so consumers cannot rederive the author's
+              # default entry from the entries map.
+              "entry" => test.entry || (@document.own_entries.first if @document.own_entries.size == 1),
+              "kind" => test.kind.to_s,
+              "input" => test.input,
+              "expect" => test.expect.transform_keys(&:to_s),
+            }
+          end,
+          "docs" => @document.docs,
           "source" => @document.source,
         }
         envelope["checksum"] = Compiler.checksum(envelope)
@@ -346,15 +433,7 @@ module Parsanol
         {
           "root" => rule,
           "grammar" => JSON.parse(portable_json(rule)),
-          "bindings" => @document.bindings[rule].to_a.map do |binding|
-            {
-              "capture" => binding.capture,
-              "path" => binding.path,
-              "type" => binding.type,
-              "card" => binding.card,
-              "preprocess" => binding.preprocess,
-            }
-          end,
+          "bindings" => binding_list(rule),
         }
       end
 
@@ -362,9 +441,15 @@ module Parsanol
         Parsanol::Native::Parser.serialize_grammar(atom_for(rule))
       end
 
+      # Tables embed their resolved rows in the envelope (self-contained
+      # artifacts): every engine - Ruby, Rust, wasm, TS - reads rows from
+      # the artifact; no engine touches the filesystem, and the rows are
+      # covered by the checksum.
       def table_manifest
         @document.rules.each_value { |node| collect_tables(node) }
-        @tables.keys.to_h { |name| [name, "#{name}.yaml"] }
+        @tables.keys.to_h do |name|
+          [name, { "file" => "#{name}.yaml", "rows" => table_rows(name) }]
+        end
       end
 
       def collect_tables(node)

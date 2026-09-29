@@ -7,13 +7,20 @@ require "tmpdir"
 
 begin
   require "lutaml/model"
-rescue LoadError => e
+  require "nokogiri"
+rescue LoadError, StandardError => e
+  # LoadError without nokogiri; Moxml::AdapterError when the adapter
+  # gem exists only as a platform variant that is not installed.
   warn "lutaml-model load failed: #{e.class}: #{e.message}"
 end
 
-RSpec.describe Parsanol::PG::Lutaml do
+RSpec.describe Parsanol::PARG::Lutaml do
+  before do
+    skip "lutaml-model (with a working XML adapter) unavailable" unless defined?(Lutaml::Model)
+  end
+
   let(:source) do
-    <<~PG
+    <<~PARG
       grammar Demo version "1.0.0" {
         digit = %x30-39
         number = 1*digit
@@ -35,7 +42,7 @@ RSpec.describe Parsanol::PG::Lutaml do
       }
 
       entry identifier: iso_identifier
-    PG
+    PARG
   end
 
   let(:tables_dir) do
@@ -45,8 +52,8 @@ RSpec.describe Parsanol::PG::Lutaml do
   end
 
   let(:artifact_path) do
-    document = Parsanol::PG::Parser.new(source).parse
-    env = Parsanol::PG::Compiler.compile(document, tables_dir: tables_dir).envelope
+    document = Parsanol::PARG::Parser.new(source).parse
+    env = Parsanol::PARG::Compiler.compile(document, tables_dir: tables_dir).envelope
     file = File.join(tables_dir, "demo.json")
     File.write(file, JSON.generate(env))
     file
@@ -78,7 +85,7 @@ RSpec.describe Parsanol::PG::Lutaml do
     unless defined?(Lutaml::Model)
       expect do
         described_class.register(Object, format_name: :pg_demo, artifact: artifact_path, entry: "identifier")
-      end.to raise_error(Parsanol::PG::Error, /lutaml-model/)
+      end.to raise_error(Parsanol::PARG::Error, /lutaml-model/)
     end
   end
 end
@@ -86,6 +93,13 @@ end
 if defined?(Lutaml::Model)
   class PgLutamlDemoIdentifier
     include Lutaml::Model::Serialize
+
+    # lutaml-model 0.8.76's generated setters call this on
+    # plain-include models, but the method only lands in the ancestry
+    # on some rubies; order tracking is not needed here.
+    def record_mutation(_name, value = nil)
+      value
+    end
 
     attribute :publisher, :string
     attribute :number, :integer

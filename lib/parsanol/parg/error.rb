@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 module Parsanol
-  module PG
-    # Base class for all PG errors.
+  module PARG
+    # Base class for all PARG errors.
     class Error < StandardError; end
 
-    # Raised when .pg source text cannot be tokenized or parsed.
+    # Raised when .parg source text cannot be tokenized or parsed.
     class ParseError < Error; end
 
     # Raised when a parsed document is semantically invalid: left recursion,

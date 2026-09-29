@@ -2,10 +2,10 @@
 
 require "parsanol"
 
-RSpec.describe Parsanol::PG::Import do
+RSpec.describe Parsanol::PARG::Import do
   def compile_source(src, tables_dir: nil)
-    document = Parsanol::PG::Parser.new(src).parse
-    Parsanol::PG::Compiler.compile(document, tables_dir: tables_dir)
+    document = Parsanol::PARG::Parser.new(src).parse
+    Parsanol::PARG::Compiler.compile(document, tables_dir: tables_dir)
   end
 
   describe ":abnf" do
@@ -45,7 +45,7 @@ RSpec.describe Parsanol::PG::Import do
 
     it "rejects prose-vals" do
       expect { described_class.import(:abnf, "bad = <any char>\n") }
-        .to raise_error(Parsanol::PG::Import::Error, /prose/)
+        .to raise_error(Parsanol::PARG::Import::Error, /prose/)
     end
 
     it "converts decimal and binary numeric values to hex" do
@@ -82,7 +82,7 @@ RSpec.describe Parsanol::PG::Import do
 
     it "rejects special sequences" do
       expect { described_class.import(:ebnf, "x = ? control chars ? ;\n") }
-        .to raise_error(Parsanol::PG::Import::Error, /special sequence/)
+        .to raise_error(Parsanol::PARG::Import::Error, /special sequence/)
     end
   end
 
@@ -118,19 +118,19 @@ RSpec.describe Parsanol::PG::Import do
 
     it "rejects pest-only builtins" do
       expect { described_class.import(:pest, "r = { PUSH(\"x\") }") }
-        .to raise_error(Parsanol::PG::Import::Error, /PUSH/)
+        .to raise_error(Parsanol::PARG::Import::Error, /PUSH/)
     end
 
     it "rejects the implicit WHITESPACE rule" do
       expect { described_class.import(:pest, "WHITESPACE = { \" \" }") }
-        .to raise_error(Parsanol::PG::Import::Error, /WHITESPACE/)
+        .to raise_error(Parsanol::PARG::Import::Error, /WHITESPACE/)
     end
   end
 
   describe "unknown kinds" do
     it "raises with the supported list" do
       expect { described_class.import(:bnf, "x = y") }
-        .to raise_error(Parsanol::PG::Import::Error, /:abnf, :ebnf, :pest/)
+        .to raise_error(Parsanol::PARG::Import::Error, /:abnf, :ebnf, :pest/)
     end
   end
 end

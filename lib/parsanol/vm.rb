@@ -168,7 +168,7 @@ module Parsanol
         # included — the seed is recomputed at every compile), so the
         # cold-start never pays the doomed unmemoized exploration.
         if compiler.backtracking_prone
-          # rubocop:disable-next Lint/HashCompareByIdentity -- object_id keys match run_for's heavy flag; would otherwise pin every grammar alive
+          # rubocop:disable-next Lint/HashCompareByIdentity -- object_id keys mirror run_for's heavy flag
           (@heavy ||= {})[root.object_id] = true
         end
 
@@ -456,8 +456,7 @@ module Parsanol
         end
       end
 
-      # Wrapper branches (Entity/Scope) share body shapes by design.
-      # rubocop:disable-next Lint/DuplicateBranch
+      # rubocop:disable Lint/DuplicateBranch -- Wrapper branches (Entity/Scope) share body shapes by design
       def nullable?(atom, depth = 0)
         return false if depth > 10
 
@@ -473,12 +472,14 @@ module Parsanol
         when Parsanol::Atoms::Ignored then nullable?(atom.wrapped_atom, depth + 1)
         when Parsanol::Atoms::Lookahead then true
         when Parsanol::Atoms::Entity, Parsanol::Atoms::Scope
-          nullable_wrapped?( # rubocop:disable Lint/DuplicateBranch -- Entity/Scope differ only in accessor
+          # rubocop:disable Lint/DuplicateBranch -- Entity/Scope differ only in accessor
+          nullable_wrapped?(
             -> { atom.is_a?(Parsanol::Atoms::Entity) ? atom.parslet : atom.block.call }, depth
           )
         else false
         end
       end
+      # rubocop:enable Lint/DuplicateBranch
 
       # Entity and Scope wrap lazily-resolvable inners through different
       # accessors; the nullability logic is shared.
@@ -866,7 +867,7 @@ module Parsanol
         memo_stack = []
         trace = ENV["VM_TRACE"] ? [] : nil
 
-        # rubocop:disable-next Metrics/BlockLength -- the dispatch loop IS execute
+        # rubocop:disable Metrics/BlockLength -- the dispatch loop IS execute
         loop do
           steps += 1
           if steps > budget
@@ -1340,6 +1341,7 @@ module Parsanol
           else
             return BAIL
           end
+          # rubocop:enable Metrics/BlockLength
         end
       end
 

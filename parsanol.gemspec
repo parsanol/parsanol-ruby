@@ -29,7 +29,9 @@ Gem::Specification.new do |spec|
   # Rust extension
   spec.extensions = ["ext/parsanol_native/extconf.rb"]
 
-  spec.files = Dir.glob("{lib,ext}/**/*") + %w[
+  spec.executables = %w[parsanol]
+  spec.bindir = "exe"
+  spec.files = Dir.glob("{lib,ext,exe}/**/*") + %w[
     HISTORY.txt
     LICENSE
     Rakefile

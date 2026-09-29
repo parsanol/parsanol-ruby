@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 module Parsanol
-  module PG
-    # PG intermediate representation node.
+  module PARG
+    # PARG intermediate representation node.
     #
     # kind + payload slots:
     #   [:lit,   string, fold]            literal; fold = case-insensitive

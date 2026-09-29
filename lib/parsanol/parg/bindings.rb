@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Parsanol
-  module PG
+  module PARG
     # Applies an entry's artifact bindings to a parsanol-shape parse tree,
     # producing the attribute hash that fills a lutaml-model class:
     # capture collection -> preprocessing -> type cast -> path assignment.
@@ -108,7 +108,18 @@ module Parsanol
         case type
         when "integer" then Integer(value)
         when "float" then Float(value)
-        when "string" then value.to_s
+        when "string"
+          # Parsanol::Slice (Ruby atom runtime) and native leaf objects are
+          # the shape contract's capture leaves; their to_s is the text.
+          scalar = value.nil? || value.is_a?(String) || value.is_a?(Numeric) ||
+            value == true || value == false || value.is_a?(Parsanol::Slice)
+          unless scalar
+            raise ArtifactError,
+                  "cannot bind a #{value.class} capture to (string); " \
+                  "captures must be scalar"
+          end
+
+          value.to_s
         when "boolean" then value == true || value.to_s.casecmp("true").zero?
         else value
         end
