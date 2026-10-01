@@ -22,8 +22,10 @@ module Parsanol
     # never raises NameError into the silent :ruby fallback (issue #38).
     autoload :Dynamic, "parsanol/native/dynamic"
     class << self
-      # Check if native extension is available
+      # Check if native extension is available. First call performs the
+      # lazy bundle load (see the bottom of this file).
       def available?
+        native_load!
         Parser.available?
       end
 
@@ -304,14 +306,33 @@ module Parsanol
   end
 end
 
-# Attempt to load native extension
-begin
-  ruby_version = RUBY_VERSION.split(".").take(2).join(".")
-  require "parsanol/#{ruby_version}/parsanol_native"
-rescue LoadError
-  begin
-    require "parsanol/parsanol_native"
-  rescue LoadError
-    # Native extension not built yet
+# The native extension loads lazily: dyld-binding the statically-linked
+# engine plus magnus/rb-sys init costs on the order of two seconds, and
+# `require "parsanol"` must stay cheap for consumers that only configure
+# grammars up front. `available?` and `parse` trigger the load; once the
+# bundle is in, its definitions of these same methods take over.
+module Parsanol
+  module Native
+    @native_state = :pending
+
+    class << self
+      def native_load!
+        return @native_state unless @native_state == :pending
+
+        @native_state = begin
+          ruby_version = RUBY_VERSION.split(".").take(2).join(".")
+          require "parsanol/#{ruby_version}/parsanol_native"
+          :loaded
+        rescue LoadError
+          begin
+            require "parsanol/parsanol_native"
+            :loaded
+          rescue LoadError
+            :unavailable
+          end
+        end
+      end
+
+    end
   end
 end
