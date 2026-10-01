@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# The PARG compiler builds Parsanol atoms, so requiring "parsanol/parg"
+# directly must also load the parsanol core.
+require "parsanol"
+
 module Parsanol
   # PARG — the parsanol grammar language.
   #
