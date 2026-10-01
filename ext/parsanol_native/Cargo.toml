@@ -28,7 +28,7 @@ rb-sys = { version = "0.9.124", features = ["global-allocator"] }
 magnus = { version = "0.9" }
 
 # parsanol parser library (crates.io; 0.10 carries the class fast-path fix)
-parsanol = { version = "0.10", features = ["ruby"] }
+parsanol = { version = "0.10.2", features = ["ruby"] }
 
 # Logging
 log = "0.4"
