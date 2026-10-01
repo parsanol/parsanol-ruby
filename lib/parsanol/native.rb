@@ -332,7 +332,6 @@ module Parsanol
           end
         end
       end
-
     end
   end
 end
