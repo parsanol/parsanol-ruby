@@ -241,6 +241,14 @@ module Parsanol
           value.raise
         end
 
+        if (marker = error.message.match(NATIVE_POS_MARKER))
+          source = Parsanol::Source.new(input)
+          cause = Parsanol::Cause.new(
+            error.message.sub(NATIVE_POS_MARKER, ""), source, marker[1].to_i
+          )
+          raise Parsanol::ParseFailed.new(cause.to_s, cause)
+        end
+
         source = Parsanol::Source.new(input)
         cause = Parsanol::Cause.new(error.message, source, source.bytepos)
         raise Parsanol::ParseFailed.new(cause.to_s, cause)
