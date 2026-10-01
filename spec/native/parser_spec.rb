@@ -122,6 +122,27 @@ RSpec.describe Parsanol::Native::Parser do
     end
   end
 
+  describe ".parse with a pre-serialized JSON grammar", :native do
+    before do
+      skip "Native extension not available" unless described_class.available?
+    end
+
+    it "raises ParseFailed whose cause carries the deepest native position" do
+      grammar_json = described_class.serialize_grammar(
+        str("ab") >> any >> match("[0-9]").repeat(1).as(:n),
+      )
+
+      expect { described_class.parse(grammar_json, "ab\nXY") }
+        .to raise_error(Parsanol::ParseFailed) do |error|
+          cause = error.parse_failure_cause
+          expect(cause.position).to eq(3)
+          expect(cause.source.line_and_column(cause.position)).to eq([2, 1])
+          expect(error.message).to include("at line 2 char 1")
+          expect(error.message).not_to include("@@parsanol_pos")
+        end
+    end
+  end
+
   describe ".serialize_grammar" do
     it "returns a JSON string" do
       result = described_class.serialize_grammar(str("test").as(:value))
