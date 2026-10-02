@@ -40,9 +40,13 @@ module Parsanol
         end
       end
 
-      def initialize(document, tables_dir)
+      def initialize(document, tables_dir, bindings: nil)
         @document = document
         @tables_dir = tables_dir
+        # Envelope v2 (parsanol-rs#143): grammar-to-model bindings bake
+        # into the checksummed envelope so every tier consumes one
+        # declaration. Data pass-through in phase 1.
+        @bindings = bindings
         @atom_cache = {}
         @first_cache = {}.compare_by_identity
         @ref_stack = []
@@ -396,6 +400,7 @@ module Parsanol
           [name, entry_envelope(rule)]
         end
         envelope = {
+          "bindings" => @bindings,
           "version" => @document.version,
           "grammar" => @document.grammar_name,
           "shape" => "parsanol-tree/v2",
