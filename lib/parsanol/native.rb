@@ -220,15 +220,21 @@ module Parsanol
         # to recover inputs from grammars native cannot express.
         parsanol_grammar =
           grammar.is_a?(Parsanol::Atoms::Base) || grammar.is_a?(Parsanol::Parser)
-        if parsanol_grammar && (m = error.message.match(NATIVE_POS_MARKER))
+        # The position capture is extracted as a plain String: a MatchData
+        # would pin its subject — the full multi-KB failure message — for
+        # as long as anything downstream retains it, and callers that
+        # rescue-and-collect (pubid's flavor dispatcher) retain millions
+        # across long parses (#123).
+        message = error.message
+        if parsanol_grammar && (pos_str = message[NATIVE_POS_MARKER, 1])
           source = Parsanol::Source.new(input)
           success, value = grammar.run_with_context(source, nil, true)
           return grammar.finalize_result(value) if success
 
-          pos = m[1].to_i
-          msg = error.message.sub(NATIVE_POS_MARKER, "")
+          pos = pos_str.to_i
+          msg = message.sub(NATIVE_POS_MARKER, "")
           cause = Parsanol::Cause.new(msg, source, pos)
-          raise Parsanol::ParseFailed.new(cause.to_s, cause)
+          raise Parsanol::ParseFailed.new(cause.to_s, cause), cause: nil
         end
 
         if parsanol_grammar
@@ -243,17 +249,20 @@ module Parsanol
           value.raise
         end
 
-        if (marker = error.message.match(NATIVE_POS_MARKER))
+        # Same capture-string extraction as above; `cause: nil` keeps the
+        # retained ParseFailed from pinning the original RuntimeError and
+        # its message through the exception-cause chain (#123).
+        if (pos_str = message[NATIVE_POS_MARKER, 1])
           source = Parsanol::Source.new(input)
           cause = Parsanol::Cause.new(
-            error.message.sub(NATIVE_POS_MARKER, ""), source, marker[1].to_i
+            message.sub(NATIVE_POS_MARKER, ""), source, pos_str.to_i
           )
-          raise Parsanol::ParseFailed.new(cause.to_s, cause)
+          raise Parsanol::ParseFailed.new(cause.to_s, cause), cause: nil
         end
 
         source = Parsanol::Source.new(input)
-        cause = Parsanol::Cause.new(error.message, source, source.bytepos)
-        raise Parsanol::ParseFailed.new(cause.to_s, cause)
+        cause = Parsanol::Cause.new(message, source, source.bytepos)
+        raise Parsanol::ParseFailed.new(cause.to_s, cause), cause: nil
       end
 
       # Pre-serialized JSON grammar path (library authors with cached JSON).
