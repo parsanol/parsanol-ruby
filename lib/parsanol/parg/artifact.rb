@@ -28,8 +28,13 @@ module Parsanol
         unless envelope["shape"] == SUPPORTED_SHAPE
           raise ArtifactError,
                 "unsupported artifact shape #{envelope['shape'].inspect} " \
-                "(this runtime implements #{SUPPORTED_SHAPE.inspect})"
+                "(this runtime implements #{SUPPORTED_SHAPE.inspect}; the " \
+                "contract is docs/PARSANOL-SHAPE-v2.md in parsanol-rs — " \
+                "a shape bump requires a new engine family, artifacts " \
+                "declaring #{SUPPORTED_SHAPE.inspect} parse identically forever)"
         end
+        bindings = envelope["bindings"]
+        validate_bindings!(bindings) unless bindings.nil?
         @envelope = envelope
         @path = path
         @tables_dir = tables_dir
@@ -139,13 +144,25 @@ module Parsanol
 
       # Structured parse diagnostics (PN 2): {offset, message} for the
       # deepest failure of the most recent parse attempt on this entry.
+      # Structured parse diagnostics — the flat v1 wire format every
+      # backend agrees on (parsanol-rs#145): offset, the expected-symbol
+      # list, and a message, fetched out-of-band so success paths pay
+      # nothing. Full cause trees stay a Ruby-side diagnostic.
       def parse_with_diagnostics(entry_name, input, mode: :native)
         shape = parse(entry_name, input, mode: mode)
-        { "ok" => true, "offset" => nil, "message" => nil, "shape" => shape }
+        { "ok" => true, "offset" => nil, "expected" => [],
+          "message" => nil, "shape" => shape }
       rescue Parsanol::ParseFailed => e
         cause = deepest_cause(e.parse_failure_cause)
         { "ok" => false, "offset" => cause&.position,
+          "expected" => expected_labels_for(cause),
           "message" => cause&.message || e.message, "shape" => nil }
+      end
+
+      def expected_labels_for(cause)
+        return [] unless cause.respond_to?(:expected)
+
+        Array(cause.expected)
       end
 
       def deepest_cause(cause)
@@ -177,6 +194,39 @@ module Parsanol
                else raise ArtifactError, "table #{name.inspect} must be a map or array"
                end
         @table_cache[name] = rows
+      end
+
+      # The envelope's optional grammar-to-model bindings section
+      # (envelope v2, parsanol-rs#143): capture name -> model attribute
+      # paths, type casts, cardinality, and preprocessing step refs,
+      # declared once and consumed identically by every tier's binder.
+      # Phase 1 validates the section's shape and exposes it as data.
+      def bindings
+        envelope["bindings"]
+      end
+
+      BINDINGS_ALLOWED_KEYS = %w[captures entries version].freeze
+
+      def validate_bindings!(bindings)
+        unless bindings.is_a?(Hash)
+          raise ArtifactError, "bindings section must be a map (got #{bindings.class})"
+        end
+
+        unknown = bindings.keys - BINDINGS_ALLOWED_KEYS
+        unless unknown.empty?
+          raise ArtifactError, "bindings section has unknown keys: #{unknown.inspect}"
+        end
+
+        (bindings["captures"] || {}).each do |name, spec|
+          unless spec.is_a?(Hash) && spec["path"].is_a?(String)
+            raise ArtifactError,
+                  "bindings capture #{name.inspect} must declare a string :path"
+          end
+        end
+      rescue ArtifactError
+        raise
+      rescue StandardError => e
+        raise ArtifactError, "malformed bindings section: #{e.class}: #{e.message}"
       end
 
       def compiler
