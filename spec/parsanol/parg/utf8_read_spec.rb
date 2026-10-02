@@ -175,7 +175,8 @@ RSpec.describe "PARG file reads under a non-UTF-8 locale" do
       $stdin = StringIO.new((+"CD–12\n").force_encoding(Encoding::US_ASCII))
       cli = Parsanol::PARG::CLI.new(["repl", artifact_path])
 
-      expect { cli.run }.to output(/captures: .*number: 12/).to_stdout
+      # Hash#inspect prints `:number=>12` before Ruby 3.4, `number: 12` after.
+      expect { cli.run }.to output(/captures: .*number(?:=>|: )12/).to_stdout
     ensure
       $stdin = STDIN
     end
