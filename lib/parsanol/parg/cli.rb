@@ -36,7 +36,8 @@ module Parsanol
       end
 
       def initialize(argv)
-        @argv = argv.dup
+        # Under a non-UTF-8 locale ARGV arrives as BINARY; inputs are UTF-8.
+        @argv = argv.map { |arg| arg.dup.force_encoding(Encoding::UTF_8) }
         @tables_dir = nil
       end
 
@@ -82,7 +83,7 @@ module Parsanol
         source = @argv.shift
         out = flag_value("-o") || default_artifact_name(source)
         envelope = compile_source(source).envelope
-        File.write(out, "#{JSON.generate(envelope)}\n")
+        File.write(out, "#{JSON.generate(envelope)}\n", encoding: Encoding::UTF_8)
         puts "#{out}  #{envelope['checksum']}  warnings=#{envelope['lint']['order_warnings'].size}"
         0
       end
@@ -161,7 +162,7 @@ module Parsanol
         puts "parsanol parg repl — #{file} entry #{entry_name.inspect}; blank line quits"
         loop do
           print "> "
-          input = $stdin.gets
+          input = $stdin.gets&.force_encoding(Encoding::UTF_8)
           break if input.nil? || input.strip.empty?
 
           begin
@@ -209,7 +210,7 @@ module Parsanol
 
       def compile_source(file)
         tables = @tables_dir || default_tables_dir(file)
-        document = Parsanol::PARG::Parser.new(File.read(file)).parse
+        document = Parsanol::PARG::Parser.new(PARG.read_utf8(file)).parse
         Parsanol::PARG::Imports.merge!(document, [File.dirname(file)])
         Parsanol::PARG::Compiler.compile(document, tables_dir: tables)
       end

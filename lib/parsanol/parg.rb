@@ -38,5 +38,12 @@ module Parsanol
     autoload :Imports, "parsanol/parg/imports"
     autoload :Suite, "parsanol/parg/authoring"
     autoload :Schema, "parsanol/parg/authoring"
+
+    # PARG sources and JSON artifacts are UTF-8 by definition: read them as
+    # UTF-8 whatever the locale's default external encoding, and skip a
+    # byte-order mark the way YAML.safe_load_file does (GH-121).
+    def self.read_utf8(path)
+      File.read(path, mode: "r:bom|utf-8")
+    end
   end
 end

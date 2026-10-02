@@ -14,7 +14,7 @@ module Parsanol
       attr_reader :envelope, :path, :tables_dir
 
       def self.load(path, tables_dir: nil)
-        envelope = JSON.parse(File.read(path))
+        envelope = JSON.parse(PARG.read_utf8(path))
         new(envelope, path, tables_dir || File.dirname(path))
       end
 
@@ -169,7 +169,7 @@ module Parsanol
 
         file = declared
         path = File.join(@tables_dir.to_s, file)
-        raw = path.end_with?(".json") ? JSON.parse(File.read(path)) : YAML.safe_load_file(path, aliases: true)
+        raw = path.end_with?(".json") ? JSON.parse(PARG.read_utf8(path)) : YAML.safe_load_file(path, aliases: true)
         rows = case raw
                when Hash
                  raw.map { |key, value| { "name" => key.to_s }.merge(value.to_h.transform_keys(&:to_s)) }
