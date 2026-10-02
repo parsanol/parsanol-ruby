@@ -169,7 +169,7 @@ module Parsanol
 
         file = declared
         path = File.join(@tables_dir.to_s, file)
-        raw = path.end_with?(".json") ? JSON.parse(PARG.read_utf8(path)) : YAML.safe_load_file(path, aliases: true)
+        raw = path.end_with?(".json") ? JSON.parse(PARG.read_utf8(path)) : YAML.safe_load(PARG.read_utf8(path), aliases: true)
         rows = case raw
                when Hash
                  raw.map { |key, value| { "name" => key.to_s }.merge(value.to_h.transform_keys(&:to_s)) }
