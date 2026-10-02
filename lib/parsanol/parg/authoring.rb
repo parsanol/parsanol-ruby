@@ -25,7 +25,7 @@ module Parsanol
       end
 
       def read_file(file)
-        content = File.read(file).gsub(/^#[^\n]*\n/, "")
+        content = PARG.read_utf8(file).gsub(/^#[^\n]*\n/, "")
         header = content.match(/suite\s+\w+(?:\s+for\s+entry\s+(?<entry>\w+))?\s*\{/)
         unless header
           raise ParseError,

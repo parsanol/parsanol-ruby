@@ -32,7 +32,7 @@ module Parsanol
       def validate(source)
         raise ArtifactError, "parg artifact not found (set PG_ARTIFACT)" unless available?
 
-        envelope = JSON.parse(File.read(artifact_path))
+        envelope = JSON.parse(PARG.read_utf8(artifact_path))
         artifact = Artifact.new(envelope, nil, nil)
         artifact.parse("file", source)
       end

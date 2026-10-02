@@ -19,7 +19,7 @@ module Parsanol
           raise CompileError, "import cycle: #{(merging + [name]).join(' -> ')}" if merging.include?(name)
 
           source = find_file(name, import_dirs)
-          used = Parser.new(File.read(source)).parse
+          used = Parser.new(PARG.read_utf8(source)).parse
           merge!(used, import_dirs, merging + [name])
           merge_used(document, used, "#{name}.")
         end

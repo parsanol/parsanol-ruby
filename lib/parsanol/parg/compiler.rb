@@ -254,7 +254,7 @@ module Parsanol
         end
 
         raw = if path.end_with?(".json")
-                JSON.parse(File.read(path))
+                JSON.parse(PARG.read_utf8(path))
               else
                 YAML.safe_load_file(path, aliases: true)
               end
