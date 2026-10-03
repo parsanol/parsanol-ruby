@@ -536,11 +536,19 @@ module Parsanol
           if tables.all? && pairwise_disjoint?(tables)
             dispatch_idx = emit(BYTE_DISPATCH, nil, nil, nil)
             starts = []
+            # A dispatched branch that matched must not fall through into
+            # the next branch's code: the tables are lead-byte disjoint,
+            # but the remaining input can still satisfy a later branch's
+            # terminals (pubid: " - " — the '-' branch ran the ' ' branch's
+            # STR on the byte after the dash). Jump every branch but the
+            # last past the dispatch.
+            jumps = []
             idx = 0
             while idx < count
               starts << flat(@ops.size)
               return nil unless compile_atom(alts[idx], consume_all)
 
+              jumps << emit(JMP, nil, nil, nil) unless idx == count - 1
               idx += 1
             end
             table = Array.new(256, -1)
@@ -555,6 +563,7 @@ module Parsanol
               bi2
             end
             patch(dispatch_idx, 1, table)
+            jumps.each { |j| patch(j, 1, flat(@ops.size)) }
             return self
           end
 
