@@ -53,7 +53,7 @@ RSpec.describe "VM byte-dispatch branch termination" do
     expect(result).to eq(
       number: Parsanol::Slice.new(0, "1012", nil),
       draft: Parsanol::Slice.new(4, " -", nil),
-      redline: Parsanol::Slice.new(6, " Redline", nil)
+      redline: Parsanol::Slice.new(6, " Redline", nil),
     )
   end
 
@@ -73,12 +73,12 @@ RSpec.describe "VM byte-dispatch branch termination" do
     expect(parser.parse("x[-]y", mode: :ruby)).to eq(
       [{ word: Parsanol::Slice.new(0, "x", nil) },
        { bracket: { sep: Parsanol::Slice.new(2, "-", nil) } },
-       { word: Parsanol::Slice.new(4, "y", nil) }]
+       { word: Parsanol::Slice.new(4, "y", nil) }],
     )
     expect(parser.parse("x[ ]y", mode: :ruby)).to eq(
       [{ word: Parsanol::Slice.new(0, "x", nil) },
        { bracket: { sep: Parsanol::Slice.new(2, " ", nil) } },
-       { word: Parsanol::Slice.new(4, "y", nil) }]
+       { word: Parsanol::Slice.new(4, "y", nil) }],
     )
   end
 
@@ -91,8 +91,12 @@ RSpec.describe "VM byte-dispatch branch termination" do
     # pc, operands at pc+1..pc+3. Find the BYTE_DISPATCH instruction and
     # assert the non-last branch bodies end in a JMP — the terminator
     # that prevents fall-through.
-    opcode, operand = 0, 1
-    str_op, jmp_op, dispatch_op, seq_end_op = 1, 8, 27, 5
+    _ = 0
+    operand = 1
+    str_op = 1
+    jmp_op = 8
+    dispatch_op = 27
+    seq_end_op = 5
     dispatch_idx = (0...program.size).step(4).find do |pc|
       program[pc] == dispatch_op
     end
