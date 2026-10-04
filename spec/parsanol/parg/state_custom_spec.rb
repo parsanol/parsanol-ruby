@@ -97,7 +97,6 @@ RSpec.describe "PARG runtime state and customs (#129)" do
 
   describe "custom bindings" do
     before do
-      spec = self
       stub_const("SpecMarkA", Class.new(Parsanol::Atoms::Custom) do
         define_method(:try_match) do |source, _context, _consume_all|
           next [false, nil] if source.peek(1) != "A"
