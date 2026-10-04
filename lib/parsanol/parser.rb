@@ -238,6 +238,11 @@ module Parsanol
     # The degradation warning prints once per reason per process — not
     # per parser instance and not per parse.
     def native_expressible?
+      # The ext attaches its methods lazily (available? triggers the load);
+      # without this guard a first-touch call NoMethodErrors inside the
+      # serializer (Dynamic.register -> Native.register_callback).
+      return false unless Parsanol::Native.available?
+
       Parsanol::Native::Parser.grammar_handle(root)
       true
     rescue Parsanol::Native::UnsupportedGrammar => e
