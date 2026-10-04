@@ -19,7 +19,7 @@ module Parsanol
       IN_BLOCK_SECTIONS = %w[entry bindings preprocess test].freeze
 
       KEYWORDS = %w[grammar as alt from_table column bindings render derive
-                    preprocess entry table_lookup].freeze
+                    preprocess entry table_lookup custom state set switch].freeze
 
       def initialize(text)
         @tokens = Lexer.new(text).tokens
@@ -160,6 +160,19 @@ module Parsanol
             skip_newlines
             next
           end
+          if peek&.type == :ident && %w[custom state].include?(peek.value)
+            keyword = advance.value
+            slot = ident.value
+            if keyword == "custom"
+              punct("=")
+              document.customs[slot] = unquote(expect(:str).value)
+            else
+              punct(":")
+              document.states[slot] = ident.value
+            end
+            skip_newlines
+            next
+          end
           name = rule_name
           document.docs[name] = docs.join("\n") unless docs.empty?
           punct("=")
@@ -274,6 +287,29 @@ module Parsanol
 
       def parse_ident(token)
         case token.value
+        when "set"
+          slot = ident.value
+          punct("=")
+          Node.new(:set, slot, unquote(expect(:str).value))
+        when "switch"
+          slot = ident.value
+          punct("{")
+          skip_newlines
+          arms = []
+          until peek&.type == :punct && peek.value == "}"
+            match = if peek&.type == :ident && peek.value == "_"
+                      advance
+                      :default
+                    else
+                      unquote(expect(:str).value)
+                    end
+            arrow = advance
+            raise ParseError, "expected \"->\", got #{arrow&.type}:#{arrow&.value}" unless arrow&.value == "->"
+            arms << [match, ident.value]
+            skip_newlines
+          end
+          punct("}")
+          Node.new(:switch, slot, arms)
         when "alt"
           ident("from_table")
           table = unquote(expect(:str).value)

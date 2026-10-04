@@ -194,6 +194,22 @@ module Parsanol
           end
 
           Atoms::Named.new(build_atom(node.b), node.a.to_sym)
+        when :set
+          slot = node.a.to_sym
+          value = node.b
+          Atoms::Dynamic.new(lambda do |_source, context|
+            context.captures[slot] = value
+            Atoms::Str.new("")
+          end)
+        when :switch
+          slot = node.a.to_sym
+          arms = node.b.to_h { |match, rule| [match, rule] }
+          default = arms.delete(:default)
+          Atoms::Dynamic.new(lambda do |_source, context|
+            current = context.captures[slot]
+            rule = arms[current] || default
+            rule.nil? ? nil : atom_for(rule)
+          end)
         when :ref then Atoms::Entity.new(node.a) { atom_for(node.a) }
         when :table
           values = table_column(node.a, node.b)
