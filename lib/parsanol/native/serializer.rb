@@ -68,6 +68,14 @@ module Parsanol
                      serialize_capture(atom)
                    when Parsanol::Atoms::Scope
                      serialize_scope(atom)
+                   when Parsanol::Atoms::StateSet
+                     serialize_state_set(atom)
+                   when Parsanol::Atoms::StateMatch
+                     serialize_state_match(atom)
+                   when Parsanol::Atoms::StateSwitch
+                     serialize_state_switch(atom)
+                   when Parsanol::Atoms::CustomRef
+                     serialize_custom_ref(atom)
                    when Parsanol::Atoms::Dynamic
                      serialize_dynamic(atom)
                    when Parsanol::Atoms::Ignored
@@ -217,6 +225,34 @@ module Parsanol
           "atom" => serialize_atom(inner),
         },
       }
+    end
+
+    def serialize_state_set(atom)
+      payload = { "slot" => atom.slot.to_s }
+      if atom.atom
+        payload["expr"] = serialize_atom(atom.atom)
+      else
+        payload["value"] = atom.value
+      end
+      { "StateSet" => payload }
+    end
+
+    def serialize_state_match(atom)
+      { "StateMatch" => { "slot" => atom.slot.to_s } }
+    end
+
+    def serialize_state_switch(atom)
+      {
+        "StateSwitch" => {
+          "slot" => atom.slot.to_s,
+          "arms" => atom.arms.transform_keys(&:to_s),
+          "default" => atom.default,
+        },
+      }
+    end
+
+    def serialize_custom_ref(atom)
+      { "CustomRef" => { "name" => atom.name } }
     end
 
     def serialize_dynamic(atom)

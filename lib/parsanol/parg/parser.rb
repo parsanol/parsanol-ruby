@@ -287,10 +287,23 @@ module Parsanol
 
       def parse_ident(token)
         case token.value
+        when "state"
+          Node.new(:state_match, ident.value)
         when "set"
           slot = ident.value
           punct("=")
-          Node.new(:set, slot, unquote(expect(:str).value))
+          # A string writes the literal; a bare name copies the matched
+          # text of a capture (the block-delimiter pattern: set the slot
+          # from what the opening delimiter matched).
+          value = if peek&.type == :str
+                    unquote(expect(:str).value)
+                  else
+                    punct("(")
+                    inner = parse_choice
+                    punct(")")
+                    inner
+                  end
+          Node.new(:set, slot, value)
         when "switch"
           slot = ident.value
           punct("{")

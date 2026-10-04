@@ -50,6 +50,7 @@ module Parsanol
         @atom_cache = {}
         @first_cache = {}.compare_by_identity
         @ref_stack = []
+        @dynamic = false
         @tables = {}
         @warnings = []
       end
@@ -65,6 +66,16 @@ module Parsanol
 
         envelope = build_envelope
         Result.new(@atom_cache, @warnings, envelope)
+      end
+
+      def resolve_custom(name)
+        class_name = @document.customs.fetch(name)
+        klass = Object.const_get(class_name)
+        Atoms::CustomRef.new(name, klass)
+      rescue NameError
+        raise CompileError,
+              "custom atom #{name.inspect} cannot resolve #{class_name.inspect} " \
+              "(bind the class before compiling, or fix the custom declaration)"
       end
 
       def atom_for(name)
@@ -157,6 +168,13 @@ module Parsanol
       end
 
       def fetch_rule(name)
+        # Customs are opaque terminals for the analysis passes (first
+        # sets, left-recursion): a literal stand-in keeps them
+        # non-nullable with a singleton first set.
+        if !@document.rules.key?(name) && @document.customs.key?(name)
+          return Node.new(:lit, "\u0001", false)
+        end
+
         @document.rules[name] || raise(CompileError, "unknown rule #{name.inspect}")
       end
 
@@ -195,22 +213,30 @@ module Parsanol
 
           Atoms::Named.new(build_atom(node.b), node.a.to_sym)
         when :set
+          @dynamic = true
           slot = node.a.to_sym
           value = node.b
-          Atoms::Dynamic.new(lambda do |_source, context|
-            context.captures[slot] = value
-            Atoms::Str.new("")
-          end)
+          if value.is_a?(String)
+            Atoms::StateSet.new(slot, value: value)
+          else
+            Atoms::StateSet.new(slot, atom: build_atom(value))
+          end
+        when :state_match
+          @dynamic = true
+          Atoms::StateMatch.new(node.a.to_sym)
         when :switch
+          @dynamic = true
           slot = node.a.to_sym
           arms = node.b.to_h { |match, rule| [match, rule] }
           default = arms.delete(:default)
-          Atoms::Dynamic.new(lambda do |_source, context|
-            current = context.captures[slot]
-            rule = arms[current] || default
-            rule.nil? ? nil : atom_for(rule)
-          end)
-        when :ref then Atoms::Entity.new(node.a) { atom_for(node.a) }
+          Atoms::StateSwitch.new(slot, arms, default, method(:atom_for))
+        when :ref
+          if @document.customs.key?(node.a)
+            @dynamic = true
+            resolve_custom(node.a)
+          else
+            Atoms::Entity.new(node.a) { atom_for(node.a) }
+          end
         when :table
           values = table_column(node.a, node.b)
           Atoms::Alternative.new(*values.map { |value| Atoms::Str.new(value) })
@@ -446,6 +472,9 @@ module Parsanol
           "docs" => @document.docs,
           "source" => @document.source,
         }
+        envelope["customs"] = @document.customs unless @document.customs.empty?
+        envelope["states"] = @document.states unless @document.states.empty?
+        envelope["dynamic"] = true if @dynamic
         envelope["checksum"] = Compiler.checksum(envelope)
         envelope
       end
