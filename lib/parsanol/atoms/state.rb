@@ -45,7 +45,7 @@ module Parsanol
 
       attr_reader :slot, :value, :atom
 
-      def try(source, context, consume_all)
+      def try(source, context, _consume_all)
         mark_unsafe(context)
         if @atom.nil?
           context.captures[@slot] = @value
@@ -62,7 +62,7 @@ module Parsanol
       end
 
       def to_s_inner(_prec)
-        "set #{@slot}=#{@value || "…"}"
+        "set #{@slot}=#{@value || '…'}"
       end
     end
 
@@ -112,9 +112,7 @@ module Parsanol
         mark_unsafe(context)
         current = lookup(context, @slot)
         rule_name = @arms[current] || @default
-        if rule_name.nil?
-          return [false, nil] if rule_name.nil?
-        end
+        return [false, nil] if rule_name.nil?
 
         @resolver.call(rule_name).apply(source, context, consume_all)
       end

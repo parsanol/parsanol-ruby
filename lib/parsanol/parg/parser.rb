@@ -18,6 +18,7 @@ module Parsanol
 
       IN_BLOCK_SECTIONS = %w[entry bindings preprocess test].freeze
 
+      STATE_KEYWORDS = %w[custom state].freeze
       KEYWORDS = %w[grammar as alt from_table column bindings render derive
                     preprocess entry table_lookup custom state set switch].freeze
 
@@ -160,7 +161,7 @@ module Parsanol
             skip_newlines
             next
           end
-          if peek&.type == :ident && %w[custom state].include?(peek.value)
+          if peek&.type == :ident && STATE_KEYWORDS.include?(peek.value)
             keyword = advance.value
             slot = ident.value
             if keyword == "custom"
@@ -318,6 +319,7 @@ module Parsanol
                     end
             arrow = advance
             raise ParseError, "expected \"->\", got #{arrow&.type}:#{arrow&.value}" unless arrow&.value == "->"
+
             arms << [match, ident.value]
             skip_newlines
           end
