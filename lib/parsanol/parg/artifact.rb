@@ -57,11 +57,18 @@ module Parsanol
       # path is a straight register-and-run — no Ruby recompilation. The
       # Ruby atom runtime (mode: :ruby) remains available explicitly, and
       # serves as the fallback on platforms without the extension.
+      #
+      # Dynamic artifacts (runtime state, custom atoms — #129) route to
+      # the Ruby engine: the envelope carries the PARG source precisely
+      # so a Ruby runtime can rebuild the live atom tree; the closures
+      # are not portable JSON.
       def parse(entry_name, input, mode: :native)
         case mode
         when :native
-          if Native.available?
-            return Native.parse(JSON.generate(entry(entry_name).fetch("grammar")), input)
+          unless envelope["dynamic"]
+            if Native.available?
+              return Native.parse(JSON.generate(entry(entry_name).fetch("grammar")), input)
+            end
           end
 
           root_atom(entry_name).parse(input)

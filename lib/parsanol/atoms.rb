@@ -38,6 +38,7 @@ module Parsanol
     require "parsanol/atoms/entity"
     require "parsanol/atoms/capture"
     require "parsanol/atoms/dynamic"
+    require "parsanol/atoms/state"
     require "parsanol/atoms/scope"
     require "parsanol/atoms/infix"
     # Load visitor pattern (must be after all atom classes)

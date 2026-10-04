@@ -84,6 +84,14 @@ module Parsanol
       @active_frame.fetch(key)
     end
 
+    # Chain-aware read: the active frame, then its parents ([] is
+    # deliberately active-frame-only for capture-scope discipline; state
+    # atoms read across frames — a slot may have been written inside an
+    # earlier sibling element's frame).
+    def fetch(key)
+      @active_frame.fetch(key)
+    end
+
     # Chain-aware membership test, mirroring Parslet's captures.key?.
     # Checks the current frame and all parents without raising.
     #
