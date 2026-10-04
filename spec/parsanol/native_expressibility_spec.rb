@@ -37,4 +37,29 @@ RSpec.describe "native expressibility" do
     expect { 2.times { klass.new.native_expressible? } }
       .not_to output.to_stderr
   end
+
+  # The ext attaches its methods lazily (available? triggers the load);
+  # native_expressible? as the FIRST native touch of a process used to
+  # NoMethodError inside the serializer (Dynamic.register ->
+  # Native.register_callback). In-process order hides this, so the
+  # regression check runs a pristine subprocess.
+  it "answers as the process's first native touch" do
+    skip "native backend unavailable" unless Parsanol::Native.available?
+
+    libdir = File.expand_path("../../lib", __dir__)
+    script = <<~RUBY
+      require "parsanol"
+      parser = Class.new(Parsanol::Parser) do
+        rule(:x) { dynamic { |_s, _c| str("a") } }
+        root(:x)
+      end
+      result = parser.new.native_expressible?
+      abort "non-boolean: \#{result.inspect}" unless [true, false].include?(result)
+      puts "ok"
+    RUBY
+    out = IO.popen([RbConfig.ruby, "-I#{libdir}", "-e", script],
+                   err: [:child, :out], &:read)
+    expect($?.success?).to be(true), "subprocess failed:\n#{out}"
+    expect(out).to include("ok")
+  end
 end
