@@ -58,7 +58,7 @@ RSpec.describe "native expressibility" do
       puts "ok"
     RUBY
     out = IO.popen([RbConfig.ruby, "-I#{libdir}", "-e", script],
-                   err: [:child, :out], &:read)
+                   err: %i[child out], &:read)
     expect($?.success?).to be(true), "subprocess failed:\n#{out}"
     expect(out).to include("ok")
   end
