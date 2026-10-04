@@ -65,10 +65,8 @@ module Parsanol
       def parse(entry_name, input, mode: :native)
         case mode
         when :native
-          unless envelope["dynamic"]
-            if Native.available?
-              return Native.parse(JSON.generate(entry(entry_name).fetch("grammar")), input)
-            end
+          if !envelope["dynamic"] && Native.available?
+            return Native.parse(JSON.generate(entry(entry_name).fetch("grammar")), input)
           end
 
           root_atom(entry_name).parse(input)
