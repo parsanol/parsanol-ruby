@@ -202,7 +202,7 @@ module Parsanol
           # rule-level leading injection consumes the trivia.
           body = atom.parslet
           if body.is_a?(Atoms::Sequence) &&
-             body.parslets.any? { |child| child.is_a?(Atoms::Entity) }
+              body.parslets.any?(Atoms::Entity)
             kids = body.parslets.flat_map do |child|
               child.is_a?(Atoms::Entity) ? [skip_maybe_atom, child] : child
             end

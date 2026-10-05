@@ -295,17 +295,18 @@ RSpec.describe "PARG skip rule" do
     end
 
     {
-      "space in string"        => 'greeting = "hello world"',
-      "slashes in string"      => 'url = "http://x//y"',
-      "semicolon between"      => 'a = "x" ; c = "y"',
-      "block comment between"  => "a = \"x\" /* mid\ncomment */ c = \"y\"",
-      "line comment between"   => "a = \"x\" // note\nc = \"y\"",
-      "trailing line comment"  => 'a = "x" // end',
+      "space in string" => 'greeting = "hello world"',
+      "slashes in string" => 'url = "http://x//y"',
+      "semicolon between" => 'a = "x" ; c = "y"',
+      "block comment between" => "a = \"x\" /* mid\ncomment */ c = \"y\"",
+      "line comment between" => "a = \"x\" // note\nc = \"y\"",
+      "trailing line comment" => 'a = "x" // end',
       "trailing block comment" => "a = \"x\" /* end */",
     }.each do |label, input|
+      modes = %i[native ruby].freeze
       it "preserves #{label} (native/ruby parity)" do
         artifact = compile_edge
-        trees = %i[native ruby].map do |mode|
+        trees = modes.map do |mode|
           members = Array(artifact.parse("p", input, mode: mode)[:members])
           members.map { |m| "#{m[:name]}=#{m[:text]}" }
         end
@@ -316,5 +317,4 @@ RSpec.describe "PARG skip rule" do
       end
     end
   end
-
 end
