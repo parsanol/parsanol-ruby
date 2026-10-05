@@ -69,8 +69,11 @@ Also `prefix: true` parses (rare).
 
 ### Compile cache
 
-Programs cached by root atom `object_id` (same risk profile as
-`GRAMMAR_HASH_CACHE`); atoms are effectively immutable after construction.
+Programs cached in an identity-keyed Hash capped at
+`PROGRAM_CACHE_LIMIT` (32) entries with FIFO eviction: identity lookup
+(no recycled-`object_id` cross-contamination), explicit bounded
+retention — the earlier plain `object_id` Hash pinned every grammar's
+program forever. Atoms are effectively immutable after construction.
 
 ## Expected result
 
