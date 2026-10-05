@@ -200,6 +200,9 @@ Semantics:
   (nested block comments) work.
 - Trivia is **capture-free**: injected skips are ignored atoms, so their
   bytes never appear in captures or join capture spans.
+- **Diagnostics stay out of trivia**: failures inside injected trivia
+  never surface — deepest-failure positions point at real content, and
+  rendered cause trees and failure messages omit the skip machinery.
 - Artifacts without `skip` are byte-identical to grammars compiled
   without the declaration; the envelope records `skip` as the trivia
   rule's source.

@@ -225,4 +225,44 @@ RSpec.describe "PARG skip rule" do
       end.to raise_error(Parsanol::PARG::ParseError)
     end
   end
+
+  describe "diagnostics" do
+    def diag_envelope
+      compile_parg(<<~PARG)
+        grammar Diag version "1" {
+          skip = trivia
+          trivia = 1*( ( 1*" " ) / comment )
+          comment = "(*" *( comment / ( !"*)" ANY ) ) "*)"
+          word = ( 1*( ALPHA ) )
+          entry document: word
+        }
+      PARG
+    end
+
+    it "reports the real failure position, not a deeper trivia failure" do
+      # The unterminated comment fails at EOF (deep); the real failure
+      # is the word rule at position 0.
+      expect do
+        parse_artifact(diag_envelope, "(* unclosed comment\n 123")
+      end.to raise_error(Parsanol::ParseFailed) do |e|
+        expect(e.message).to include("at line 1 char 1")
+        expect(e.message).not_to include("trivia(")
+        expect(e.message).not_to include("COMMENT")
+        expect(e.message).to include("Failed to match sequence")
+      end
+    end
+
+    it "renders cause trees without trivia causes" do
+      artifact = Parsanol::PARG::Artifact.from_json(JSON.generate(diag_envelope))
+      reporter = Parsanol::ErrorReporter::Deepest.new
+      begin
+        artifact.root_atom("document").parse("(* x *) 9", reporter: reporter)
+        raise "expected the input to be rejected"
+      rescue Parsanol::ParseFailed
+        nil
+      end
+      tree = reporter.deepest_cause&.ascii_tree.to_s
+      expect(tree).not_to include("trivia(")
+    end
+  end
 end

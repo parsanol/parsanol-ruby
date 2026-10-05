@@ -158,10 +158,12 @@ module Parsanol
                   "skip rule must be non-nullable: a skip that can match " \
                   "empty loops forever at injection points"
           end
-          # Ignored: consumed but contributes nothing to the enclosing
+          # Trivia: consumed but contributes nothing to the enclosing
           # sequence/repetition value — trivia never leaks into
-          # span-joined captures.
-          wrapper = Atoms::Ignored.new(Atoms::Repetition.new(atom, 0, 1))
+          # span-joined captures — and failures inside it never surface
+          # in diagnostics (rendered trees and deepest-failure
+          # positions skip trivia causes).
+          wrapper = Atoms::Trivia.new(Atoms::Repetition.new(atom, 0, 1))
           (@skip_wrapper_ids ||= {}.compare_by_identity)[wrapper] = true
           wrapper
         end
