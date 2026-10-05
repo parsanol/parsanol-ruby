@@ -9,7 +9,7 @@ module Parsanol
 
       Test = Struct.new(:entry, :kind, :input, :expect)
 
-      attr_accessor :grammar_name, :version, :source, :uses
+      attr_accessor :grammar_name, :version, :source, :uses, :skip_declaration, :skip_source
       attr_reader :rules, :bindings, :preprocess, :entries, :docs, :tests, :render, :derive,
                   :customs, :states
       # Entries authored in this file (pre-import); nil-entry tests resolve

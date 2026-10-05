@@ -55,6 +55,17 @@ module Parsanol
         @warnings = []
       end
 
+      # QoL shorthands (ABNF core rules): materialized on reference when
+      # the grammar does not define its own rule of that name.
+      BUILTIN_CLASSES = {
+        "DIGIT" => [[0x30, 0x39]],
+        "ALPHA" => [[0x41, 0x5A], [0x61, 0x7A]],
+        "ALNUM" => [[0x30, 0x39], [0x41, 0x5A], [0x61, 0x7A]],
+        "WORD" => [[0x30, 0x39], [0x41, 0x5A], [0x5F, 0x5F], [0x61, 0x7A]],
+        "HEXDIG" => [[0x30, 0x39], [0x41, 0x46], [0x61, 0x66]],
+        "ANY" => [[0x00, 0x10FFFF]],
+      }.freeze
+
       def compile
         @document.rules.each_key { |name| atom_for(name) }
         errors = Lints.errors(@document, self)
@@ -79,7 +90,124 @@ module Parsanol
       end
 
       def atom_for(name)
-        @atom_cache[name] ||= build_atom(fetch_rule(name))
+        @atom_cache[name] ||= begin
+          atom = build_atom(fetch_rule(name))
+          if @document.skip_declaration && !skip_exempt_names.include?(name)
+            atom = inject_skip_trivia(atom)
+            # Entry points take leading and trailing skips: tail trivia
+            # (the tail-comment case) has no following terminal to
+            # trigger an injection, and full-consumption would reject
+            # it; leading trivia has no preceding interleave either.
+            if entry_rule?(name)
+              atom = Atoms::Sequence.new(skip_maybe_atom, atom, skip_maybe_atom)
+            end
+          end
+          atom
+        end
+      end
+
+      def entry_rule?(name)
+        @document.entries.value?(name) || @document.own_entries&.include?(name)
+      end
+
+      # The skip declaration's rule references (and their transitive
+      # rule references) build without injection: the skip atom must
+      # not contain itself.
+      def skip_exempt_names
+        @skip_exempt_names ||= begin
+          names = Set.new
+          walk_refs = lambda do |node|
+            case node.kind
+            when :ref then names << node.a
+            when :alt, :seq then node.a.each { |b| walk_refs.call(b) }
+            when :cap then walk_refs.call(node.b)
+            end
+          end
+          walk_refs.call(@document.skip_declaration) if @document.skip_declaration
+          closed = Set.new
+          until names.subset?(closed)
+            (names - closed).each do |ref|
+              closed << ref
+              walk_refs.call(@document.rules[ref]) if @document.rules.key?(ref)
+            end
+            names += closed
+          end
+          names
+        end
+      end
+
+      def skip_wrapper?(atom)
+        @skip_wrapper_ids&.key?(atom)
+      end
+
+      def skip_maybe_atom
+        @skip_maybe_atom ||= begin
+          atom = build_atom(@document.skip_declaration)
+          while atom.is_a?(Atoms::Entity)
+            atom = atom.parslet
+          end
+          # the VM's internal compiler owns the ATOM-level nullability
+          # analysis (the node-level nullable? here works on rule nodes)
+          if Parsanol::VM::Compiler.new.nullable?(atom)
+            raise CompileError,
+                  "skip rule must be non-nullable: a skip that can match " \
+                  "empty loops forever at injection points"
+          end
+          # Ignored: consumed but contributes nothing to the enclosing
+          # sequence/repetition value — trivia never leaks into
+          # span-joined captures.
+          wrapper = Atoms::Ignored.new(Atoms::Repetition.new(atom, 0, 1))
+          (@skip_wrapper_ids ||= {}.compare_by_identity)[wrapper] = true
+          wrapper
+        end
+      end
+
+      # parsanol-ruby#134: inject an optional match of the declared skip
+      # rule before every terminal of every rule. Injected skips are
+      # capture-free (a bare Repetition contributes no Named results),
+      # optional (ordered-choice/backtracking semantics preserved), and
+      # leave first sets unchanged (an optional prefix is epsilon-able).
+      def inject_skip_trivia(atom)
+        return atom if @document.skip_declaration.nil?
+
+        case atom
+        # rubocop:disable Lint/DuplicateBranch -- pass-through is the
+        # deliberate default; identical bodies, different decisions
+        when Atoms::Sequence
+          kids = atom.parslets.map { |child| inject_skip_trivia(child) }
+          out = []
+          kids.each do |child|
+            out << skip_maybe_atom unless skip_wrapper?(child)
+            out << child
+          end
+          out.length == 1 ? out.first : Atoms::Sequence.new(*out)
+        when Atoms::Alternative
+          Atoms::Alternative.new(*atom.alternatives.map { |a| inject_skip_trivia(a) })
+        when Atoms::Repetition
+          if skip_wrapper?(atom)
+            atom
+          else
+            Atoms::Repetition.new(inject_skip_trivia(atom.parslet), atom.min, atom.max,
+                                  atom.result_tag)
+          end
+        when Atoms::Named
+          # Pass-through: trivia must stay OUTSIDE captures. Injecting
+          # inside a Named makes the captured span include the skipped
+          # bytes (span-join swallows them into the captured value).
+          # Inter-token trivia around a capture is injected by the
+          # enclosing sequence's interleave.
+          atom
+        when Atoms::Lookahead
+          Atoms::Lookahead.new(inject_skip_trivia(atom.bound_parslet), atom.positive)
+        when Atoms::Str, Atoms::Re
+          # bare terminal as a whole rule body: leading trivia position
+          Atoms::Sequence.new(skip_maybe_atom, atom)
+        # pass-through is the deliberate default; identical bodies,
+        # different decisions
+        else
+          atom
+        end
+        # rubocop:enable Lint/DuplicateBranch
       end
 
       def record_warning(message)
@@ -174,6 +302,10 @@ module Parsanol
         if !@document.rules.key?(name) && @document.customs.key?(name)
           return Node.new(:lit, "\u0001", false)
         end
+        if !@document.rules.key?(name) && BUILTIN_CLASSES.key?(name)
+          # QoL shorthand stand-in: the analysis passes see the class
+          return Node.new(:class, BUILTIN_CLASSES[name])
+        end
 
         @document.rules[name] || raise(CompileError, "unknown rule #{name.inspect}")
       end
@@ -193,6 +325,15 @@ module Parsanol
             Atoms::Str.new(node.a)
           end
         when :class then Atoms::Re.new(class_pattern(node.a))
+        when :until
+          # QoL: (*( !terminal any_char )) — consume everything up to
+          # (and excluding) the delimiter.
+          any_char = Atoms::Re.new(class_pattern([[0x00, 0x10FFFF]]))
+          Atoms::Repetition.new(
+            Atoms::Sequence.new(Atoms::Lookahead.new(Atoms::Str.new(node.a), false),
+                                any_char),
+            0, nil
+          )
         when :seq
           atoms = node.a.map { |child| build_atom(child) }
           atoms.length == 1 ? atoms.first : Atoms::Sequence.new(*atoms)
@@ -234,6 +375,10 @@ module Parsanol
           if @document.customs.key?(node.a)
             @dynamic = true
             resolve_custom(node.a)
+          elsif !@document.rules.key?(node.a) && BUILTIN_CLASSES.key?(node.a)
+            # QoL: character-class shorthands (ABNF core rules) — usable
+            # unless the grammar defines its own rule of the same name.
+            Atoms::Re.new(class_pattern(BUILTIN_CLASSES[node.a]))
           else
             Atoms::Entity.new(node.a) { atom_for(node.a) }
           end
@@ -472,6 +617,13 @@ module Parsanol
           "docs" => @document.docs,
           "source" => @document.source,
         }
+        if @document.skip_declaration
+          # parsanol-ruby#134: declared trivia rule. Injection is baked
+          # into the compiled trees (plain atom kinds), so consumers
+          # without skip support still parse these artifacts correctly;
+          # the field records the grammar-level declaration.
+          envelope["skip"] = @document.skip_source
+        end
         envelope["customs"] = @document.customs unless @document.customs.empty?
         envelope["states"] = @document.states unless @document.states.empty?
         envelope["dynamic"] = true if @dynamic

@@ -20,7 +20,8 @@ module Parsanol
 
       STATE_KEYWORDS = %w[custom state].freeze
       KEYWORDS = %w[grammar as alt from_table column bindings render derive
-                    preprocess entry table_lookup custom state set switch].freeze
+                    preprocess entry table_lookup custom state set switch
+                    skip until].freeze
 
       def initialize(text)
         @tokens = Lexer.new(text).tokens
@@ -161,6 +162,19 @@ module Parsanol
             skip_newlines
             next
           end
+          if peek&.type == :ident && peek.value == "skip"
+            advance
+            punct("=")
+            if document.skip_declaration
+              raise ParseError, "duplicate skip declaration"
+            end
+
+            node = parse_choice
+            document.skip_declaration = validate_skip_node(node)
+            document.skip_source = skip_source_string(node)
+            skip_newlines
+            next
+          end
           if peek&.type == :ident && STATE_KEYWORDS.include?(peek.value)
             keyword = advance.value
             slot = ident.value
@@ -186,6 +200,30 @@ module Parsanol
           skip_newlines
         end
         punct("}")
+      end
+
+      # The skip declaration may only name rules (a rule reference or an
+      # alternation of rule references) — arbitrary expressions would
+      # make the injected trivia unanalyzable.
+      def skip_source_string(node)
+        case node.kind
+        when :ref then node.a
+        when :alt then node.a.map { |b| skip_source_string(b) }.join(" / ")
+        end
+      end
+
+      def validate_skip_node(node)
+        case node.kind
+        when :ref
+          node
+        when :alt
+          node.a.each { |branch| validate_skip_node(branch) }
+          node
+        else
+          raise ParseError,
+                "skip must be a rule reference or an alternation of rule " \
+                "references, got #{node.kind.inspect}"
+        end
       end
 
       def rule_name
@@ -325,6 +363,10 @@ module Parsanol
           end
           punct("}")
           Node.new(:switch, slot, arms)
+        when "until"
+          # QoL: any-until terminal — (*( !terminal any_char )), the
+          # idiomatic "consume everything up to the delimiter" run.
+          Node.new(:until, unquote(expect(:str).value))
         when "alt"
           ident("from_table")
           table = unquote(expect(:str).value)
