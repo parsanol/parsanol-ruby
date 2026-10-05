@@ -276,6 +276,10 @@ RSpec.describe "PARG skip rule" do
   # parsanol#134 follow-up: repetition interiors are lexical scan spans —
   # trivia must not be injected between their iterations.
   describe "repetition interiors" do
+    def parse_modes
+      %i[native ruby]
+    end
+
     def compile_edge
       source = <<~PARG
         grammar Edge version "1" {
@@ -303,10 +307,9 @@ RSpec.describe "PARG skip rule" do
       "trailing line comment" => 'a = "x" // end',
       "trailing block comment" => "a = \"x\" /* end */",
     }.each do |label, input|
-      modes = %i[native ruby].freeze
       it "preserves #{label} (native/ruby parity)" do
         artifact = compile_edge
-        trees = modes.map do |mode|
+        trees = parse_modes.map do |mode|
           members = Array(artifact.parse("p", input, mode: mode)[:members])
           members.map { |m| "#{m[:name]}=#{m[:text]}" }
         end
