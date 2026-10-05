@@ -85,11 +85,26 @@ module Parsanol
     MEMO_BUDGET_FACTOR = 4_096
     MEMO_BUDGET_CELLS_FACTOR = 16
 
+    # Compiled-program and heavy-flag caches hold at most this many
+    # grammars. A process rarely uses more than a handful concurrently;
+    # the cap keeps worst-case retention explicit and bounded instead
+    # of growing with every grammar ever parsed.
+    PROGRAM_CACHE_LIMIT = 32
+
     class << self
-      @programs = {}
+      # Compiled-program and heavy-flag caches, keyed by the root atom
+      # object itself (identity semantics — two structurally identical
+      # grammars are distinct entries). This replaces the original
+      # object_id-keyed plain Hash, where entries outlived their
+      # grammars forever and a recycled object_id could serve a fresh
+      # grammar another grammar's program. Holding the object as the
+      # key does pin the grammar while cached — bounded by
+      # PROGRAM_CACHE_LIMIT, FIFO eviction.
+      @programs = {}.compare_by_identity
+      @heavy = {}.compare_by_identity
 
       # Cached compile keyed by root-atom object identity. Atoms are
-      # effectively immutable once constructed; false caches grammars the
+      # effectively immutable once constructed; nil caches grammars the
       # VM cannot handle so we do not re-walk them on every parse.
       #
       # A grammar whose VM run failed once (unsupported backtracking shape
@@ -97,29 +112,32 @@ module Parsanol
       # attempt entirely — the interpreter result is identical.
       def program_for(atom)
         root = atom.is_a?(Parsanol::Parser) ? atom.root : atom
-        key = root.object_id
-        cache = (@programs ||= {})
-        cached = cache[key]
-        return nil if cached == :fallback
-        return cached if key?(cache, key)
+        cache = (@programs ||= {}.compare_by_identity)
+        cached = cache[root]
+        return nil if cached.equal?(:fallback)
+        return cached if key?(cache, root)
 
         # A grammar the compiler cannot compile — e.g. one containing a
         # lazily resolved Entity that a select-first literal index would
         # never select — falls back to the interpreter, the source of
         # truth. The interpreter resolves such entities lazily, so an
         # unselected branch simply never raises.
-        begin
-          cache[key] = compile(atom)
-        rescue NotImplementedError
-          cache[key] = :fallback
-          nil
-        end
+        program =
+          begin
+            compile(atom)
+          rescue NotImplementedError
+            :fallback
+          end
+        cache[root] = program
+        trim_cache(cache)
+        program.equal?(:fallback) ? nil : program
       end
 
       # Marks a grammar as VM-incompatible after a runtime failure.
       def disable_for!(atom)
         root = atom.is_a?(Parsanol::Parser) ? atom.root : atom
-        (@programs ||= {})[root.object_id] = :fallback # rubocop:disable Lint/HashCompareByIdentity -- object_id keys avoid holding strong references to grammar atoms
+        (@programs ||= {}.compare_by_identity)[root] = :fallback
+        trim_cache(@programs)
       end
 
       def key?(cache, key) # rubocop:disable Naming/PredicateMethod -- mirrors Hash#key?
@@ -129,6 +147,12 @@ module Parsanol
       def clear_program_cache
         @programs&.clear
         @heavy&.clear
+      end
+
+      # FIFO eviction past the cache limit.
+      def trim_cache(cache)
+        cache.shift while cache.size > PROGRAM_CACHE_LIMIT
+        nil
       end
 
       # Compiles the grammar rooted at +atom+. Returns the flat program
@@ -168,8 +192,8 @@ module Parsanol
         # included — the seed is recomputed at every compile), so the
         # cold-start never pays the doomed unmemoized exploration.
         if compiler.backtracking_prone
-          # rubocop:disable-next Lint/HashCompareByIdentity -- object_id keys mirror run_for's heavy flag
-          (@heavy ||= {})[root.object_id] = true
+          (@heavy ||= {}.compare_by_identity)[root] = true
+          trim_cache(@heavy)
         end
 
         compiler.to_program
@@ -287,9 +311,8 @@ module Parsanol
       # interpreter.
       def run_for(atom, program, input, consume_all)
         root = atom.is_a?(Parsanol::Parser) ? atom.root : atom
-        id = root.object_id
-        heavy = (@heavy ||= {})
-        if heavy[id]
+        heavy = (@heavy ||= {}.compare_by_identity)
+        if heavy[root]
           result = Executor.new(program, input, consume_all,
                                 memoize: true).execute
           return BAIL if result.equal?(BUDGET)
@@ -300,7 +323,8 @@ module Parsanol
         result = Executor.new(program, input, consume_all).execute
         if result.equal?(BUDGET) ||
             (result.is_a?(Array) && result.first == :heavy)
-          heavy[id] = true
+          heavy[root] = true
+          trim_cache(heavy)
           memo_result = Executor.new(program, input, consume_all,
                                      memoize: true).execute
           # A heavy naive success already answered; the memo pass only
