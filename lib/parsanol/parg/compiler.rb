@@ -120,7 +120,8 @@ module Parsanol
             case node.kind
             when :ref then names << node.a
             when :alt, :seq then node.a.each { |b| walk_refs.call(b) }
-            when :cap then walk_refs.call(node.b)
+            when :cap, :pred then walk_refs.call(node.b)
+            when :rep, :opt then walk_refs.call(node.a)
             end
           end
           walk_refs.call(@document.skip_declaration) if @document.skip_declaration
