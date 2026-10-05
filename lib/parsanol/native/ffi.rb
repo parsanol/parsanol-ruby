@@ -43,8 +43,18 @@ module Parsanol
             json = ::Parsanol::Native::Parser.serialize_grammar(grammar)
             atom = grammar
           end
-          handle = ((@handles ||= {})[json] ||= @binding.c_register(json))
-          raise Error, "grammar registration failed" if handle.zero?
+          handle = @handles && @handles[json]
+          if handle
+            # Refresh recency: reinsertion moves the entry to the end,
+            # so churn cannot evict a hot grammar's handle.
+            @handles[json] = @handles.delete(json)
+          else
+            handle = @binding.c_register(json)
+            raise Error, "grammar registration failed" if handle.zero?
+
+            (@handles ||= {})[json] = handle
+            trim_handles
+          end
 
           written = parse_into(handle, input)
           if written.positive?
@@ -64,6 +74,19 @@ module Parsanol
         end
 
         private
+
+        # FIFO cap with recency refresh, mirroring Parser::CACHE_LIMIT.
+        # Without it, every grammar ever parsed kept its Rust-side
+        # HandleEntry (parsed Grammar + engine state) forever, and the
+        # map keys are full grammar JSON strings. Evicted handles are
+        # released through c_release; a later miss re-registers.
+        def trim_handles
+          while @handles.size > ::Parsanol::Native::Parser::CACHE_LIMIT
+            json, handle = @handles.first
+            @handles.delete(json)
+            @binding.c_release(handle)
+          end
+        end
 
         # Search order: explicit override, gem-vendored cdylib next to
         # this file, then the system linker path.
@@ -110,8 +133,10 @@ module Parsanol
                             %i[uint64], :void
           end
           # Probe the symbols now so a mismatched library fails loudly
-          # at availability time, not at first parse.
+          # at availability time, not at first parse. c_release(0) is a
+          # no-op (unknown handle), so the probe has no side effect.
           probe = binding_mod.c_last_error
+          binding_mod.c_release(0)
           @binding = binding_mod
           @buffer = nil
           !probe.nil? || true
