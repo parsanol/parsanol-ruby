@@ -175,8 +175,10 @@ module Parsanol
         compiler.to_program
       end
 
+      # Returns violation descriptions for this atom's ordered-choice
+      # branches (empty-matchable non-last branches shadow later ones).
       def validate_choice_branches(atom)
-        atom.alternatives.each_with_index do |branch, idx|
+        atom.alternatives.each_with_index.filter_map do |branch, idx|
           walk_branch = branch
           next if idx == atom.alternatives.size - 1
 
@@ -194,14 +196,13 @@ module Parsanol
           next if walk_branch.nil?
           next unless Compiler.new.nullable?(walk_branch)
 
-          raise Parsanol::GrammarError,
-                "wrong grammar: alternative branch #{idx} " \
-                "(#{branch.inspect}) can match empty input and is not " \
-                "the last branch — ordered choice commits to its empty " \
-                "match, so #{atom.alternatives.size - idx - 1} later " \
-                "branch(es) can never match at positions where it " \
-                "matches empty. Reorder branches so empty-matchable " \
-                "ones come last, or make the branch non-empty."
+          "alternative branch #{idx} (#{branch.inspect}) can match " \
+            "empty input and is not the last branch — ordered choice " \
+            "commits to its empty match, so " \
+            "#{atom.alternatives.size - idx - 1} later branch(es) can " \
+            "never match at positions where it matches empty. Reorder " \
+            "branches so empty-matchable ones come last, or make the " \
+            "branch non-empty."
         end
       end
 
@@ -211,6 +212,7 @@ module Parsanol
       # the grammar is wrong, and inputs it would mis-parse fail with a
       # baffling cause. Raise before any input is seen.
       def validate_alternatives(root)
+        violations = []
         visited = {}.compare_by_identity
         walk = lambda do |atom, depth|
           next if atom.nil? || depth > 20
@@ -219,26 +221,26 @@ module Parsanol
           visited[atom] = true
           case atom
           when Parsanol::Atoms::Alternative
-            validate_choice_branches(atom)
+            violations.concat(validate_choice_branches(atom))
             atom.alternatives.each { |c| walk.call(c, depth + 1) }
           when Parsanol::Atoms::Sequence
             atom.parslets.each { |c| walk.call(c, depth + 1) }
           when Parsanol::Atoms::Repetition, Parsanol::Atoms::Named
             walk.call(atom.parslet, depth + 1)
+          when Parsanol::Atoms::Entity
+            # Rule bodies hide behind the entity wrapper; without this
+            # descent the lint passes DSL grammars that fail the same
+            # grammar compiled from PARG (where bodies are inlined).
+            # Entities that cannot resolve outside a parse are skipped.
+            begin
+              walk.call(atom.parslet, depth + 1)
+            rescue StandardError
+              nil
+            end
           when Parsanol::Atoms::Lookahead
             walk.call(atom.bound_parslet, depth + 1)
           when Parsanol::Atoms::Ignored
             walk.call(atom.wrapped_atom, depth + 1)
-          when Parsanol::Atoms::Entity
-            begin
-              walk.call(atom.parslet, depth + 1)
-            rescue Parsanol::GrammarError
-              raise
-            rescue StandardError
-              # Lazily resolved / recursive entity that cannot resolve
-              # outside a parse: skip this branch of the walk.
-              nil
-            end
           when Parsanol::Atoms::Scope
             begin
               walk.call(atom.block.call, depth + 1)
@@ -248,6 +250,11 @@ module Parsanol
           end
         end
         walk.call(root, 0)
+        return if violations.empty?
+
+        raise Parsanol::GrammarError,
+              "wrong grammar: #{violations.size} shadowed-alternative " \
+              "violation(s):\n  - #{violations.join('\n  - ')}"
       end
 
       # Executes a compiled program. Returns [true, value] on success;
