@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# Standalone requires of this file bypass the parg autoload registry —
+# declare the namespace dependency so Artifact resolves.
+require "parsanol/parg"
+
 module Parsanol
   module PARG
     # lutaml-model integration: register a PARG artifact as a lutaml-model

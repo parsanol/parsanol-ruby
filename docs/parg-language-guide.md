@@ -190,6 +190,14 @@ every alternative and reports:
 
 ## The artifact
 
+> **Runtime-state boundary.** Artifacts whose envelope carries
+> `"dynamic": true` — grammars using the `state`/`set`/`switch` atoms or
+> `custom` bindings — ride the **Ruby engine only**. parsanol-rs and
+> @parsanol/wasm reject such artifacts loudly at the boundary (a
+> `dynamic` envelope never silently mis-parses). Flavor owners targeting
+> all three runtimes must keep those grammars Ruby-tier or split the
+> stateful rules out.
+
 ```json
 {
   "version": "1.2.0",
