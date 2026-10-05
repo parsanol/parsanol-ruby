@@ -208,10 +208,17 @@ RSpec.describe "PARG skip rule" do
         .to raise_error(Parsanol::ParseFailed)
     end
 
-    it "non-atomic runs still span trivia between iterations (contrast)" do
+    it "non-atomic char runs are lexical by default: interior trivia fails" do
       envelope = token_envelope(false)
-      tree = parse_artifact(envelope, "foo bar")
-      expect(tree[:list][:item].to_s).to eq("foobar")
+      expect { parse_artifact(envelope, "foo bar") }
+        .to raise_error(Parsanol::ParseFailed)
+    end
+
+    it "non-atomic structural iterations still span trivia between them" do
+      envelope = token_envelope(false)
+      tree = parse_artifact(envelope, "foo , bar")
+      items = tree[:list].is_a?(Hash) ? [tree[:list][:item]] : tree[:list].map { |e| e[:item] }
+      expect(items.map(&:to_s)).to eq(%w[foo bar])
     end
 
     it "reserves atomic as a keyword" do
@@ -265,4 +272,49 @@ RSpec.describe "PARG skip rule" do
       expect(tree).not_to include("trivia(")
     end
   end
+
+  # parsanol#134 follow-up: repetition interiors are lexical scan spans —
+  # trivia must not be injected between their iterations.
+  describe "repetition interiors" do
+    def compile_edge
+      source = <<~PARG
+        grammar Edge version "1" {
+          skip = trivia
+          trivia = 1*( " " / %x09 / [ %x0D ] %x0A / %x0A / ";" / "//" until "\n" / "/*" ( *( !"*/" ANY ) ) "*/" )
+          qstring = %x22 ( *( !%x22 ANY ) ) as text %x22
+          word = ( 1*WORD ) as name
+          pair = word "=" qstring
+          pairs = ( 1*pair ) as members
+          entry p: pairs
+        }
+      PARG
+      document = Parsanol::PARG::Parser.new(source).parse
+      Parsanol::PARG::Artifact.from_json(
+        JSON.generate(Parsanol::PARG::Compiler.compile(document).envelope),
+      )
+    end
+
+    {
+      "space in string"        => 'greeting = "hello world"',
+      "slashes in string"      => 'url = "http://x//y"',
+      "semicolon between"      => 'a = "x" ; c = "y"',
+      "block comment between"  => "a = \"x\" /* mid\ncomment */ c = \"y\"",
+      "line comment between"   => "a = \"x\" // note\nc = \"y\"",
+      "trailing line comment"  => 'a = "x" // end',
+      "trailing block comment" => "a = \"x\" /* end */",
+    }.each do |label, input|
+      it "preserves #{label} (native/ruby parity)" do
+        artifact = compile_edge
+        trees = %i[native ruby].map do |mode|
+          members = Array(artifact.parse("p", input, mode: mode)[:members])
+          members.map { |m| "#{m[:name]}=#{m[:text]}" }
+        end
+        expect(trees[0]).to eq(trees[1])
+        joined = trees[0].join(" | ")
+        expect(joined).not_to include("helloworld")
+        expect(joined).not_to include("ERR")
+      end
+    end
+  end
+
 end
