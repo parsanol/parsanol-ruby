@@ -63,6 +63,10 @@ module Parsanol
 
         # Cache eviction state
         @furthest_pos = 0
+
+        # Injected-trivia depth: while positive, reported causes are
+        # marked trivia and never surface in diagnostics.
+        @trivia_depth = 0
         @evict_threshold = 200
         @evict_counter = 0
         @evict_interval = 100
@@ -230,15 +234,17 @@ module Parsanol
       # Pre-allocated result constants
       SUCCESS_RESULT = [true, nil].freeze
       ERROR_RESULT = [false, nil].freeze
+      TRIVIA_ERROR = [false, Cause::TriviaCause.instance].freeze
 
       # Reports an error at a specific position.
       #
       # @return [Array(Boolean, Object)] error result tuple
       #
       def err_at(*)
-        return [false, @reporter.err_at(*)] if @reporter
+        return TRIVIA_ERROR if @trivia_depth.positive?
+        return ERROR_RESULT unless @reporter
 
-        ERROR_RESULT
+        [false, @reporter.err_at(*)]
       end
 
       # Reports an error at the current position.
@@ -246,9 +252,22 @@ module Parsanol
       # @return [Array(Boolean, Object)] error result tuple
       #
       def err(*)
-        return [false, @reporter.err(*)] if @reporter
+        return TRIVIA_ERROR if @trivia_depth.positive?
+        return ERROR_RESULT unless @reporter
 
-        ERROR_RESULT
+        [false, @reporter.err(*)]
+      end
+
+      # Brackets a parse inside injected trivia: causes reported while
+      # the depth is positive carry the trivia flag and never surface
+      # in rendered trees or deepest-failure positions.
+      def with_trivia
+        @trivia_depth += 1
+        begin
+          yield
+        ensure
+          @trivia_depth -= 1
+        end
       end
 
       # Checks if this context is collecting diagnostic errors.

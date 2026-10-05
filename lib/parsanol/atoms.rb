@@ -27,6 +27,7 @@ module Parsanol
     require "parsanol/atoms/base"
     require "parsanol/atoms/custom"
     require "parsanol/atoms/ignored"
+    require "parsanol/atoms/trivia"
     require "parsanol/atoms/named"
     require "parsanol/atoms/lookahead"
     require "parsanol/atoms/cut"

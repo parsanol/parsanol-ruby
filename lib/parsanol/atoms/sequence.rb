@@ -77,7 +77,11 @@ module Parsanol
       # @param prec [Integer] precedence
       # @return [String]
       def to_s_inner(prec)
-        @parslets.map { |p| p.to_s(prec) }.join(" ")
+        # Injected trivia is invisible in diagnostics: a failed
+        # sequence describes what the grammar asks for, not the skip
+        # machinery interleaved around it.
+        @parslets.grep_v(Parsanol::Atoms::Trivia)
+          .map { |p| p.to_s(prec) }.join(" ")
       end
 
       # FIRST set is first element's FIRST set (with epsilon propagation).

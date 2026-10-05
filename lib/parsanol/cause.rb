@@ -16,6 +16,8 @@
 #   cause.children  # => []
 #   cause.to_s  # => "Expected at least one"
 #
+require "singleton"
+
 module Parsanol
   class Cause
     # @return [Array<String>] Error message parts
@@ -33,6 +35,15 @@ module Parsanol
     # @return [Array<Cause>] Child causes
     attr_reader :children
 
+    # True when this failure happened inside injected skip trivia:
+    # trivia positions never surface in diagnostics (rendered trees
+    # prune trivia causes; deepest-failure tracking ignores them).
+    attr_accessor :trivia
+
+    def trivia?
+      @trivia == true
+    end
+
     # Creates a new cause for parse failure
     #
     # @param message [String, Array<String>] Error description
@@ -45,6 +56,7 @@ module Parsanol
       @position = position
       @children = children.nil? ? [] : children
       @parsing_label = nil
+      @trivia = false
     end
 
     # Factory method for creating a cause
@@ -89,6 +101,24 @@ module Parsanol
       output.string
     end
 
+    # Stand-in for failures inside injected skip trivia: the reporting
+    # context returns it instead of calling the reporter (reporters and
+    # deepest-failure tracking never see trivia failures), and rendered
+    # trees prune it (visible).
+    class TriviaCause < Cause
+      include Singleton
+
+      def initialize
+        super("trivia", nil, 0)
+        @trivia = true
+      end
+
+      # Label propagation would mutate the shared instance.
+      def set_label(_label)
+        nil
+      end
+    end
+
     # Raises a ParseFailed exception with this cause's information
     #
     # @raise [Parsanol::ParseFailed] Always
@@ -99,12 +129,18 @@ module Parsanol
 
     private
 
+    # Trivia causes stay out of rendered trees entirely.
+    def visible(node)
+      node.children.reject(&:trivia?)
+    end
+
     def build_tree_recursive(node, stream, prefix_flags)
       render_prefix(stream, prefix_flags)
       stream.puts node.to_s
 
-      node.children.each do |child|
-        is_last_child = (node.children.last == child)
+      children = visible(node)
+      children.each do |child|
+        is_last_child = (children.last == child)
         build_tree_recursive(child, stream, prefix_flags + [is_last_child])
       end
     end
