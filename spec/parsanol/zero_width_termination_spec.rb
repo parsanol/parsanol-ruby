@@ -40,11 +40,12 @@ RSpec.describe "zero-width repetition termination and lint" do
   # Lint behavior: all shadowed-alternative violations are reported in
   # ONE error (compile previously aborted on the first), and the walk
   # descends entity bodies so DSL and PARG-compiled grammars get the
-  # same verdicts.
+  # same verdicts. Bare zero-width lookahead branches are exempt —
+  # they are guards, not content matchers (#137).
   it "reports every lint violation in a single error" do
     parser = Class.new(Parsanol::Parser) do
       rule(:x) do
-        str("a").present? | str("b").present? | str("c")
+        str("a").maybe | str("b").maybe | str("c")
       end
       root(:x)
     end
@@ -56,15 +57,49 @@ RSpec.describe "zero-width repetition termination and lint" do
       end
   end
 
+  it "exempts bare zero-width guard branches (#137)" do
+    parser = Class.new(Parsanol::Parser) do
+      rule(:x) do
+        str("a").present? | str("b").present? | str("c")
+      end
+      root(:x)
+    end
+    expect { Parsanol::VM.validate_alternatives(parser.new.root) }
+      .not_to raise_error
+  end
+
+  it "accepts the coradoc continuation shape: guards plus content" do
+    parser = Class.new(Parsanol::Parser) do
+      rule(:x) do
+        str("STOP").present? | dynamic { |_s, _c| str("z") }.absent? |
+          match(/[a-z]/).repeat(1).as(:word)
+      end
+      root(:x)
+    end
+    expect { Parsanol::VM.validate_alternatives(parser.new.root) }
+      .not_to raise_error
+  end
+
+  it "parses guard-first alternatives on the VM path" do
+    parser = Class.new(Parsanol::Parser) do
+      rule(:x) do
+        str("STOP").present? | match(/[a-z]/).repeat(1).as(:word)
+      end
+      root(:x)
+    end
+    result = parser.new
+    expect(result.parse("fine", mode: :ruby)[:word].to_s).to eq("fine")
+    # guard succeeds empty where STOP matches: a prefix parse accepts
+    # the zero-width match and captures nothing
+    expect(result.parse("STOP", mode: :ruby, prefix: true)).to be_nil
+  end
+
   it "descends entity bodies: a DSL rule shadowing inside a nested rule fails" do
     parser = Class.new(Parsanol::Parser) do
-      rule(:inner) { str("a").present? | str("c") }
+      rule(:inner) { str("a").maybe | str("c") }
       rule(:outer) { str("x") >> inner }
       root(:outer)
     end
-    # validate directly: the program cache is keyed by object_id (a
-    # deliberate no-strong-refs tradeoff), so a recycled id could mask
-    # the violation through a stale entry in a long-running process
     expect { Parsanol::VM.validate_alternatives(parser.new.root) }
       .to raise_error(Parsanol::GrammarError, /shadowed-alternative violation/)
   end

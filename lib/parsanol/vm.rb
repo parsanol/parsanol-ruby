@@ -218,6 +218,13 @@ module Parsanol
             break if walk_branch.nil?
           end
           next if walk_branch.nil?
+          # A bare zero-width assertion is a guard, not a content
+          # matcher: `&X / rest` commits to its empty match exactly
+          # where X succeeds, and `rest` is reachable exactly where X
+          # fails — conditional control flow, not accidental shadowing
+          # (#137). Both engines already stop repetitions on
+          # zero-width iterations, so guard branches cannot loop.
+          next if walk_branch.is_a?(Parsanol::Atoms::Lookahead)
           next unless Compiler.new.nullable?(walk_branch)
 
           "alternative branch #{idx} (#{branch.inspect}) can match " \
