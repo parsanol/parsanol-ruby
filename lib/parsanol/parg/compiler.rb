@@ -191,11 +191,25 @@ module Parsanol
         when Atoms::Alternative
           Atoms::Alternative.new(*atom.alternatives.map { |a| inject_skip_trivia(a) })
         when Atoms::Repetition
-          if skip_wrapper?(atom)
-            atom
+          # Inside repetition bodies, trivia is injected only before
+          # rule-reference children: structural iterations
+          # (`( sep item )*`) still span trivia between iterations,
+          # while char-scan spans (`( !"x" ANY )*` quoted-string bodies,
+          # WORD runs, comment bodies) stay verbatim — injecting there
+          # corrupted them (spaces inside strings eaten as whitespace,
+          # `//` inside a URL read as a comment). A single-ref body
+          # (`1*pair`) needs no interior injection: each iteration's own
+          # rule-level leading injection consumes the trivia.
+          body = atom.parslet
+          if body.is_a?(Atoms::Sequence) &&
+             body.parslets.any? { |child| child.is_a?(Atoms::Entity) }
+            kids = body.parslets.flat_map do |child|
+              child.is_a?(Atoms::Entity) ? [skip_maybe_atom, child] : child
+            end
+            rebuilt = kids.length == 1 ? kids.first : Atoms::Sequence.new(*kids)
+            Atoms::Repetition.new(rebuilt, atom.min, atom.max, atom.result_tag)
           else
-            Atoms::Repetition.new(inject_skip_trivia(atom.parslet), atom.min, atom.max,
-                                  atom.result_tag)
+            atom
           end
         when Atoms::Named
           # Descend, keeping the capture's span clean: injected skips
