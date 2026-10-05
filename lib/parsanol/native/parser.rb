@@ -6,7 +6,21 @@ module Parsanol
   module Native
     # Core parsing functionality using Rust native extension
     module Parser
-      GRAMMAR_HASH_CACHE = Hash.new
+      # Cap for the grammar-keyed caches. The handle cache pins a
+      # Rust-side HandleEntry (parsed Grammar + compiled program) per
+      # live entry — without the cap, every grammar ever registered
+      # accumulates on both sides of the FFI boundary. 32 mirrors
+      # VM::PROGRAM_CACHE_LIMIT; eviction re-registers on demand (the
+      # Rust artifact cache short-circuits the re-compile).
+      CACHE_LIMIT = 32
+
+      # Identity-keyed memo: root atom object => structure hash. Keyed
+      # by the OBJECT, not object_id — a recycled id must never return a
+      # dead grammar's hash for a new grammar (through GRAMMAR_CACHE /
+      # HANDLE_CACHE that would alias the new grammar to the old
+      # grammar's serialized JSON and Rust handle: a silent wrong
+      # native parse).
+      GRAMMAR_HASH_CACHE = Hash.new.compare_by_identity
       GRAMMAR_CACHE = Hash.new
       # structure-hash => Rust-side grammar handle. Keyed by content so a
       # recycled object_id can never alias a different grammar.
@@ -72,7 +86,18 @@ module Parsanol
         # access — no JSON marshal, no re-hash inside Rust.
         def grammar_handle(root_atom)
           cache_key = grammar_cache_key(root_atom)
-          HANDLE_CACHE[cache_key] ||= Native._register_grammar(grammar_json(root_atom))
+          handle = HANDLE_CACHE[cache_key]
+          if handle
+            # Refresh recency: reinsertion moves the entry to the end,
+            # so churn cannot evict a hot grammar's handle.
+            HANDLE_CACHE[cache_key] = HANDLE_CACHE.delete(cache_key)
+            return handle
+          end
+
+          handle = Native._register_grammar(grammar_json(root_atom))
+          HANDLE_CACHE[cache_key] = handle
+          trim_caches
+          handle
         end
 
         # Drop a handle whose Rust-side entry no longer exists; the next
@@ -82,6 +107,7 @@ module Parsanol
         end
 
         def clear_cache
+          HANDLE_CACHE.each_value { |handle| Native._release_grammar(handle) }
           GRAMMAR_HASH_CACHE.clear
           GRAMMAR_CACHE.clear
           HANDLE_CACHE.clear
@@ -99,14 +125,38 @@ module Parsanol
 
         def grammar_cache_key(root_atom)
           root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
-          obj_id = root_atom.object_id
-          GRAMMAR_HASH_CACHE[obj_id] ||= grammar_structure_hash(root_atom)
+          cached = GRAMMAR_HASH_CACHE[root_atom]
+          return cached if cached
+
+          hash = grammar_structure_hash(root_atom)
+          GRAMMAR_HASH_CACHE[root_atom] = hash
+          GRAMMAR_HASH_CACHE.shift while GRAMMAR_HASH_CACHE.size > CACHE_LIMIT
+          hash
         end
 
         def grammar_json(root_atom)
           root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
           cache_key = grammar_cache_key(root_atom)
-          GRAMMAR_CACHE[cache_key] ||= GrammarSerializer.serialize(root_atom)
+          json = GRAMMAR_CACHE[cache_key]
+          return json if json
+
+          json = GrammarSerializer.serialize(root_atom)
+          GRAMMAR_CACHE[cache_key] = json
+          json
+        end
+
+        # FIFO eviction past the cap; evicted handles are released
+        # Rust-side so HandleEntries (Grammar + program) do not
+        # accumulate. Re-registration on a later miss is cheap: the
+        # Rust artifact cache reloads the compiled program.
+        def trim_caches
+          while HANDLE_CACHE.size > CACHE_LIMIT
+            key, handle = HANDLE_CACHE.first
+            HANDLE_CACHE.delete(key)
+            GRAMMAR_CACHE.delete(key)
+            Native._release_grammar(handle)
+          end
+          GRAMMAR_CACHE.shift while GRAMMAR_CACHE.size > CACHE_LIMIT
         end
 
         def grammar_structure_hash(atom)
