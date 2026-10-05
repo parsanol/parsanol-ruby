@@ -101,6 +101,43 @@ RSpec.describe "PARG skip rule" do
     end.to raise_error(Parsanol::PARG::ParseError)
   end
 
+  # parsanol-ruby#140 (rs#172 expressir note): trivia may recurse. The
+  # skip-exemption closure must walk repetitions/optionals/predicates, or
+  # the injection re-enters the trivia rule's own body at the same
+  # position — accidental left recursion, stack exhaustion.
+  describe "recursive trivia" do
+    def compile_nested
+      compile_parg(<<~PARG)
+        grammar Nested version "1" {
+          skip = trivia
+          trivia = 1*( ( 1*" " ) / comment )
+          comment = "(*" *( comment / ( !"*)" ANY ) ) "*)"
+          word = ( 1*( ALPHA ) )
+          entry document: word
+        }
+      PARG
+    end
+
+    it "parses nested block comments in trivia" do
+      expect(parse_artifact(compile_nested, "(* outer (* inner *) tail *) abc").to_s)
+        .to eq("abc")
+    end
+
+    it "parses three-level nesting without exhausting the stack" do
+      expect(parse_artifact(compile_nested, "(* a (* b (* c *) d *) e *) abc").to_s)
+        .to eq("abc")
+    end
+
+    it "bridges multi-unit trivia gaps (space + comment + space)" do
+      expect(parse_artifact(compile_nested, "(*x*) abc (*y (*z*) w*)").to_s)
+        .to eq("abc")
+    end
+
+    it "accepts plain trivia unchanged" do
+      expect(parse_artifact(compile_nested, "(* note *) abc").to_s).to eq("abc")
+    end
+  end
+
   it "records the declaration in the envelope; non-skip envelopes unchanged" do
     with_skip = compile_parg(<<~PARG)
       grammar S version "1" {
