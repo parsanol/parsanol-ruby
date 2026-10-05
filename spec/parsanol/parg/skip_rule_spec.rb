@@ -180,4 +180,49 @@ RSpec.describe "PARG skip rule" do
       expect(parse_artifact(envelope, "hello there").to_s).to eq("hello there")
     end
   end
+
+  describe "atomic rules" do
+    def token_envelope(atomic)
+      word_decl = atomic ? "atomic word = ( 1*( ALPHA ) )" : "word = ( 1*( ALPHA ) )"
+      compile_parg(<<~PARG)
+        grammar Tok version "1" {
+          skip = spaces
+          spaces = 1*" "
+          #{word_decl}
+          sep = ","
+          item = ( word ) as item
+          list = ( item *( sep item ) ) as list
+          entry document: list
+        }
+      PARG
+    end
+
+    it "keeps token rules contiguous: trivia does not span them" do
+      envelope = token_envelope(true)
+      tree = parse_artifact(envelope, "foo, bar")
+      items = tree[:list].is_a?(Hash) ? [tree[:list][:item]] : tree[:list].map { |e| e[:item] }
+      expect(items.map(&:to_s)).to eq(%w[foo bar])
+      expect(items.map(&:offset)).to eq([0, 5])
+
+      expect { parse_artifact(envelope, "foo bar") }
+        .to raise_error(Parsanol::ParseFailed)
+    end
+
+    it "non-atomic runs still span trivia between iterations (contrast)" do
+      envelope = token_envelope(false)
+      tree = parse_artifact(envelope, "foo bar")
+      expect(tree[:list][:item].to_s).to eq("foobar")
+    end
+
+    it "reserves atomic as a keyword" do
+      expect do
+        compile_parg(<<~PARG)
+          grammar Bad version "1" {
+            atomic = "x"
+            entry document: atomic
+          }
+        PARG
+      end.to raise_error(Parsanol::PARG::ParseError)
+    end
+  end
 end

@@ -21,7 +21,7 @@ module Parsanol
       STATE_KEYWORDS = %w[custom state].freeze
       KEYWORDS = %w[grammar as alt from_table column bindings render derive
                     preprocess entry table_lookup custom state set switch
-                    skip until].freeze
+                    skip until atomic].freeze
 
       def initialize(text)
         @tokens = Lexer.new(text).tokens
@@ -188,6 +188,11 @@ module Parsanol
             skip_newlines
             next
           end
+          # `atomic <rule> = ...` suppresses skip-trivia injection inside
+          # the rule body: token-shaped rules match their input
+          # contiguously instead of spanning trivia between iterations.
+          atomic = peek&.type == :ident && peek.value == "atomic"
+          advance if atomic
           name = rule_name
           document.docs[name] = docs.join("\n") unless docs.empty?
           punct("=")
@@ -197,6 +202,7 @@ module Parsanol
           end
 
           document.rules[name] = node
+          document.atomic_rules << name if atomic
           skip_newlines
         end
         punct("}")

@@ -173,6 +173,53 @@ exactly why the compile-time lint below exists.
 leftmost-position analysis). An unguarded left-recursive PEG loops forever
 in every engine; PARG refuses to emit such an artifact.
 
+## Skip rule (trivia injection)
+
+One declaration per grammar turns implicit trivia — whitespace, comments —
+into engine-consumed trivia instead of hand-placed `[ ws ]` terms in every
+rule:
+
+```
+grammar Lml version "2.0.0" {
+  skip = trivia
+  trivia = 1*( ( 1*" " ) / comment )
+  comment = "(*" *( comment / ( !"*)" ANY ) ) "*)"
+  ...
+}
+```
+
+Semantics:
+
+- An **optional match of the skip rule is injected before every terminal**
+  of every rule (memoized, injected by reference). Entry points also take
+  leading and trailing skips, so tail comments parse.
+- The skip rule must be **non-nullable** (a nullable skip loops at
+  injection points) and may only reference rules (a rule reference or an
+  alternation of references). The referenced rules — and everything they
+  reference — build without injection, so recursive trivia rules
+  (nested block comments) work.
+- Trivia is **capture-free**: injected skips are ignored atoms, so their
+  bytes never appear in captures or join capture spans.
+- Artifacts without `skip` are byte-identical to grammars compiled
+  without the declaration; the envelope records `skip` as the trivia
+  rule's source.
+
+### Atomic rules
+
+Injection is *before every terminal*, including inside a rule's own
+repetition runs — so `word = 1*( ALPHA )` under a whitespace skip matches
+`"a b"` as one word. Token-shaped rules opt out:
+
+```
+atomic word = ( 1*( ALPHA ) )
+```
+
+An atomic rule's body builds **without injection entirely** (no
+inter-iteration trivia, no entry-boundary skips if the rule is an
+entry): it matches its input contiguously. References *inside* an atomic
+rule keep their own declarations' behavior. `atomic` is a reserved
+keyword.
+
 ## The lint (order-dependence and shadowing)
 
 ABNF and EBNF readers assume alternatives are interchangeable. Under PEG
