@@ -92,7 +92,11 @@ module Parsanol
       def atom_for(name)
         @atom_cache[name] ||= begin
           atom = build_atom(fetch_rule(name))
-          if @document.skip_declaration && !skip_exempt_names.include?(name)
+          # Atomic rules build without injection entirely: token-shaped
+          # rules match contiguously (no inter-iteration trivia, no
+          # entry-boundary skips).
+          if @document.skip_declaration && !skip_exempt_names.include?(name) &&
+              !@document.atomic_rules.include?(name)
             atom = inject_skip_trivia(atom)
             # Entry points take leading and trailing skips: tail trivia
             # (the tail-comment case) has no following terminal to
@@ -192,12 +196,13 @@ module Parsanol
                                   atom.result_tag)
           end
         when Atoms::Named
-          # Pass-through: trivia must stay OUTSIDE captures. Injecting
-          # inside a Named makes the captured span include the skipped
-          # bytes (span-join swallows them into the captured value).
-          # Inter-token trivia around a capture is injected by the
-          # enclosing sequence's interleave.
-          atom
+          # Descend, keeping the capture's span clean: injected skips
+          # are Ignored-wrapped, so the bytes they consume never join
+          # span-joined captures. Composites must interleave around
+          # their own children (refs included) — the old pass-through
+          # relied on every referenced leaf self-injecting, which
+          # `atomic` rules deliberately stop doing.
+          Atoms::Named.new(inject_skip_trivia(atom.parslet), atom.name)
         when Atoms::Lookahead
           Atoms::Lookahead.new(inject_skip_trivia(atom.bound_parslet), atom.positive)
         when Atoms::Str, Atoms::Re
