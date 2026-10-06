@@ -141,6 +141,51 @@ module Parsanol
         end
       end
 
+      # parsanol-ruby#152: capturer rules are the rules transitively
+      # referenced by the skip declaration whose leading literal is a
+      # non-whitespace marker — the comment shapes ("//", "/*", ...).
+      # Whitespace rules stay unrecorded trivia.
+      def skip_capturer_markers
+        @skip_capturer_markers ||= begin
+          markers = {}
+          seen = {}
+          collect = lambda do |node|
+            case node.kind
+            when :ref
+              next if seen[node.a]
+
+              seen[node.a] = true
+              literal = leading_literal(node.a)
+              markers[literal] = node.a.to_sym if literal && !literal.strip.empty?
+              collect.call(@document.rules[node.a]) if @document.rules.key?(node.a)
+            when :alt, :seq then node.a.each { |b| collect.call(b) }
+            when :rep, :opt, :cap then collect.call(node.a)
+            when :pred then collect.call(node.b)
+            end
+          end
+          collect.call(@document.skip_declaration)
+          markers
+        end
+      end
+
+      def leading_literal(rule_name)
+        node = @document.rules[rule_name]
+        return nil unless node
+
+        literal = nil
+        walk = lambda do |n|
+          break if literal
+
+          case n.kind
+          when :lit then literal = n.a
+          when :seq, :alt then n.a.each { |c| walk.call(c) unless literal }
+          when :rep, :opt, :cap, :pred then walk.call(n.a || n.b) unless literal
+          end
+        end
+        walk.call(node)
+        literal
+      end
+
       def skip_wrapper?(atom)
         @skip_wrapper_ids&.key?(atom)
       end
@@ -163,7 +208,13 @@ module Parsanol
           # span-joined captures — and failures inside it never surface
           # in diagnostics (rendered trees and deepest-failure
           # positions skip trivia causes).
-          wrapper = Atoms::Trivia.new(Atoms::Repetition.new(atom, 0, 1))
+          inner = Atoms::Repetition.new(atom, 0, 1)
+          wrapper =
+            if @document.skip_capture_key
+              Atoms::TriviaCapture.new(inner, skip_capturer_markers)
+            else
+              Atoms::Trivia.new(inner)
+            end
           (@skip_wrapper_ids ||= {}.compare_by_identity)[wrapper] = true
           wrapper
         end
