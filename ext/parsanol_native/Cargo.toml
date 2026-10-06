@@ -29,7 +29,9 @@ magnus = { version = "0.9" }
 
 # parsanol parser library (crates.io; 0.12 carries the rs#174 native
 # backtracking fix: dynamic-dependent memoization + outcome cache)
-parsanol = { version = "0.12.0", features = ["ruby"] }
+# parsanol parser library (crates.io; 0.12 carries the rs#174 native
+# backtracking fix: dynamic-dependent memoization + outcome replay)
+parsanol = { version = "0.12.1", features = ["ruby"] }
 
 # Logging
 log = "0.4"
