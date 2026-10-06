@@ -78,6 +78,13 @@ module Parsanol
                      serialize_custom_ref(atom)
                    when Parsanol::Atoms::Dynamic
                      serialize_dynamic(atom)
+                   when Parsanol::Atoms::Trivia
+                     # Wire-distinct from Ignore (rs#172): the Rust
+                     # engine suppresses trivia-position diagnostics by
+                     # atom kind. Engines predating the Trivia tag
+                     # reject skip-carrying artifacts loudly (unknown
+                     # variant), which is the declared gate.
+                     serialize_trivia(atom)
                    when Parsanol::Atoms::Ignored
                      serialize_ignored(atom)
                    else
@@ -274,6 +281,15 @@ module Parsanol
       raise Parsanol::Native::UnsupportedGrammar,
             "the native backend cannot express #{atom.class} atoms; " \
             "parse this grammar with mode: :ruby"
+    end
+
+    def serialize_trivia(atom)
+      inner_id = serialize_atom(atom.wrapped_atom)
+      {
+        "Trivia" => {
+          "atom" => inner_id,
+        },
+      }
     end
 
     def serialize_ignored(atom)

@@ -290,6 +290,7 @@ module Parsanol
   autoload :Pattern, "parsanol/pattern"
   autoload :Transform, "parsanol/transform"
   autoload :VM, "parsanol/vm"
+  autoload :Skip, "parsanol/skip"
   autoload :Parser, "parsanol/parser"
   autoload :ErrorReporter, "parsanol/error_reporter"
   autoload :Scope, "parsanol/scope"
