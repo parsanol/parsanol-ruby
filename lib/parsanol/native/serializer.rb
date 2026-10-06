@@ -78,6 +78,15 @@ module Parsanol
                      serialize_custom_ref(atom)
                    when Parsanol::Atoms::Dynamic
                      serialize_dynamic(atom)
+                   when Parsanol::Atoms::TriviaCapture
+                     # parsanol-ruby#152: the capture wrapper carries
+                     # its marker table so the native engine records
+                     # comment-shaped units into the pending channel
+                     # and attaches them to the next Named capture
+                     # under `comments:`. A distinct variant keeps the
+                     # declared gate: engines predating it reject
+                     # capture-carrying artifacts loudly.
+                     serialize_trivia_capture(atom)
                    when Parsanol::Atoms::Trivia
                      # Wire-distinct from Ignore (rs#172): the Rust
                      # engine suppresses trivia-position diagnostics by
@@ -281,6 +290,16 @@ module Parsanol
       raise Parsanol::Native::UnsupportedGrammar,
             "the native backend cannot express #{atom.class} atoms; " \
             "parse this grammar with mode: :ruby"
+    end
+
+    def serialize_trivia_capture(atom)
+      inner_id = serialize_atom(atom.wrapped_atom)
+      {
+        "TriviaCapture" => {
+          "atom" => inner_id,
+          "rules" => atom.capturers.map { |marker, label| [marker, label.to_s] },
+        },
+      }
     end
 
     def serialize_trivia(atom)

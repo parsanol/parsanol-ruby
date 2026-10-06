@@ -29,6 +29,24 @@ RSpec.describe "PARG trivia capture" do
     Parsanol::PARG::Artifact.from_json(JSON.generate(envelope))
   end
 
+  it "produces the identical tree natively (rs#172 capture parity)" do
+    skip "native ext unavailable" unless Parsanol::Native.available?
+
+    artifact = compile_capture_grammar
+    ["alpha /* intro */ , 42", "alpha // tail", "gamma"].each do |input|
+      ruby_tree = artifact.parse("document", input, mode: :ruby)
+      native_tree = artifact.parse("document", input, mode: :native)
+      normalized = lambda do |v|
+        case v
+        when Hash then v.transform_keys(&:to_s).transform_values(&normalized)
+        when Array then v.map(&normalized)
+        else v.to_s
+        end
+      end
+      expect(normalized.call(native_tree)).to eq(normalized.call(ruby_tree))
+    end
+  end
+
   it "attaches comments to the capture they precede" do
     tree = compile_capture_grammar.parse("document", "alpha /* intro */ , 42", mode: :ruby)
     items = tree[:list]
