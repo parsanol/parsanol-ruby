@@ -53,7 +53,7 @@ RSpec.describe "skip DSL" do
   it "is order-independent with root" do
     klass = Class.new(Parsanol::Parser) do
       root :doc
-      rule(:spaces) { match(/ /).repeat(1) }
+      rule(:spaces) { match(" ").repeat(1) }
       rule(:word) { match(/[a-z]/).repeat(1).as(:w) }
       rule(:doc) { word }
       skip :spaces
