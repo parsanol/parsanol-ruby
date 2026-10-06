@@ -27,8 +27,9 @@ rb-sys = { version = "0.9.124", features = ["global-allocator"] }
 # magnus for Ruby bindings (from crates.io, patched locally for Ruby 4.0 support)
 magnus = { version = "0.9" }
 
-# parsanol parser library (crates.io; 0.10 carries the class fast-path fix)
-parsanol = { version = "0.10.2", features = ["ruby"] }
+# parsanol parser library (crates.io; 0.12 carries the rs#174 native
+# backtracking fix: dynamic-dependent memoization + outcome cache)
+parsanol = { version = "0.12.0", features = ["ruby"] }
 
 # Logging
 log = "0.4"
