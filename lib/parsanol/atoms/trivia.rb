@@ -29,6 +29,8 @@ module Parsanol
       # compiler derives markers from each capturer rule's first Str
       # atom, e.g. "//" => :line_comment); units not matching any
       # marker are whitespace-shaped and stay unrecorded.
+      attr_reader :capturers
+
       def initialize(atom, capturers)
         super(atom)
         @capturers = capturers

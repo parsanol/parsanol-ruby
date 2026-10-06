@@ -298,9 +298,17 @@ module Parsanol
           is_repetition = value.is_a?(Array) && !value.empty? &&
             value.first.equal?(REPETITION_SYM)
 
+          # parsanol-ruby#152: `comments` lists are host-constructed
+          # trivia attachments, not parser repetitions — their unit
+          # hashes carry the trivia kind key, never the attachment
+          # key, so the re-keying below must not wrap them.
+          is_trivia_attachment = is_repetition && sym_key == :comments
+
           transformed = transform(value, named: true)
 
-          result[sym_key] = if is_repetition
+          result[sym_key] = if is_trivia_attachment
+                              transformed
+                            elsif is_repetition
                               if transformed.is_a?(Array)
                                 if transformed.all? do |item|
                                   item.is_a?(Hash) && item.key?(sym_key)
