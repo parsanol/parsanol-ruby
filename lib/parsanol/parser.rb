@@ -49,7 +49,38 @@ module Parsanol
       def root(rule_name)
         # Remove any existing root method before redefining
         undef_method :root if method_defined?(:root)
-        define_method(:root) { __send__(rule_name) }
+        define_method(:root) do
+          atom = __send__(rule_name)
+          skip_name = self.class.skip_rule_name
+          skip_name ? Parsanol::Skip.inject(self, atom, skip_name)[0] : atom
+        end
+      end
+
+      # Declares the grammar's skip rule (parsanol-ruby#134 DSL
+      # surface): an optional match of the named rule is injected
+      # before every terminal of the root's rule tree, and the entry
+      # takes leading and trailing skips. The referenced rule (and
+      # everything it references) builds without injection; it must be
+      # non-nullable. Order-independent with +root+.
+      #
+      # @example
+      #   class MyParser < Parsanol::Parser
+      #     rule(:spaces) { match(/[ \t]/).repeat(1) }
+      #     rule(:word) { match(/[a-z]/).repeat(1).as(:w) }
+      #     rule(:doc) { word >> str(",") >> word }
+      #     skip :spaces
+      #     root :doc
+      #   end
+      #
+      def skip(rule_name)
+        @skip_rule_name = rule_name
+        nil
+      end
+
+      # The declared skip rule name, or nil (class-level; subclasses
+      # inherit unless they declare their own).
+      def skip_rule_name
+        @skip_rule_name
       end
     end
 
