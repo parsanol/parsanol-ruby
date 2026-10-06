@@ -71,7 +71,10 @@ module Parsanol
 
           root_atom(entry_name).parse(input)
         when :ruby
-          root_atom(entry_name).parse(input)
+          # Deepest-failure reporting parity with the native engine: the
+          # default Tree reporter keeps the most recent (root) failure,
+          # which reports position 1:1 for grammars with entry wrappers.
+          root_atom(entry_name).parse(input, reporter: ErrorReporter::Deepest.new)
         else
           raise ArgumentError, "unknown mode #{mode.inspect} (use :native or :ruby)"
         end
