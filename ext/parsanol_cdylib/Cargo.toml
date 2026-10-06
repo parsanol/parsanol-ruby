@@ -12,5 +12,5 @@ crate-type = ["cdylib"]
 doc = false
 
 [dependencies]
-# 0.13 carries rs#174 + rs#172 (Trivia diagnostics parity)
-parsanol = { version = "0.13" }
+# 0.13.2 carries the rs#174 round-2 fragment-boundary fix
+parsanol = { version = "0.13.2" }

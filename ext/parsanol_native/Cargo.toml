@@ -29,9 +29,9 @@ magnus = { version = "0.9" }
 
 # parsanol parser library (crates.io; 0.12 carries the rs#174 native
 # backtracking fix: dynamic-dependent memoization + outcome cache)
-# parsanol parser library (crates.io; 0.13 carries the rs#172 Trivia
-# atom: native diagnostics skip trivia positions, matching ruby #145)
-parsanol = { version = "0.13.0", features = ["ruby"] }
+# parsanol parser library (crates.io; 0.13.2 carries the rs#174 round-2
+# fragment-boundary fix: 4-cell table 97.9s/2.4GB -> 0.068s natively)
+parsanol = { version = "0.13.2", features = ["ruby"] }
 
 # Logging
 log = "0.4"
