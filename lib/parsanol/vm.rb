@@ -84,6 +84,14 @@ module Parsanol
     STEP_BUDGET_FIXED = 10_000
     MEMO_BUDGET_FACTOR = 4_096
     MEMO_BUDGET_CELLS_FACTOR = 16
+    # Wall-clock ceiling for the memoized retry pass. Step budgets assume
+    # sub-microsecond steps; pathological grammars make each step
+    # expensive enough that a step budget alone mispredicts wall time by
+    # orders of magnitude (parsanol-ruby#147: a 6-line skip-injected
+    # document ground ~146s inside its memo budget where the interpreter
+    # answers in milliseconds). Bounded wall time surrenders the grammar
+    # to the interpreter, the source of truth, instead of burning CPU.
+    MEMO_WALL_BUDGET_SECONDS = 5.0
 
     # Compiled-program and heavy-flag caches hold at most this many
     # grammars. A process rarely uses more than a handful concurrently;
@@ -130,7 +138,10 @@ module Parsanol
           end
         cache[root] = program
         trim_cache(cache)
-        program.equal?(:fallback) ? nil : program
+        # :fallback = VM-incompatible; :oversize even non-inlined means
+        # the grammar is beyond the program cap — the interpreter
+        # handles both.
+        program.equal?(:fallback) || program.equal?(:oversize) ? nil : program
       end
 
       # Marks a grammar as VM-incompatible after a runtime failure.
@@ -197,6 +208,10 @@ module Parsanol
         end
 
         compiler.to_program
+      rescue Compiler::ProgramTooLarge
+        # Emission aborted at the cap: discard and let the caller
+        # decide (compile retries non-inlined).
+        :oversize
       end
 
       # Returns violation descriptions for this atom's ordered-choice
@@ -679,7 +694,19 @@ module Parsanol
 
       private
 
+      # Raised mid-emission once the program passes MAX_PROGRAM: abort
+      # the build immediately instead of materializing millions of
+      # instructions only to discover the overflow in to_program
+      # (parsanol-ruby#147: an inline pass on a skip-injected grammar
+      # reached 6.3M instructions / 16M with subroutines before the
+      # post-hoc check discarded them — minutes of compile time and
+      # gigabytes of transient allocations for a program that is
+      # thrown away and rebuilt non-inlined anyway).
+      class ProgramTooLarge < StandardError; end
+
       def emit(op, a = nil, b = nil, c = nil) # rubocop:disable Naming/MethodParameterName -- opcode operand slots
+        raise ProgramTooLarge if @ops.size > MAX_PROGRAM
+
         @ops << [op, a, b, c]
         @ops.size - 1
       end
@@ -902,6 +929,9 @@ module Parsanol
                    (STEP_BUDGET_FACTOR * n) + STEP_BUDGET_FIXED
                  end
         steps = 0
+        wall_deadline = if @memoize
+                          Process.clock_gettime(Process::CLOCK_MONOTONIC) + MEMO_WALL_BUDGET_SECONDS
+                        end
 
         pc = 0
         pos = 0
@@ -917,6 +947,13 @@ module Parsanol
         # rubocop:disable Metrics/BlockLength -- the dispatch loop IS execute
         loop do
           steps += 1
+          # Checked every 1024 steps: a monotonic clock read per
+          # millisecond of ordinary work costs nothing measurable.
+          if wall_deadline && steps.nobits?(0x3FF) &&
+              Process.clock_gettime(Process::CLOCK_MONOTONIC) > wall_deadline
+            return BUDGET
+          end
+
           if steps > budget
             if trace
               warn "BUDGET at steps=#{steps} pc=#{pc} pos=#{pos} rstack=#{rstack.size} bt=#{bt.size} calls=#{calls.size}"
