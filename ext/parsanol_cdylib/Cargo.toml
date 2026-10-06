@@ -12,4 +12,5 @@ crate-type = ["cdylib"]
 doc = false
 
 [dependencies]
-parsanol = { version = "0.10" }
+# 0.12 carries rs#174 (native dynamic-grammar backtracking fix)
+parsanol = { version = "0.12" }
