@@ -38,12 +38,18 @@ RSpec.describe "PARG artifact ruby-mode diagnostics" do
     skip "native engine unavailable" unless Parsanol::Native.available?
 
     input = "item alpha\nitem beta = ok\nitem gamma {\n"
-    ruby_error = artifact.parse("main", input, mode: :ruby)
-  rescue Parsanol::ParseFailed => e
-    native_error = artifact.parse("main", input, mode: :native)
-  rescue Parsanol::ParseFailed => e2
-    ruby_pos = e.parse_failure_cause.position
-    native_pos = e2.parse_failure_cause.position
+    ruby_pos = begin
+      artifact.parse("main", input, mode: :ruby)
+      raise "expected the ruby parse to fail"
+    rescue Parsanol::ParseFailed => e
+      e.parse_failure_cause.position
+    end
+    native_pos = begin
+      artifact.parse("main", input, mode: :native)
+      raise "expected the native parse to fail"
+    rescue Parsanol::ParseFailed => e
+      e.parse_failure_cause.position
+    end
     expect(ruby_pos).to eq(native_pos)
   end
 
