@@ -207,6 +207,30 @@ Semantics:
   without the declaration; the envelope records `skip` as the trivia
   rule's source.
 
+### Captured trivia (phase 2)
+
+`skip = trivia capture: comments` attaches comment-shaped trivia to the
+capture it precedes, under `comments:` — comments become programmatic
+data without dedicated capture rules:
+
+```
+skip = trivia capture: comments
+trivia = 1*( ( 1*" " ) / line_comment / block_comment )
+```
+
+- capturers are the rules the declaration (transitively) references
+  whose leading literal is non-whitespace — the comment shapes
+- matched trivia rides with the NEXT successful capture; trailing
+  trivia attaches to the enclosing entry capture
+- whitespace is never recorded; `comments:` appears only when trivia
+  actually preceded a capture, so plain `skip` grammars stay
+  byte-identical
+- captured bytes never join span captures (the injection span
+  discipline is unchanged)
+- on the Ruby engine: capture grammars run on the interpreter (the
+  bytecode VM declines them); native-engine parity ships with the
+  trivia wire round
+
 ### Atomic rules
 
 Injection is *before every terminal*, including inside a rule's own

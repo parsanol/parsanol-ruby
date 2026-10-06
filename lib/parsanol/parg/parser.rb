@@ -21,7 +21,7 @@ module Parsanol
       STATE_KEYWORDS = %w[custom state].freeze
       KEYWORDS = %w[grammar as alt from_table column bindings render derive
                     preprocess entry table_lookup custom state set switch
-                    skip until atomic].freeze
+                    skip until atomic capture].freeze
 
       def initialize(text)
         @tokens = Lexer.new(text).tokens
@@ -170,6 +170,15 @@ module Parsanol
             end
 
             node = parse_choice
+            # parsanol-ruby#152 phase 2: `skip = trivia capture:
+            # comments` attaches comment-shaped trivia (the rules the
+            # declaration references, identified by leading literal)
+            # to the next successful capture under `comments:`.
+            if peek&.type == :ident && peek.value == "capture"
+              advance
+              punct(":")
+              document.skip_capture_key = ident.value.to_sym
+            end
             document.skip_declaration = validate_skip_node(node)
             document.skip_source = skip_source_string(node)
             skip_newlines
@@ -260,13 +269,25 @@ module Parsanol
 
       def stop_element?
         peek.nil? || peek.type == :newline ||
-          (peek.type == :punct && ["/", ")", "]", "}"].include?(peek.value))
+          (peek.type == :punct && ["/", ")", "]", "}"].include?(peek.value)) ||
+          # `capture:` suffix terminates the skip declaration's RHS
+          # (parsanol-ruby#152); everywhere else parse_element's guard
+          # rejects it.
+          (peek&.type == :ident && peek.value == "capture" &&
+           @tokens[@pos + 1]&.type == :punct && @tokens[@pos + 1]&.value == ":")
       end
 
       def parse_element
         token = peek
         if token.nil?
           raise ParseError, "unexpected end of input inside sequence"
+        end
+
+        # `capture:` is a skip-declaration suffix, never an expression
+        # element (reserved keyword; parsanol-ruby#152).
+        if token.type == :ident && token.value == "capture" &&
+            @tokens[@pos + 1]&.type == :punct && @tokens[@pos + 1]&.value == ":"
+          raise ParseError, "capture: only modifies the skip declaration"
         end
 
         if token.type == :num

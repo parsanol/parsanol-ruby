@@ -67,6 +67,11 @@ module Parsanol
         # Injected-trivia depth: while positive, reported causes are
         # marked trivia and never surface in diagnostics.
         @trivia_depth = 0
+        # Captured trivia channel (parsanol-ruby#152): when the grammar
+        # declares `skip ... capture:`, matched trivia units land here
+        # and the NEXT successful Named capture attaches (and drains)
+        # them under `comments:`.
+        @pending_trivia = []
         @evict_threshold = 200
         @evict_counter = 0
         @evict_interval = 100
@@ -256,6 +261,34 @@ module Parsanol
         return ERROR_RESULT unless @reporter
 
         [false, @reporter.err(*)]
+      end
+
+      # Records one captured trivia unit (kind, text) for attachment to
+      # the next successful Named capture.
+      def push_captured_trivia(kind, text)
+        @pending_trivia << { kind: kind, text: text }
+        nil
+      end
+
+      # Snapshot for backtracking: a failed branch must not leak its
+      # half-recorded trivia into the successful alternative.
+      def take_pending_trivia_snapshot
+        @pending_trivia.dup
+      end
+
+      def restore_pending_trivia(snapshot)
+        @pending_trivia = snapshot
+        nil
+      end
+
+      # Drains pending captured trivia (attached by the next
+      # successful Named capture). Backtracking discards whatever has
+      # not been attached yet — the caller snapshots position and
+      # restores this list alongside.
+      def take_pending_trivia
+        list = @pending_trivia
+        @pending_trivia = []
+        list
       end
 
       # Brackets a parse inside injected trivia: causes reported while

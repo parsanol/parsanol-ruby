@@ -32,10 +32,32 @@ module Parsanol
       # @param consume_all [Boolean] require full consumption
       # @return [Array(Boolean, Object)] result
       def apply(source, context, consume_all)
+        trivia_before = context.take_pending_trivia_snapshot
         success, value = @parslet.apply(source, context, consume_all)
-        return [false, value] unless success
+        unless success
+          context.restore_pending_trivia(trivia_before)
+          return [false, value]
+        end
 
-        ok(wrap_result(value))
+        comments = context.take_pending_trivia
+        result = wrap_result(value)
+        result = attach_comments(result, comments) unless comments.empty?
+        ok(result)
+      end
+
+      private
+
+      # parsanol-ruby#152: trivia captured ahead of this capture rides
+      # with it under `comments:`. The attachment only fires when the
+      # grammar declared capture AND trivia actually preceded — key
+      # absence everywhere else keeps v1 trees byte-identical.
+      def attach_comments(result, comments)
+        list = comments.map { |unit| { unit[:kind] => unit[:text] } }
+        if result.is_a?(Hash)
+          result.merge(comments: list)
+        else
+          { @name => result, comments: list }
+        end
       end
 
       # Named wrappers skip caching (inner parser handles it).
@@ -59,8 +81,6 @@ module Parsanol
       def compute_first_set
         @parslet.first_set
       end
-
-      private
 
       # Wraps matched value in labeled hash.
       #

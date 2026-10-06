@@ -649,6 +649,12 @@ module Parsanol
           compile_entity(atom, consume_all)
         when Parsanol::Atoms::Lookahead
           compile_lookahead(atom, consume_all)
+        when Parsanol::Atoms::TriviaCapture
+          # Captured trivia records into the context channel at match
+          # time (parsanol-ruby#152); the bytecode program has no
+          # channel, so the interpreter (which does) must own the
+          # grammar. Declining here routes program_for to :fallback.
+          nil
         when Parsanol::Atoms::Ignored
           inner = atom.wrapped_atom
           return nil if inner.nil?
