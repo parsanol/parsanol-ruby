@@ -144,7 +144,14 @@ module Parsanol
         end
         if hash_key
           shared = hashed[hash_key]
-          return shared if shared
+          if shared
+            # The shared program's compile-time analysis (heavy-memo
+            # seeding) covered this structure; the fresh root inherits
+            # it so its first parse memoizes like the original's.
+            heavy_by_hash = (@heavy_by_hash ||= {})
+            (@heavy ||= {}.compare_by_identity)[root] = true if heavy_by_hash[hash_key]
+            return shared
+          end
         end
 
         # A grammar the compiler cannot compile — e.g. one containing a
@@ -160,6 +167,7 @@ module Parsanol
           end
         cache[root] = program
         hashed[hash_key] = program if hash_key
+        (@heavy_by_hash ||= {})[hash_key] = true if hash_key && @heavy&.key?(root)
         trim_hashed_cache(hashed)
         trim_cache(cache)
         # :fallback = VM-incompatible; :oversize even non-inlined means
@@ -183,6 +191,7 @@ module Parsanol
         @programs&.clear
         @programs_by_hash&.clear
         @heavy&.clear
+        @heavy_by_hash&.clear
       end
 
       # FIFO eviction past the cache limit.
