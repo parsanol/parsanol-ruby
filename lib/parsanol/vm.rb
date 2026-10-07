@@ -136,6 +136,7 @@ module Parsanol
           rescue NotImplementedError
             :fallback
           end
+        cache[root] = program
         trim_cache(cache)
         # :fallback = VM-incompatible; :oversize even non-inlined means
         # the grammar is beyond the program cap — the interpreter
