@@ -125,11 +125,37 @@ module Parsanol
         return nil if cached.equal?(:fallback)
         return cached if key?(cache, root)
 
+        # Structure-hash probe (rs#166): a fresh parser instance (or a
+        # rule called on one) misses the identity key above and would
+        # silently recompile the ENTIRE grammar per call — the fresh-
+        # parser recompile trap (25x table transforms in coradoc,
+        # metanorma/coradoc#265). The structure hash — the same key
+        # the native grammar cache uses — lets equivalent grammars
+        # share the compiled program; identity stays as the fast
+        # first level.
+        hashed = (@programs_by_hash ||= {})
+        hash_key = begin
+          Parsanol::Native::Parser.public_structure_hash(root)
+        rescue NotImplementedError
+          # A grammar with an unimplemented lazy rule (entities resolve
+          # eagerly for hashing) has no stable structure yet; the
+          # identity cache above still serves it.
+          nil
+        end
+        if hash_key && (shared = hashed[hash_key]).is_a?(Array)
+          # The shared program's compile-time analysis (heavy-memo
+          # seeding) covered this structure; the fresh root inherits
+          # it so its first parse memoizes like the original's.
+          (@heavy ||= {}.compare_by_identity)[root] = true if @heavy_by_hash&.[](hash_key)
+          return shared
+        end
+
         # A grammar the compiler cannot compile — e.g. one containing a
         # lazily resolved Entity that a select-first literal index would
         # never select — falls back to the interpreter, the source of
         # truth. The interpreter resolves such entities lazily, so an
         # unselected branch simply never raises.
+        @last_compile_prone = nil
         program =
           begin
             compile(atom)
@@ -137,6 +163,19 @@ module Parsanol
             :fallback
           end
         cache[root] = program
+        # Only real programs share. A symbol verdict (:fallback /
+        # :oversize) is a property of this particular compile
+        # attempt's path, not of the structure: serving it to a later
+        # grammar with the same structure would silently send a
+        # compile-capable grammar to the interpreter, unseeded — the
+        # order-dependent vm_fail_dispatch failure. Verdicts stay
+        # identity-local; a fresh root recompiles and re-derives
+        # both the verdict and the heavy-memo seed naturally.
+        if hash_key && program.is_a?(Array)
+          hashed[hash_key] = program
+          (@heavy_by_hash ||= {})[hash_key] = @last_compile_prone
+          trim_hashed_cache(hashed)
+        end
         trim_cache(cache)
         # :fallback = VM-incompatible; :oversize even non-inlined means
         # the grammar is beyond the program cap — the interpreter
@@ -157,12 +196,19 @@ module Parsanol
 
       def clear_program_cache
         @programs&.clear
+        @programs_by_hash&.clear
         @heavy&.clear
+        @heavy_by_hash&.clear
       end
 
       # FIFO eviction past the cache limit.
       def trim_cache(cache)
         cache.shift while cache.size > PROGRAM_CACHE_LIMIT
+        nil
+      end
+
+      def trim_hashed_cache(hashed)
+        hashed.shift while hashed.size > PROGRAM_CACHE_LIMIT
         nil
       end
 
@@ -205,8 +251,12 @@ module Parsanol
         # rs#166: proneness rides the structure-hash share as a bool —
         # a later identical-structure grammar inherits the seed instead
         # of running its cold start unmemoized because compilation was
-        # skipped entirely.
-        if compiler.backtracking_prone
+        # skipped entirely. Recorded on the VM singleton so the share
+        # store can read it after this compile; program_for resets it
+        # first, so a raised NotImplementedError cannot smear the
+        # previous grammar's proneness onto this one.
+        @last_compile_prone = compiler.backtracking_prone
+        if @last_compile_prone
           (@heavy ||= {}.compare_by_identity)[root] = true
           trim_cache(@heavy)
         end
