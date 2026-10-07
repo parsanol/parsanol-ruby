@@ -12,5 +12,5 @@ crate-type = ["cdylib"]
 doc = false
 
 [dependencies]
-# 0.16.0 carries atom-valued capture writes (native scope/continuation)
-parsanol = { version = "0.16.0" }
+# 0.17.0 carries LookSpec + the widened opaque writeback
+parsanol = { version = "0.17.0" }
