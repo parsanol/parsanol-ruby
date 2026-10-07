@@ -12,5 +12,5 @@ crate-type = ["cdylib"]
 doc = false
 
 [dependencies]
-# 0.14.0 carries the TriviaCapture atom (native capture parity)
-parsanol = { version = "0.14.0" }
+# 0.15.0 carries the Constant and Lookbehind atoms
+parsanol = { version = "0.15.0" }
