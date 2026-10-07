@@ -149,7 +149,7 @@ module Parsanol
             # seeding) covered this structure; the fresh root inherits
             # it so its first parse memoizes like the original's.
             heavy_by_hash = (@heavy_by_hash ||= {})
-            (@heavy ||= {}.compare_by_identity)[root] = true if heavy_by_hash[hash_key]
+            (@heavy ||= {}.compare_by_identity)[root] = true if heavy_by_hash[hash_key] == true
             return shared
           end
         end
@@ -167,7 +167,7 @@ module Parsanol
           end
         cache[root] = program
         hashed[hash_key] = program if hash_key
-        (@heavy_by_hash ||= {})[hash_key] = true if hash_key && @heavy&.key?(root)
+        (@heavy_by_hash ||= {})[hash_key] = @last_compile_prone if hash_key
         trim_hashed_cache(hashed)
         trim_cache(cache)
         # :fallback = VM-incompatible; :oversize even non-inlined means
@@ -241,7 +241,12 @@ module Parsanol
         # starts memoized on its very first parse (fresh parser instances
         # included — the seed is recomputed at every compile), so the
         # cold-start never pays the doomed unmemoized exploration.
-        if compiler.backtracking_prone
+        # rs#166: proneness rides the structure-hash share as a bool —
+        # a later identical-structure grammar inherits the seed instead
+        # of running its cold start unmemoized because compilation was
+        # skipped entirely.
+        @last_compile_prone = compiler.backtracking_prone
+        if @last_compile_prone
           (@heavy ||= {}.compare_by_identity)[root] = true
           trim_cache(@heavy)
         end
