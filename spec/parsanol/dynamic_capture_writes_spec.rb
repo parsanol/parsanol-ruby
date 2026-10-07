@@ -59,4 +59,47 @@ describe "dynamic capture writes across the native bridge" do
     # parslet would, and a second dynamic reads a clean set.
     expect(klass.new.parse("ABB")).to be_truthy
   end
+
+  # parsanol-ruby#177: an atom-valued write is usually a Ruby temporary
+  # whose only Rust-side reference is the host-atom registry. Once the
+  # writing callback's frame is gone, a full collection must not sweep
+  # it — the rehydrated capture has to be the SAME object, not a freed
+  # slot reused by same-class churn.
+  it "keeps an atom-valued capture alive across a full GC" do
+    chain_id = nil
+    klass = Class.new(Parsanol::Parser) do
+      rule(:tail) { str("B") }
+      rule(:reader) do
+        dynamic do |_src, ctx|
+          if ctx.captures.key?(:chain)
+            # The writer's frame is gone, so the registry is the only
+            # reference at collection time. (Reproducing the crash
+            # pre-fix needs the writer's dead stack slot clobbered
+            # first — MRI scans conservatively — which CI's linux
+            # x86_64/ruby 3.3 timing does on its own.)
+            GC.start
+            200.times { |i| str("reuse-#{i}") >> str("Y") }
+            unless ctx.captures[:chain].object_id == chain_id
+              raise "host atom swept: rehydrated capture is not the written object"
+            end
+
+            ctx.captures[:chain].ignore
+            tail
+          else
+            chain = str("X") >> str("Y")
+            chain_id = chain.object_id
+            ctx.captures[:chain] = chain
+            str("A")
+          end
+        end
+      end
+      rule(:root_rule) { reader >> reader }
+      root(:root_rule)
+
+      def self.name
+        "AtomCaptureGc"
+      end
+    end
+    expect(klass.new.parse("AB")).to be_truthy
+  end
 end
