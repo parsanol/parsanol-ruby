@@ -12,5 +12,5 @@ crate-type = ["cdylib"]
 doc = false
 
 [dependencies]
-# 0.13.2 carries the rs#174 round-2 fragment-boundary fix
-parsanol = { version = "0.13.2" }
+# 0.14.0 carries the TriviaCapture atom (native capture parity)
+parsanol = { version = "0.14.0" }
