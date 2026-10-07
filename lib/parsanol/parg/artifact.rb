@@ -65,7 +65,7 @@ module Parsanol
       def parse(entry_name, input, mode: :native)
         case mode
         when :native
-          if Native.available?
+          if Native.available? && !envelope["dynamic"]
             # Fast lane (parsanol-ruby#162): the per-instance atom
             # tree rides the DSL serialization/registration caches
             # (GRAMMAR_CACHE / HANDLE_CACHE keyed on the stable root
@@ -74,7 +74,7 @@ module Parsanol
             # grammar JSON and re-registered it per parse (~8x).
             # Dynamic artifacts carry ruby-tier atoms their wire
             # cannot express — they keep the interpreter.
-            return root_atom(entry_name).parse(input, mode: :native) unless envelope["dynamic"]
+            return root_atom(entry_name).parse(input, mode: :native)
           end
 
           root_atom(entry_name).parse(input)
