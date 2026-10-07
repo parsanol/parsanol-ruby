@@ -12,5 +12,5 @@ crate-type = ["cdylib"]
 doc = false
 
 [dependencies]
-# 0.17.0 carries LookSpec + the widened opaque writeback
-parsanol = { version = "0.17.0" }
+# 0.17.1 carries the map-key capture iteration fix (rs#165)
+parsanol = { version = "0.17.1" }
