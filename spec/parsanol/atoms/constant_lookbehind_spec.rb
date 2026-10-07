@@ -67,7 +67,7 @@ RSpec.describe "Constant and Lookbehind atoms" do
     )
     wire = Parsanol::Native.serialize_grammar(grammar)
     native = Parsanol::Native.parse(wire, "--rest")
-    expect(native[:hr]).to eq(true)
+    expect(native[:hr]).to be(true)
   end
 
   def native_supports_new_atoms?
