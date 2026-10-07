@@ -74,7 +74,15 @@ module Parsanol
             # grammar JSON and re-registered it per parse (~8x).
             # Dynamic artifacts carry ruby-tier atoms their wire
             # cannot express — they keep the interpreter.
-            return root_atom(entry_name).parse(input, mode: :native)
+            begin
+              return root_atom(entry_name).parse(input, mode: :native)
+            rescue Parsanol::ParseFailed
+              # The atom-tree native path reports the root position; the
+              # wire-registration path carries the deepest-failure
+              # diagnostics (parsanol-ruby#171). Failures pay the
+              # serialization once; successes keep the fast lane.
+              return Native.parse(JSON.generate(entry(entry_name).fetch("grammar")), input)
+            end
           end
 
           root_atom(entry_name).parse(input)
