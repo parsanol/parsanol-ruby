@@ -125,35 +125,6 @@ module Parsanol
         return nil if cached.equal?(:fallback)
         return cached if key?(cache, root)
 
-        # Structure-hash probe (rs#166): a fresh parser instance (or a
-        # rule called on one) misses the identity key above and would
-        # silently recompile the ENTIRE grammar per call — the fresh-
-        # parser recompile trap (25x table transforms in coradoc,
-        # metanorma/coradoc#265). The structure hash — the same key
-        # the native grammar cache uses — lets equivalent grammars
-        # share the compiled program; identity stays as the fast
-        # first level.
-        hashed = (@programs_by_hash ||= {})
-        hash_key = begin
-          Parsanol::Native::Parser.public_structure_hash(root)
-        rescue NotImplementedError
-          # A grammar with an unimplemented lazy rule (entities resolve
-          # eagerly for hashing) has no stable structure yet; the
-          # identity cache above still serves it.
-          nil
-        end
-        if hash_key
-          shared = hashed[hash_key]
-          if shared
-            # The shared program's compile-time analysis (heavy-memo
-            # seeding) covered this structure; the fresh root inherits
-            # it so its first parse memoizes like the original's.
-            heavy_by_hash = (@heavy_by_hash ||= {})
-            (@heavy ||= {}.compare_by_identity)[root] = true if heavy_by_hash[hash_key] == true
-            return shared
-          end
-        end
-
         # A grammar the compiler cannot compile — e.g. one containing a
         # lazily resolved Entity that a select-first literal index would
         # never select — falls back to the interpreter, the source of
@@ -165,10 +136,6 @@ module Parsanol
           rescue NotImplementedError
             :fallback
           end
-        cache[root] = program
-        hashed[hash_key] = program if hash_key
-        (@heavy_by_hash ||= {})[hash_key] = @last_compile_prone if hash_key
-        trim_hashed_cache(hashed)
         trim_cache(cache)
         # :fallback = VM-incompatible; :oversize even non-inlined means
         # the grammar is beyond the program cap — the interpreter
@@ -189,19 +156,12 @@ module Parsanol
 
       def clear_program_cache
         @programs&.clear
-        @programs_by_hash&.clear
         @heavy&.clear
-        @heavy_by_hash&.clear
       end
 
       # FIFO eviction past the cache limit.
       def trim_cache(cache)
         cache.shift while cache.size > PROGRAM_CACHE_LIMIT
-        nil
-      end
-
-      def trim_hashed_cache(hashed)
-        hashed.shift while hashed.size > PROGRAM_CACHE_LIMIT
         nil
       end
 
@@ -245,8 +205,7 @@ module Parsanol
         # a later identical-structure grammar inherits the seed instead
         # of running its cold start unmemoized because compilation was
         # skipped entirely.
-        @last_compile_prone = compiler.backtracking_prone
-        if @last_compile_prone
+        if compiler.backtracking_prone
           (@heavy ||= {}.compare_by_identity)[root] = true
           trim_cache(@heavy)
         end
