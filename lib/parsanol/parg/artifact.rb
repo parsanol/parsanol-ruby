@@ -72,9 +72,15 @@ module Parsanol
             # atom), so an artifact parses at compiled speed after
             # the first call. The old path re-serialized the whole
             # grammar JSON and re-registered it per parse (~8x).
-            # Dynamic artifacts carry ruby-tier atoms their wire
-            # cannot express — they keep the interpreter.
-            return root_atom(entry_name).parse(input, mode: :native)
+            # Routed through Native.parse — NOT
+            # root_atom.parse(mode: :native): Atoms::Base#parse has no
+            # mode dispatch, so that call silently ran the pure-Ruby
+            # VM and its interpreter fallback, whose failures report
+            # the root cause instead of the native engine's deepest
+            # diagnostics (parsanol-ruby#171). Dynamic artifacts keep
+            # the interpreter below — their wire cannot express
+            # ruby-tier atoms.
+            return Native.parse(root_atom(entry_name), input)
           end
 
           root_atom(entry_name).parse(input)

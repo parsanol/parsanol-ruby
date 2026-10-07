@@ -57,4 +57,19 @@ RSpec.describe "PARG artifact ruby-mode diagnostics" do
     shape = artifact.parse("main", "item alpha", mode: :ruby)
     expect(shape.dig(:members, 0, :item, :name)).to eq("alpha")
   end
+
+  it "routes native mode through the native engine (ruby#171)" do
+    skip "native engine unavailable" unless Parsanol::Native.available?
+
+    input = "item alpha\nitem beta = ok\nitem gamma {\n"
+    expect { artifact.parse("main", input, mode: :native) }
+      .to raise_error(Parsanol::ParseFailed) { |e|
+        # The native engine reports its deepest-failure diagnostics
+        # ("expected one of [...]"). The interpreter's root-cause form
+        # ("Failed to match sequence ... at line 1 char 1") means the
+        # lane silently ran the Ruby engine instead.
+        expect(e.message).to match(/expected one of/)
+        expect(e.parse_failure_cause.position).to be > 0
+      }
+  end
 end
