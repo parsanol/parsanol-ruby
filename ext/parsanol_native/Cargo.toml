@@ -29,9 +29,9 @@ magnus = { version = "0.9" }
 
 # parsanol parser library (crates.io; 0.12 carries the rs#174 native
 # backtracking fix: dynamic-dependent memoization + outcome cache)
-# parsanol parser library (crates.io; 0.15.0 carries the Constant and
-# Lookbehind atoms: the coradoc-markdown native gap, rs#137 follow-up)
-parsanol = { version = "0.15.0", features = ["ruby"] }
+# parsanol parser library (crates.io; 0.16.0 carries atom-valued capture
+# writes: the native scope/continuation fix, parsanol-ruby#160)
+parsanol = { version = "0.16.0", features = ["ruby"] }
 
 # Logging
 log = "0.4"
