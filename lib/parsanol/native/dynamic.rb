@@ -132,6 +132,12 @@ module Parsanol
         #
         def invoke_from_rust(callback_id, context)
           block = @mutex.synchronize { @callbacks[callback_id]&.dig(:block) }
+          if ENV["PARSANOL_INVOKE_TRACE"]
+            cont = context[:captures][:cont]
+            warn "INVOKE id=#{callback_id} pos=#{context[:pos]} " \
+                 "block=#{context[:captures][:block].inspect} " \
+                 "cont=#{cont.class}@#{cont.object_id}"
+          end
           return nil unless block
 
           # Build DynamicContext from hash
@@ -142,17 +148,32 @@ module Parsanol
           )
 
           # Call the block. Parslet-canonical blocks take two arguments
-          # (source, context): pass the restricted context for both so
-          # either convention works (GH-76). Captures are read-only
-          # snapshots of the engine state; write-dependent dispatch must
-          # run on mode: :ruby.
+          # (source, context). The source is a REAL Parsanol::Source
+          # positioned at the dispatch point: blocks that read source
+          # state (bytepos, line_and_column — the lazy-continuation
+          # guards do) previously got the context wrapper for both
+          # args and raised NoMethodError, which the bridge turned
+          # into a silent dispatch failure (rs#165). Consumption
+          # side-effects stay local to the call: the resolved fragment
+          # is the parse.
           result = if block.arity == 2
-                     block.call(ctx, ctx)
+                     dispatch_source = Parsanol::Source.new(context[:input])
+                     dispatch_source.bytepos = context[:pos]
+                     block.call(dispatch_source, ctx)
                    else
                      block.call(ctx)
                    end
 
           return nil unless result
+
+          if ENV["PARSANOL_FRAG_TRACE"]
+            begin
+              json = result.to_atom_json
+              warn "FRAG id=#{callback_id} json=#{json[0, 120]}"
+            rescue StandardError => e
+              warn "FRAG id=#{callback_id} RAISE #{e.class}: #{e.message[0, 140]}"
+            end
+          end
 
           # Capture-write contract (GH-80): return the atom and the
           # post-call captures hash; the Rust bridge diffs it against
