@@ -103,15 +103,17 @@ module Parsanol
                      # atoms — empty match yielding a wire constant.
                      { "Constant" => { "value" => serialize_constant_value(atom.value) } }
                    when Parsanol::Atoms::Lookbehind
-                     # rs#137 follow-up: the precedes?/does_not_precede?
-                     # guards — inspect the bytes behind the position.
-                     {
-                       "Lookbehind" => {
-                         "count" => atom.count,
-                         "pattern" => atom.pattern,
-                         "positive" => atom.positive,
-                       },
-                     }
+                     # rs#137/#163: the behind-window test — a fixed
+                     # literal window or an end-anchored regex (the
+                     # CommonMark flanking form).
+                     look = if atom.regex?
+                              { "Regex" => { "source" => atom.regex_source } }
+                            else
+                              { "Literal" => { "count" => atom.count,
+                                               "pattern" => atom.pattern } }
+                            end
+                     { "Lookbehind" => { "look" => look,
+                                         "positive" => atom.positive } }
                    when Parsanol::Atoms::Ignored
                      serialize_ignored(atom)
                    else

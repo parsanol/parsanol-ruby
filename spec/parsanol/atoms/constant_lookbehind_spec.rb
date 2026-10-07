@@ -54,7 +54,21 @@ RSpec.describe "Constant and Lookbehind atoms" do
       Parsanol::Native.serialize_grammar(Parsanol::Atoms::Lookbehind.new(2, "--")),
     )
     expect(look["atoms"][0]).to eq(
-      "Lookbehind" => { "count" => 2, "pattern" => "--", "positive" => true },
+      "Lookbehind" => {
+        "look" => { "Literal" => { "count" => 2, "pattern" => "--" } },
+        "positive" => true,
+      },
+    )
+    regex_look = JSON.parse(
+      Parsanol::Native.serialize_grammar(
+        Parsanol::Atoms::Lookbehind.regex("[[:space:]]"),
+      ),
+    )
+    expect(regex_look["atoms"][0]).to eq(
+      "Lookbehind" => {
+        "look" => { "Regex" => { "source" => "[[:space:]]" } },
+        "positive" => true,
+      },
     )
     expect(constant.value).to eq(value)
   end
@@ -68,6 +82,21 @@ RSpec.describe "Constant and Lookbehind atoms" do
     wire = Parsanol::Native.serialize_grammar(grammar)
     native = Parsanol::Native.parse(wire, "--rest")
     expect(native[:hr]).to be(true)
+  end
+
+  it "regex lookbehind guards the class behind the position (ruby mode)" do
+    atom = Parsanol::Atoms::Lookbehind.regex("[[:space:]]")
+    source = Parsanol::Source.new("x rest")
+    context = Parsanol::Atoms::Context.new
+    source.bytepos = 2
+    ok, = atom.apply(source, context, false)
+    expect(ok).to be(true)
+
+    source2 = Parsanol::Source.new("ab rest")
+    context2 = Parsanol::Atoms::Context.new
+    source2.bytepos = 2
+    ok2, = atom.apply(source2, context2, false)
+    expect(ok2).to be(false)
   end
 
   def native_supports_new_atoms?

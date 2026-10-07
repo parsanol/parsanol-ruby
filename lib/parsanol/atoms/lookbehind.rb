@@ -2,30 +2,60 @@
 
 module Parsanol
   module Atoms
-    # Inspects the byte window behind the current position: the
-    # previous +count+ bytes must equal +pattern+ (positive) or
-    # differ (negative). Consumes nothing, yields nil — the
-    # precedes?/does_not_precede? guard shape (coradoc-markdown
-    # parity, rs#137 follow-up).
+    # Inspects the text behind the current position and consumes
+    # nothing, yielding nil.
+    #
+    # Two forms (rs#137/#163):
+    # - Literal: the previous +count+ bytes must equal +pattern+
+    #   (the precedes?/does_not_precede? fixed-window guard).
+    # - Regex: +source+ is searched in the preceding text and must
+    #   end at the position — the CommonMark flanking form, which is
+    #   class-based, multibyte and variable-length.
     class Lookbehind < Base
-      attr_reader :count, :pattern, :positive
+      attr_reader :count, :pattern, :regex_source, :positive
 
       def initialize(count, pattern, positive: true)
         super()
         @count = count
         @pattern = pattern
+        @regex_source = nil
+        @compiled = nil
         @positive = positive
+      end
+
+      # Class-based flanking guard: +source+ must match the text
+      # ending at the position.
+      def self.regex(source, positive: true)
+        atom = new(0, "", positive: positive)
+        atom.instance_variable_set(:@regex_source, source)
+        atom
+      end
+
+      def regex?
+        !@regex_source.nil?
       end
 
       def try(source, _context, _consume_all)
         start = source.bytepos
-        behind = start >= @count ? source.input.byteslice(start - @count, @count) : nil
-        matched = !behind.nil? && behind == @pattern.b
+        if regex?
+          @compiled ||= Regexp.new("(?:#{@regex_source})\\z")
+          matched = @compiled.match?(source.input.byteslice(0, start))
+        else
+          behind =
+            if start >= @count
+              source.input.byteslice(start - @count, @count)
+            end
+          matched = !behind.nil? && behind == @pattern.b
+        end
         [matched == @positive, nil]
       end
 
       def to_s_inner(_prec)
-        "lookbehind(#{@count}, #{@pattern.inspect}, #{@positive ? '+' : '-'})"
+        if regex?
+          "lookbehind(/#{@regex_source}/, #{@positive ? '+' : '-'})"
+        else
+          "lookbehind(#{@count}, #{@pattern.inspect}, #{@positive ? '+' : '-'})"
+        end
       end
     end
   end
