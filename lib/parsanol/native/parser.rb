@@ -121,6 +121,13 @@ module Parsanol
           }
         end
 
+        # Public (rs#166): the VM program cache shares compiled
+        # programs across fresh parser instances keyed on this —
+        # the same disambiguator the grammar cache uses.
+        def public_structure_hash(atom)
+          grammar_structure_hash(atom)
+        end
+
         private
 
         def grammar_cache_key(root_atom)
