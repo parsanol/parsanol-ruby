@@ -13,4 +13,4 @@ doc = false
 
 [dependencies]
 # 0.17.0 carries LookSpec + the widened opaque writeback
-parsanol = { version = "0.17.0" }
+parsanol = { version = "0.17.1" }
