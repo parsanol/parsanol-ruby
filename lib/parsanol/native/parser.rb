@@ -191,6 +191,13 @@ module Parsanol
           when ::Parsanol::Atoms::Lookahead
             [:lookahead, atom.positive,
              atom_structure(atom.bound_parslet, visited)]
+          when ::Parsanol::Atoms::Constant
+            # The value differentiates otherwise-identical constant
+            # atoms — without it every Constant hashes alike and the
+            # grammar cache serves the first wire forever.
+            [:constant, atom.value.inspect]
+          when ::Parsanol::Atoms::Lookbehind
+            [:lookbehind, atom.count, atom.pattern, atom.positive]
           else
             [:unknown, atom.class.name]
           end

@@ -18,6 +18,10 @@ module Parsanol
     def initialize
       @atoms = []
       @atom_cache = {} # object_id => atom_id for deduplication
+      # Strong retention: cache keys are object_ids; without holding the
+      # atoms, the GC can free one and a later allocation reuses its id,
+      # aliasing to a stale wire atom (the #138 recycled-id class).
+      @retained_atoms = []
     end
 
     # Main serialization method
@@ -94,6 +98,20 @@ module Parsanol
                      # reject skip-carrying artifacts loudly (unknown
                      # variant), which is the declared gate.
                      serialize_trivia(atom)
+                   when Parsanol::Atoms::Constant
+                     # rs#137 follow-up: coradoc-markdown's Output
+                     # atoms — empty match yielding a wire constant.
+                     { "Constant" => { "value" => serialize_constant_value(atom.value) } }
+                   when Parsanol::Atoms::Lookbehind
+                     # rs#137 follow-up: the precedes?/does_not_precede?
+                     # guards — inspect the bytes behind the position.
+                     {
+                       "Lookbehind" => {
+                         "count" => atom.count,
+                         "pattern" => atom.pattern,
+                         "positive" => atom.positive,
+                       },
+                     }
                    when Parsanol::Atoms::Ignored
                      serialize_ignored(atom)
                    else
@@ -104,6 +122,7 @@ module Parsanol
       # Now reserve an atom_id and cache
       atom_id = @atoms.size
       @atom_cache[cache_key] = atom_id
+      @retained_atoms << atom
       @atoms << serialized
 
       atom_id
@@ -179,6 +198,7 @@ module Parsanol
       # This prevents infinite recursion when a rule references itself
       atom_id = @atoms.size
       @atom_cache[cache_key] = atom_id
+      @retained_atoms << atom
 
       # Add a placeholder that will be replaced
       @atoms << nil
@@ -290,6 +310,22 @@ module Parsanol
       raise Parsanol::Native::UnsupportedGrammar,
             "the native backend cannot express #{atom.class} atoms; " \
             "parse this grammar with mode: :ruby"
+    end
+
+    def serialize_constant_value(value)
+      case value
+      when nil then "Nil" # unit variant serializes as the bare tag
+      when true, false then { "Bool" => value }
+      when Integer then { "Int" => value }
+      when String then { "Str" => value }
+      when Array then { "Array" => value.map { |v| serialize_constant_value(v) } }
+      when Hash
+        { "Hash" => value.map { |k, v| [k.to_s, serialize_constant_value(v)] } }
+      else
+        raise UnsupportedGrammar,
+              "constant atoms carry nil/bool/int/string/array/hash values " \
+              "(got #{value.class}); restructure the grammar for native parsing"
+      end
     end
 
     def serialize_trivia_capture(atom)

@@ -30,6 +30,8 @@ module Parsanol
     require "parsanol/atoms/trivia"
     require "parsanol/atoms/named"
     require "parsanol/atoms/lookahead"
+    require "parsanol/atoms/constant"
+    require "parsanol/atoms/lookbehind"
     require "parsanol/atoms/cut"
     require "parsanol/atoms/alternative"
     require "parsanol/atoms/sequence"
