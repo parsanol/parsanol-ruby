@@ -332,12 +332,16 @@ module Parsanol
 
     def serialize_trivia_capture(atom)
       inner_id = serialize_atom(atom.wrapped_atom)
-      {
-        "TriviaCapture" => {
-          "atom" => inner_id,
-          "rules" => atom.capturers.map { |marker, label| [marker, label.to_s] },
-        },
+      payload = {
+        "atom" => inner_id,
+        "rules" => atom.capturers.map { |marker, label| [marker, label.to_s] },
       }
+      # parsanol-ruby#180: the optional whitespace kind — units that
+      # match no marker record under it (source-preserving grammars).
+      # Optional on the wire: engines predating it deserialize and
+      # simply don't record whitespace units (documented caveat).
+      payload["whitespace"] = atom.whitespace_kind.to_s if atom.whitespace_kind
+      { "TriviaCapture" => payload }
     end
 
     def serialize_trivia(atom)

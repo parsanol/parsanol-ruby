@@ -74,4 +74,53 @@ RSpec.describe "DSL skip capturers" do
     expect { capture_parser_class(word: :word).new.parse("alpha") }
       .to raise_error(Parsanol::GrammarError, /word.*no leading literal/m)
   end
+
+  # parsanol-ruby#180: the source-preserving mode — units matching no
+  # capturer record verbatim under the declared whitespace kind, in
+  # order, so a concatenator can replay the full trivia stream. The
+  # specs use shapes where trivia precedes a capture directly (the
+  # attachment around separators is the open divergence on the issue).
+  def whitespace_parser_class
+    Class.new(Parsanol::Parser) do
+      rule(:spaces) { match(/[ \t\n]/).repeat(1) }
+      rule(:line_comment) { str("//") >> match(/[^\n]/).repeat }
+      rule(:trivia) { (spaces | line_comment).repeat(1) }
+      rule(:word) { match(/[a-z]/).repeat(1).as(:word) }
+      rule(:list) { (word.as(:item) >> (str(",") >> word.as(:item)).repeat).as(:list) }
+      skip :trivia, capture: { line_comment: :line }, whitespace: :space
+      root :list
+
+      def self.name
+        "DslSkipWhitespace"
+      end
+    end
+  end
+
+  def kinds(comments)
+    comments.map { |h| h.transform_values(&:to_s) }
+  end
+
+  it "records whitespace units verbatim under the whitespace kind" do
+    tree = whitespace_parser_class.new.parse("alpha, beta")
+    expect(kinds(tree[:list][1][:item][:comments])).to eq([{ space: " " }])
+    expect(tree[:list][0][:item]).not_to have_key(:comments)
+  end
+
+  it "keeps remark and whitespace kinds distinct" do
+    tree = whitespace_parser_class.new.parse("alpha, // intro\nbeta")
+    expect(kinds(tree[:list][1][:item][:comments]))
+      .to eq([{ line: "// intro" }])
+    expect(tree[:list][0][:item]).not_to have_key(:comments)
+  end
+
+  it "matches the native engine tree for whitespace parity" do
+    skip "native engine unavailable" unless Parsanol::Native.available?
+
+    input = "alpha, beta"
+    parser = whitespace_parser_class
+    ruby_tree = parser.new.parse(input, mode: :ruby)
+    native_tree = parser.new.parse(input, mode: :native)
+    expect(native_tree).to eq(ruby_tree)
+    expect(native_tree.inspect).to include("space")
+  end
 end

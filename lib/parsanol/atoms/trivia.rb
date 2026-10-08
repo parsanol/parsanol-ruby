@@ -28,12 +28,16 @@ module Parsanol
       # +capturers+ maps leading-literal marker -> kind label (the
       # compiler derives markers from each capturer rule's first Str
       # atom, e.g. "//" => :line_comment); units not matching any
-      # marker are whitespace-shaped and stay unrecorded.
-      attr_reader :capturers
+      # marker are whitespace-shaped and stay unrecorded — unless
+      # +whitespace_kind+ is declared (parsanol-ruby#180): every
+      # unit then records under that label, giving source-preserving
+      # grammars the full ordered trivia stream.
+      attr_reader :capturers, :whitespace_kind
 
-      def initialize(atom, capturers)
+      def initialize(atom, capturers, whitespace_kind: nil)
         super(atom)
         @capturers = capturers
+        @whitespace_kind = whitespace_kind
       end
 
       def apply(source, context, consume_all)
@@ -55,16 +59,16 @@ module Parsanol
       private
 
       def record(source, context, start_pos, end_pos)
-        return unless @capturers
-
         text = source.input[start_pos...end_pos]
         # A trivia unit may lead with whitespace before the comment
         # shape; markers test the comment head.
         stripped = text.lstrip
-        marker, label = @capturers.find { |m, _label| stripped.start_with?(m) }
-        return unless marker
-
-        context.push_captured_trivia(label, stripped.strip)
+        marker, label = @capturers&.find { |m, _label| stripped.start_with?(m) }
+        if marker
+          context.push_captured_trivia(label, stripped.strip)
+        elsif @whitespace_kind
+          context.push_captured_trivia(@whitespace_kind, text)
+        end
       end
     end
   end
