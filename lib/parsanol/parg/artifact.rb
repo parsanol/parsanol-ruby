@@ -65,24 +65,26 @@ module Parsanol
       def parse(entry_name, input, mode: :native)
         case mode
         when :native
-          if Native.available? && !envelope["dynamic"]
-            # Fast lane (parsanol-ruby#162): the per-instance atom
-            # tree rides the DSL serialization/registration caches
+          if Native.available?
+            # Fast lane (parsanol-ruby#162): Native.parse with the
+            # per-instance root atom registers the grammar once
             # (GRAMMAR_CACHE / HANDLE_CACHE keyed on the stable root
-            # atom), so an artifact parses at compiled speed after
-            # the first call. The old path re-serialized the whole
-            # grammar JSON and re-registered it per parse (~8x).
-            # Dynamic artifacts carry ruby-tier atoms their wire
-            # cannot express — they keep the interpreter.
-            begin
-              return root_atom(entry_name).parse(input, mode: :native)
-            rescue Parsanol::ParseFailed
-              # The atom-tree native path reports the root position; the
-              # wire-registration path carries the deepest-failure
-              # diagnostics (parsanol-ruby#171). Failures pay the
-              # serialization once; successes keep the fast lane.
-              return Native.parse(JSON.generate(entry(entry_name).fetch("grammar")), input)
-            end
+            # atom) and every parse after the first runs the native
+            # engine by handle — the same path a DSL parser's
+            # mode: :native takes. Atoms::Base#parse must NOT carry
+            # this lane: it ignores :mode, so it would silently run
+            # the pure-Ruby VM and its interpreter fallback (the
+            # 5-7x real-document gap in #162, and the root-position
+            # diagnostics in #171 before the wire fallback).
+            #
+            # Dynamic-flagged artifacts parse natively too (rs#204):
+            # the state atoms (StateSet/StateMatch/StateSwitch)
+            # evaluate in the engine, riding the capture store's
+            # rollback discipline. Reaching a CustomRef aborts the
+            # native pass outright — Native.parse's error path then
+            # re-runs the interpreter, so customs stay Ruby-tier with
+            # identical trees.
+            return Native.parse(root_atom(entry_name), input)
           end
 
           root_atom(entry_name).parse(input)
