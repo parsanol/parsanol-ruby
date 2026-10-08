@@ -107,12 +107,15 @@ module Parsanol
         @markers = markers
         @whitespace_kind = whitespace_kind
         @wrapper_ids = {}.compare_by_identity
-        @memo = {}.compare_by_identity
-        @in_progress = {}.compare_by_identity
+        # Results keyed per injection context: the same shared atom
+        # can be reached both inside and outside repetition interiors,
+        # and the refinement injects differently there.
+        @memo = { true => {}.compare_by_identity, false => {}.compare_by_identity }
+        @in_progress = { true => {}.compare_by_identity, false => {}.compare_by_identity }
       end
 
       def inject(atom, entry: false)
-        injected = walk(atom)
+        injected = walk(atom, false)
         return injected unless entry
 
         Atoms::Sequence.new(maybe, injected, maybe)
@@ -139,55 +142,66 @@ module Parsanol
         @wrapper_ids.key?(atom)
       end
 
-      def walk(atom)
-        cached = @memo[atom]
+      # +rep_interior+: the d54a29e refinement (PARG's owner-set
+      # semantics, now aligned for the DSL): no injection inside
+      # repetition interiors except through rule references — their
+      # bodies are fresh injection scopes. Wrapping char-level
+      # terminals inside a repetition consumes trivia within the
+      # ENCLOSING capture's scope and mis-attaches recorded units when
+      # the iteration fails.
+      def walk(atom, rep_interior)
+        cached = @memo[rep_interior][atom]
         return cached if cached
-        return atom if @in_progress.key?(atom)
+        return atom if @in_progress[rep_interior].key?(atom)
         return atom if atom.equal?(@skip_atom)
 
-        @in_progress[atom] = true
+        @in_progress[rep_interior][atom] = true
         injected =
           case atom
           when Atoms::Sequence
             out = []
             atom.parslets.each do |child|
-              injected = walk(child)
-              out << maybe unless wrapper?(injected) || injected.is_a?(Atoms::Trivia)
-              out << injected
+              walked = walk(child, rep_interior)
+              unless rep_interior || wrapper?(walked) || walked.is_a?(Atoms::Trivia)
+                out << maybe
+              end
+              out << walked
             end
             out.length == 1 ? out.first : Atoms::Sequence.new(*out)
           when Atoms::Alternative
-            Atoms::Alternative.new(*atom.alternatives.map { |a| walk(a) })
+            Atoms::Alternative.new(*atom.alternatives.map { |a| walk(a, rep_interior) })
           when Atoms::Repetition
             if wrapper?(atom)
               atom
             else
-              Atoms::Repetition.new(walk(atom.parslet), atom.min, atom.max,
+              Atoms::Repetition.new(walk(atom.parslet, true), atom.min, atom.max,
                                     atom.result_tag)
             end
           when Atoms::Named
-            Atoms::Named.new(walk(atom.parslet), atom.name)
+            Atoms::Named.new(walk(atom.parslet, rep_interior), atom.name)
           when Atoms::Lookahead
-            Atoms::Lookahead.new(walk(atom.bound_parslet), atom.positive)
+            Atoms::Lookahead.new(walk(atom.bound_parslet, rep_interior), atom.positive)
           when Atoms::Ignored
-            Atoms::Ignored.new(walk(atom.wrapped_atom))
+            Atoms::Ignored.new(walk(atom.wrapped_atom, rep_interior))
           when Atoms::Entity
             # Rule bodies own their injection when the grammar declares
             # skip on every rule (PARG); in the DSL surface the root tree
-            # is walked once, so descend through resolved bodies with the
-            # identity visited-set guarding recursion.
+            # is walked once, so descend through resolved bodies with
+            # the in-progress set guarding recursion. A rule body is a
+            # fresh injection scope even inside a repetition interior —
+            # the d54a29e exception is for rule-reference children.
             begin
-              walk(atom.parslet)
+              walk(atom.parslet, false)
             rescue StandardError
               atom
             end
           when Atoms::Str, Atoms::Re
-            Atoms::Sequence.new(maybe, atom)
+            rep_interior ? atom : Atoms::Sequence.new(maybe, atom)
           else
             atom
           end
-        @in_progress.delete(atom)
-        @memo[atom] = injected
+        @in_progress[rep_interior].delete(atom)
+        @memo[rep_interior][atom] = injected
         injected
       end
     end
