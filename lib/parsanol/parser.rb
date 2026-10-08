@@ -52,7 +52,12 @@ module Parsanol
         define_method(:root) do
           atom = __send__(rule_name)
           skip_name = self.class.skip_rule_name
-          skip_name ? Parsanol::Skip.inject(self, atom, skip_name)[0] : atom
+          if skip_name
+            Parsanol::Skip.inject(self, atom, skip_name,
+                                  captures: self.class.skip_captures)[0]
+          else
+            atom
+          end
         end
       end
 
@@ -63,6 +68,13 @@ module Parsanol
       # everything it references) builds without injection; it must be
       # non-nullable. Order-independent with +root+.
       #
+      # +capture:+ (parsanol-ruby#180) declares trivia capturers — a
+      # map of rule name to kind label. Units of the skip rule
+      # matching a capturer's leading literal attach to the next
+      # Named capture under +comments:+ (the PARG
+      # `skip = trivia capture: comments` shape) instead of being
+      # discarded; whitespace-shaped units never record.
+      #
       # @example
       #   class MyParser < Parsanol::Parser
       #     rule(:spaces) { match(/[ \t]/).repeat(1) }
@@ -72,8 +84,14 @@ module Parsanol
       #     root :doc
       #   end
       #
-      def skip(rule_name)
+      # @example capturing comments
+      #   rule(:trivia) { spaces | line_comment }
+      #   rule(:line_comment) { str("//") >> match(/[^\n]/).repeat }
+      #   skip :trivia, capture: { line_comment: :line_comment }
+      #
+      def skip(rule_name, capture: nil)
         @skip_rule_name = rule_name
+        @skip_captures = capture
         nil
       end
 
@@ -81,6 +99,12 @@ module Parsanol
       # inherit unless they declare their own).
       def skip_rule_name
         @skip_rule_name
+      end
+
+      # The declared capturer map ({rule => kind label}), or nil —
+      # see {.skip}.
+      def skip_captures
+        @skip_captures
       end
     end
 
