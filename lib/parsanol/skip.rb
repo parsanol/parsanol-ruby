@@ -92,15 +92,24 @@ module Parsanol
     # clean — the wrapper is Trivia: Ignored + diagnostics
     # transparency), bare terminals gain a leading wrapper, and the
     # entry root takes leading and trailing wrappers.
+    # The walk is a pure function of the atom subtree, so results are
+    # memoized: dense cross-referencing grammars (expressir's ~250
+    # rules) revisit shared subtrees once per referencing path, which
+    # made the path-scoped visited-set exponential — a 25-rule
+    # Fibonacci-shaped grammar took 6.2s to build (parsanol-ruby#180
+    # side observation). In-progress atoms mark a cycle re-entry and
+    # return raw, exactly as the path-scoped set did.
     class Injector
       def initialize(skip_atom, markers = nil)
         @skip_atom = skip_atom
         @markers = markers
         @wrapper_ids = {}.compare_by_identity
+        @memo = {}.compare_by_identity
+        @in_progress = {}.compare_by_identity
       end
 
       def inject(atom, entry: false)
-        injected = walk(atom, {})
+        injected = walk(atom)
         return injected unless entry
 
         Atoms::Sequence.new(maybe, injected, maybe)
@@ -126,50 +135,56 @@ module Parsanol
         @wrapper_ids.key?(atom)
       end
 
-      def walk(atom, visited)
-        return atom if visited.key?(atom)
+      def walk(atom)
+        cached = @memo[atom]
+        return cached if cached
+        return atom if @in_progress.key?(atom)
         return atom if atom.equal?(@skip_atom)
 
-        visited = visited.merge(atom => true)
-        case atom
-        when Atoms::Sequence
-          out = []
-          atom.parslets.each do |child|
-            injected = walk(child, visited)
-            out << maybe unless wrapper?(injected) || injected.is_a?(Atoms::Trivia)
-            out << injected
-          end
-          out.length == 1 ? out.first : Atoms::Sequence.new(*out)
-        when Atoms::Alternative
-          Atoms::Alternative.new(*atom.alternatives.map { |a| walk(a, visited) })
-        when Atoms::Repetition
-          if wrapper?(atom)
-            atom
+        @in_progress[atom] = true
+        injected =
+          case atom
+          when Atoms::Sequence
+            out = []
+            atom.parslets.each do |child|
+              injected = walk(child)
+              out << maybe unless wrapper?(injected) || injected.is_a?(Atoms::Trivia)
+              out << injected
+            end
+            out.length == 1 ? out.first : Atoms::Sequence.new(*out)
+          when Atoms::Alternative
+            Atoms::Alternative.new(*atom.alternatives.map { |a| walk(a) })
+          when Atoms::Repetition
+            if wrapper?(atom)
+              atom
+            else
+              Atoms::Repetition.new(walk(atom.parslet), atom.min, atom.max,
+                                    atom.result_tag)
+            end
+          when Atoms::Named
+            Atoms::Named.new(walk(atom.parslet), atom.name)
+          when Atoms::Lookahead
+            Atoms::Lookahead.new(walk(atom.bound_parslet), atom.positive)
+          when Atoms::Ignored
+            Atoms::Ignored.new(walk(atom.wrapped_atom))
+          when Atoms::Entity
+            # Rule bodies own their injection when the grammar declares
+            # skip on every rule (PARG); in the DSL surface the root tree
+            # is walked once, so descend through resolved bodies with the
+            # identity visited-set guarding recursion.
+            begin
+              walk(atom.parslet)
+            rescue StandardError
+              atom
+            end
+          when Atoms::Str, Atoms::Re
+            Atoms::Sequence.new(maybe, atom)
           else
-            Atoms::Repetition.new(walk(atom.parslet, visited), atom.min, atom.max,
-                                  atom.result_tag)
-          end
-        when Atoms::Named
-          Atoms::Named.new(walk(atom.parslet, visited), atom.name)
-        when Atoms::Lookahead
-          Atoms::Lookahead.new(walk(atom.bound_parslet, visited), atom.positive)
-        when Atoms::Ignored
-          Atoms::Ignored.new(walk(atom.wrapped_atom, visited))
-        when Atoms::Entity
-          # Rule bodies own their injection when the grammar declares
-          # skip on every rule (PARG); in the DSL surface the root tree
-          # is walked once, so descend through resolved bodies with the
-          # identity visited-set guarding recursion.
-          begin
-            walk(atom.parslet, visited)
-          rescue StandardError
             atom
           end
-        when Atoms::Str, Atoms::Re
-          Atoms::Sequence.new(maybe, atom)
-        else
-          atom
-        end
+        @in_progress.delete(atom)
+        @memo[atom] = injected
+        injected
       end
     end
   end

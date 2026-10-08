@@ -18,14 +18,25 @@ module Parsanol
       def initialize(*components)
         super()
         @parslets = components
-
-        # Pre-built error message
-        @fail_msg = "Failed to match sequence (#{inspect})"
+        # The failure message renders LAZILY (error_msgs): constructing
+        # sequences is hot-path work for the builder/injector, and
+        # stringifying the whole subtree eagerly is exponential on
+        # shared cross-referencing grammars (parsanol-ruby#180 side
+        # observation: a 25-rule Fibonacci-shaped grammar took 6s).
+        @fail_msg = nil
       end
 
       # Error messages hash (for compatibility)
       def error_msgs
-        { failed: @fail_msg }
+        { failed: fail_msg }
+      end
+
+      # Rendered lazily (see initialize); construction is hot-path
+      # builder/injector work and stringifying the whole subtree
+      # eagerly is exponential on shared cross-referencing grammars
+      # (parsanol-ruby#180 side observation).
+      def fail_msg
+        @fail_msg ||= "Failed to match sequence (#{inspect})"
       end
 
       # Appends a parser to this sequence with flattening.
@@ -104,7 +115,7 @@ module Parsanol
       # Single element sequence
       def match_single(parser, source, context, consume_all)
         success, value = parser.apply(source, context, consume_all)
-        return context.err(self, source, @fail_msg, [value]) unless success
+        return context.err(self, source, fail_msg, [value]) unless success
 
         ok([:sequence, value])
       end
@@ -112,10 +123,10 @@ module Parsanol
       # Two-element sequence
       def match_pair(p1, p2, source, context, consume_all)
         success, v1 = p1.apply(source, context, false)
-        return context.err(self, source, @fail_msg, [v1]) unless success
+        return context.err(self, source, fail_msg, [v1]) unless success
 
         success, v2 = p2.apply(source, context, consume_all)
-        return context.err(self, source, @fail_msg, [v2]) unless success
+        return context.err(self, source, fail_msg, [v2]) unless success
 
         ok([:sequence, v1, v2])
       end
@@ -123,13 +134,13 @@ module Parsanol
       # Three-element sequence
       def match_triple(p1, p2, p3, source, context, consume_all)
         success, v1 = p1.apply(source, context, false)
-        return context.err(self, source, @fail_msg, [v1]) unless success
+        return context.err(self, source, fail_msg, [v1]) unless success
 
         success, v2 = p2.apply(source, context, false)
-        return context.err(self, source, @fail_msg, [v2]) unless success
+        return context.err(self, source, fail_msg, [v2]) unless success
 
         success, v3 = p3.apply(source, context, consume_all)
-        return context.err(self, source, @fail_msg, [v3]) unless success
+        return context.err(self, source, fail_msg, [v3]) unless success
 
         ok([:sequence, v1, v2, v3])
       end
@@ -148,7 +159,7 @@ module Parsanol
           success, value = components[idx].apply(source, context, must_consume)
 
           unless success
-            return context.err(self, source, @fail_msg, [value])
+            return context.err(self, source, fail_msg, [value])
           end
 
           result[idx + 1] = value
