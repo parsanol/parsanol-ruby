@@ -20,7 +20,8 @@ module Parsanol
     # capturer's leading literal attach to the next Named capture
     # under `comments:` — the PARG `skip = trivia capture: comments`
     # shape. Whitespace-shaped units never record.
-    def self.inject(parser_instance, root_atom, skip_rule_name, captures: nil)
+    def self.inject(parser_instance, root_atom, skip_rule_name, captures: nil,
+                    whitespace: nil)
       skip_atom = parser_instance.__send__(skip_rule_name)
       skip_atom = skip_atom.parslet while skip_atom.is_a?(Atoms::Entity)
 
@@ -31,7 +32,8 @@ module Parsanol
       end
 
       markers = capturer_markers(parser_instance, captures)
-      injector = Injector.new(skip_atom, markers)
+      whitespace_kind = whitespace&.to_sym
+      injector = Injector.new(skip_atom, markers, whitespace_kind)
       [injector.inject(root_atom, entry: true), skip_atom]
     end
 
@@ -100,9 +102,10 @@ module Parsanol
     # side observation). In-progress atoms mark a cycle re-entry and
     # return raw, exactly as the path-scoped set did.
     class Injector
-      def initialize(skip_atom, markers = nil)
+      def initialize(skip_atom, markers = nil, whitespace_kind = nil)
         @skip_atom = skip_atom
         @markers = markers
+        @whitespace_kind = whitespace_kind
         @wrapper_ids = {}.compare_by_identity
         @memo = {}.compare_by_identity
         @in_progress = {}.compare_by_identity
@@ -121,8 +124,9 @@ module Parsanol
         @maybe ||= begin
           inner = Atoms::Repetition.new(@skip_atom, 0, 1)
           wrapper =
-            if @markers
-              Atoms::TriviaCapture.new(inner, @markers)
+            if @markers || @whitespace_kind
+              Atoms::TriviaCapture.new(inner, @markers,
+                                       whitespace_kind: @whitespace_kind)
             else
               Atoms::Trivia.new(inner)
             end
