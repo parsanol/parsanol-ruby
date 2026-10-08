@@ -205,6 +205,19 @@ module Parsanol
             [:constant, atom.value.inspect]
           when ::Parsanol::Atoms::Lookbehind
             [:lookbehind, atom.count, atom.pattern, atom.positive]
+          # Subclass first: TriviaCapture < Trivia < Ignored (the same
+          # dispatch discipline as the serializer's).
+          when ::Parsanol::Atoms::TriviaCapture
+            # The capturer table differentiates capture-carrying
+            # grammars from plain-trivia ones — without it the grammar
+            # cache serves one variant's wire to every other and the
+            # wrong marker table reaches the engine (parsanol-ruby#180).
+            [:trivia_capture, atom.capturers.to_a.sort,
+             atom_structure(atom.wrapped_atom, visited)]
+          when ::Parsanol::Atoms::Trivia
+            [:trivia, atom_structure(atom.wrapped_atom, visited)]
+          when ::Parsanol::Atoms::Ignored
+            [:ignored, atom_structure(atom.wrapped_atom, visited)]
           else
             [:unknown, atom.class.name]
           end

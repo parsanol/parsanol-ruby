@@ -13,7 +13,14 @@ module Parsanol
     # methods. Returns [injected_root, skip_atom] with the wrapper
     # built and the lint applied, or raises GrammarError for a
     # nullable skip.
-    def self.inject(parser_instance, root_atom, skip_rule_name)
+    #
+    # +captures+ (parsanol-ruby#180) maps capturer rule names to kind
+    # labels (`skip :trivia, capture: { line_comment: :line }`); the
+    # injected wrapper becomes a TriviaCapture whose units matching a
+    # capturer's leading literal attach to the next Named capture
+    # under `comments:` — the PARG `skip = trivia capture: comments`
+    # shape. Whitespace-shaped units never record.
+    def self.inject(parser_instance, root_atom, skip_rule_name, captures: nil)
       skip_atom = parser_instance.__send__(skip_rule_name)
       skip_atom = skip_atom.parslet while skip_atom.is_a?(Atoms::Entity)
 
@@ -23,8 +30,60 @@ module Parsanol
               "empty loops forever at injection points"
       end
 
-      injector = Injector.new(skip_atom)
+      markers = capturer_markers(parser_instance, captures)
+      injector = Injector.new(skip_atom, markers)
       [injector.inject(root_atom, entry: true), skip_atom]
+    end
+
+    # Derives each capturer's leading literal (the leftmost Str the
+    # rule can start with) and keys the marker table by it — the same
+    # derivation the PARG compiler applies to its skip declaration. A
+    # declared capturer without a derivable, non-blank literal is a
+    # declaration error: its units could never be told apart from
+    # whitespace-shaped trivia and it would silently record nothing.
+    def self.capturer_markers(parser_instance, captures)
+      return nil if captures.nil? || captures.empty?
+
+      captures.each_with_object({}) do |(rule_name, kind), markers|
+        atom = parser_instance.__send__(rule_name)
+        atom = atom.parslet while atom.is_a?(Atoms::Entity)
+        literal = leading_literal(atom)
+        if literal.nil? || literal.strip.empty?
+          raise GrammarError,
+                "skip capturer #{rule_name.inspect} has no leading " \
+                "literal: its units cannot be told apart from " \
+                "whitespace-shaped trivia"
+        end
+        markers[literal] = kind || rule_name
+      end
+    end
+
+    # The leftmost literal the atom can start with, or nil when the
+    # shape is not literal-led (alternatives with disagreeing
+    # branches, regexes, lookaheads).
+    def self.leading_literal(atom)
+      case atom
+      when Atoms::Str then atom.str
+      when Atoms::Sequence
+        atom.parslets.each do |child|
+          literal = leading_literal(child)
+          return literal if literal
+        end
+        nil
+      when Atoms::Alternative
+        first = nil
+        atom.alternatives.each do |branch|
+          literal = leading_literal(branch)
+          return nil if literal.nil? || (first && literal != first)
+
+          first ||= literal
+        end
+        first
+      when Atoms::Repetition
+        atom.min&.positive? ? leading_literal(atom.parslet) : nil
+      when Atoms::Named, Atoms::Capture, Atoms::Ignored, Atoms::Trivia
+        leading_literal(atom.parslet)
+      end
     end
 
     # The injection walk. Mirrors the PARG compiler's semantics:
@@ -34,8 +93,9 @@ module Parsanol
     # transparency), bare terminals gain a leading wrapper, and the
     # entry root takes leading and trailing wrappers.
     class Injector
-      def initialize(skip_atom)
+      def initialize(skip_atom, markers = nil)
         @skip_atom = skip_atom
+        @markers = markers
         @wrapper_ids = {}.compare_by_identity
       end
 
@@ -50,7 +110,13 @@ module Parsanol
 
       def maybe
         @maybe ||= begin
-          wrapper = Atoms::Trivia.new(Atoms::Repetition.new(@skip_atom, 0, 1))
+          inner = Atoms::Repetition.new(@skip_atom, 0, 1)
+          wrapper =
+            if @markers
+              Atoms::TriviaCapture.new(inner, @markers)
+            else
+              Atoms::Trivia.new(inner)
+            end
           @wrapper_ids[wrapper] = true
           wrapper
         end
