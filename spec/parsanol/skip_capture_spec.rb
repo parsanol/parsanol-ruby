@@ -19,7 +19,8 @@ RSpec.describe "DSL skip capturers" do
       # run up to the next terminal.
       rule(:trivia) { (spaces | line_comment | block_comment).repeat(1) }
       rule(:word) { match(/[a-z]/).repeat(1).as(:word) }
-      rule(:list) { (word.as(:item) >> (str(",") >> word.as(:item)).repeat).as(:list) }
+      rule(:sep_item) { str(",") >> word.as(:item) }
+      rule(:list) { (word.as(:item) >> sep_item.repeat(1)).as(:list) }
       skip :trivia, capture: captures
       root :list
 
@@ -86,7 +87,8 @@ RSpec.describe "DSL skip capturers" do
       rule(:line_comment) { str("//") >> match(/[^\n]/).repeat }
       rule(:trivia) { (spaces | line_comment).repeat(1) }
       rule(:word) { match(/[a-z]/).repeat(1).as(:word) }
-      rule(:list) { (word.as(:item) >> (str(",") >> word.as(:item)).repeat).as(:list) }
+      rule(:sep_item) { str(",") >> word.as(:item) }
+      rule(:list) { (word.as(:item) >> sep_item.repeat(1)).as(:list) }
       skip :trivia, capture: { line_comment: :line }, whitespace: :space
       root :list
 
@@ -122,5 +124,23 @@ RSpec.describe "DSL skip capturers" do
     native_tree = parser.new.parse(input, mode: :native)
     expect(native_tree).to eq(ruby_tree)
     expect(native_tree.inspect).to include("space")
+  end
+
+  # The d54a29e refinement case: trivia consumed around a separator
+  # inside a repetition attaches consistently across engines — the
+  # unit before the "," drains into the FOLLOWING capture on both.
+  it "attaches separator-adjacent trivia identically across engines" do
+    skip "native engine unavailable" unless Parsanol::Native.available?
+
+    parser = whitespace_parser_class
+    input = "alpha , beta"
+    ruby_tree = parser.new.parse(input, mode: :ruby)
+    native_tree = parser.new.parse(input, mode: :native)
+    expect(native_tree).to eq(ruby_tree)
+    # Both the pre- and post-comma runs drain into the following
+    # capture (leading attachment) — on both engines.
+    expect(kinds(native_tree[:list][1][:item][:comments]))
+      .to eq([{ space: " " }, { space: " " }])
+    expect(native_tree[:list][0][:item]).not_to have_key(:comments)
   end
 end
