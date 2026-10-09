@@ -76,7 +76,8 @@ module Parsanol
         when :alt then Node.new(:alt, node.a.map { |child| copy(child, prefix) })
         when :rep then Node.new(:rep, copy(node.a, prefix), node.b, node.c)
         when :opt then Node.new(:opt, copy(node.a, prefix))
-        when :pred then Node.new(:pred, node.a, copy(node.b, prefix))
+        when :pred
+          Node.new(:pred, node.a, copy(node.b, prefix), node.c)
         when :cap then Node.new(:cap, node.a, copy(node.b, prefix))
         when :ref then Node.new(:ref, "#{prefix}#{node.a}")
         else node

@@ -53,7 +53,9 @@ module Parsanol
           Node.new(node.kind, rewrite(node.a), node.b, node.c)
         when :opt
           Node.new(node.kind, rewrite(node.a))
-        when :pred, :cap
+        when :pred
+          Node.new(node.kind, node.a, rewrite(node.b), node.c)
+        when :cap
           Node.new(node.kind, node.a, rewrite(node.b))
         else
           yield(node) || node
