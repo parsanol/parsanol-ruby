@@ -61,6 +61,41 @@ RSpec.describe "skip DSL" do
     expect(klass.new.parse(" abc ", mode: :ruby)[:w].to_s).to eq("abc")
   end
 
+  # parsanol-ruby#195: exempt rules build without injection — the DSL
+  # mirror of PARG's skip_exempt_names closure. A grammar that manages
+  # part of its trivia explicitly (remark rules) must not have wrappers
+  # inside those bodies: the wrapper consumes text the rule itself
+  # captures (the remark's own spaces and newline) and records it as
+  # pending trivia, corrupting the value and double-representing it.
+  it "keeps exempt rules' own text out of the trivia channel" do
+    klass = Class.new(Parsanol::Parser) do
+      rule(:spaces) { match(/[ \t\n]/).repeat(1) }
+      rule(:tail_remark) { str("--") >> match(/[^\n]/).repeat >> str("\n") }
+      rule(:own_spaces) { (spaces | tail_remark).repeat(1).as(:sp) }
+      rule(:word) { match(/[a-z]/).repeat(1).as(:w) }
+      rule(:doc) { str("a").as(:a) >> own_spaces >> word }
+      skip :spaces, whitespace: :space, exempt: %i[spaces tail_remark own_spaces]
+      root :doc
+
+      def self.name
+        "DslSkipExempt"
+      end
+    end
+    parser = klass.new
+    input = "a -- note\nend"
+    tree = parser.parse(input, mode: :ruby)
+    # the remark's own text (its leading space inside the run and the
+    # trailing newline) is the rule's capture, not trivia: the value
+    # is intact, and only the genuinely-skipped run before the remark
+    # records
+    expect(tree[:sp]).to eq("-- note\n")
+    expect(tree[:comments]).to eq([{ space: " " }])
+    expect(tree[:w]).to eq("end")
+
+    skip "native engine unavailable" unless Parsanol::Native.available?
+    expect(parser.parse(input, mode: :native)).to eq(tree)
+  end
+
   # parsanol-ruby#190: the injector used to inline rule bodies at every
   # referencing site, so rendering any injected atom (to_s, and failure
   # messages built from inspect) expanded the grammar exponentially —
