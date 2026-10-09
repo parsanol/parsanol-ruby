@@ -23,7 +23,7 @@ module Parsanol
       | (?<arrow>->)
       | (?<num>\d+)
       | (?<ident>[A-Za-z_][A-Za-z0-9_]*)
-      | (?<punct>[=\/()\[\]{}*!&:,.])
+      | (?<punct>[=\/()\[\]{}*!&:,.<])
       /x
 
       def initialize(text)

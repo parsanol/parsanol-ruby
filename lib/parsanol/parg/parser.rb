@@ -317,12 +317,25 @@ module Parsanol
       # parens still binds the body — write `*( ( X ) as name )` for
       # that (naming each iteration's X).
       def parse_rep_body
-        sign = nil
-        if peek&.type == :punct && %w[! &].include?(peek.value)
-          sign = advance.value == "&"
-        end
+        sign, behind = parse_guard_sign
         node = parse_primary
-        sign.nil? ? node : Node.new(:pred, sign, node)
+        if sign.nil?
+          node
+        else
+          Node.new(:pred, sign, node, behind ? :behind : nil)
+        end
+      end
+
+      # `!X` / `&X` are lookaheads; `!<X` / `&<X` (coradoc#281,
+      # parsanol-ruby#197) inspect the text BEHIND the position and
+      # consume nothing.
+      def parse_guard_sign
+        return [nil, false] unless peek&.type == :punct && %w[! &].include?(peek.value)
+
+        positive = advance.value == "&"
+        behind = peek&.type == :punct && peek.value == "<"
+        advance if behind
+        [positive, behind]
       end
 
       def capture_postfix(node)
@@ -334,12 +347,13 @@ module Parsanol
       end
 
       def parse_postfixed
-        sign = nil
-        if peek&.type == :punct && %w[! &].include?(peek.value)
-          sign = advance.value == "&"
-        end
+        sign, behind = parse_guard_sign
         node = capture_postfix(parse_primary)
-        sign.nil? ? node : Node.new(:pred, sign, node)
+        if sign.nil?
+          node
+        else
+          Node.new(:pred, sign, node, behind ? :behind : nil)
+        end
       end
 
       def parse_primary

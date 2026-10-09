@@ -422,7 +422,12 @@ module Parsanol
         when :rep
           Atoms::Repetition.new(build_atom(node.a), node.b, node.c)
         when :opt then Atoms::Repetition.new(build_atom(node.a), 0, 1, :maybe)
-        when :pred then Atoms::Lookahead.new(build_atom(node.b), node.a)
+        when :pred
+          if node.c == :behind
+            build_lookbehind(node)
+          else
+            Atoms::Lookahead.new(build_atom(node.b), node.a)
+          end
         when :cap
           # "" as name is the PARG spelling of Ruby parslet's
           # str("").as(:name): an always-succeeding zero-width marker
@@ -467,6 +472,41 @@ module Parsanol
           Atoms::Alternative.new(*values.map { |value| Atoms::Str.new(value) })
         else
           raise CompileError, "unknown node kind #{node.kind.inspect}"
+        end
+      end
+
+      # `!<X` / `&<X` (parsanol-ruby#197, coradoc#281): the behind
+      # guard consumes nothing and constrains only the text behind the
+      # position. A case-sensitive literal is the fixed byte window
+      # (Literal form); a character class — or builtin class reference,
+      # or case-insensitive literal — is the end-anchored flanking
+      # regex (Regex form). Anything else cannot be expressed behind.
+      def build_lookbehind(node)
+        positive = node.a
+        body = node.b
+        case body.kind
+        when :lit
+          if body.b
+            Atoms::Lookbehind.regex("(?i:#{Regexp.escape(body.a)})",
+                                    positive: positive)
+          else
+            Atoms::Lookbehind.new(body.a.bytesize, body.a, positive: positive)
+          end
+        when :class
+          Atoms::Lookbehind.regex(class_pattern(body.a), positive: positive)
+        when :ref
+          if BUILTIN_CLASSES.key?(body.a)
+            Atoms::Lookbehind.regex(class_pattern(BUILTIN_CLASSES[body.a]),
+                                    positive: positive)
+          else
+            raise CompileError,
+                  "lookbehind body must be a literal or character class " \
+                  "(got rule #{body.a.inspect})"
+          end
+        else
+          raise CompileError,
+                "lookbehind body must be a literal or character class " \
+                "(got #{body.kind.inspect})"
         end
       end
 
@@ -635,7 +675,13 @@ module Parsanol
           set
         when :opt then first_set(node.a) + [EPS]
         when :pred
-          node.a ? first_set(node.b) : Set.new([ANY])
+          # A behind-guard constrains nothing ahead: its first set is
+          # ANY for both signs.
+          if node.c == :behind
+            Set.new([ANY])
+          else
+            node.a ? first_set(node.b) : Set.new([ANY])
+          end
         when :cap then first_set(node.b)
         when :ref
           if @ref_stack.include?(node.a)

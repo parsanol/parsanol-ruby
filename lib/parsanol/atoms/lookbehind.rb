@@ -35,7 +35,7 @@ module Parsanol
         !@regex_source.nil?
       end
 
-      def try(source, _context, _consume_all)
+      def try(source, context, _consume_all)
         start = source.bytepos
         if regex?
           @compiled ||= Regexp.new("(?:#{@regex_source})\\z")
@@ -47,7 +47,10 @@ module Parsanol
             end
           matched = !behind.nil? && behind == @pattern.b
         end
-        [matched == @positive, nil]
+        return ok(nil) if matched == @positive
+
+        message = regex? ? "text behind does not match /#{@regex_source}/" : "text behind is not #{@pattern.inspect}"
+        context.err_at(self, source, message, start)
       end
 
       def to_s_inner(_prec)
