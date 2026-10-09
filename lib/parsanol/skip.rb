@@ -20,8 +20,16 @@ module Parsanol
     # capturer's leading literal attach to the next Named capture
     # under `comments:` — the PARG `skip = trivia capture: comments`
     # shape. Whitespace-shaped units never record.
+    #
+    # +exempt+ (parsanol-ruby#195) lists rule names whose bodies build
+    # WITHOUT injection — the DSL mirror of the PARG compiler's
+    # skip_exempt_names closure. Grammars that manage part of their
+    # trivia explicitly (expressir's remark rules) must not have
+    # wrappers inside those bodies: the wrapper would consume text the
+    # rule itself captures (a remark's own spaces) and record it as
+    # pending trivia, corrupting the value and double-representing it.
     def self.inject(parser_instance, root_atom, skip_rule_name, captures: nil,
-                    whitespace: nil)
+                    whitespace: nil, exempt: nil)
       skip_atom = parser_instance.__send__(skip_rule_name)
       skip_atom = skip_atom.parslet while skip_atom.is_a?(Atoms::Entity)
 
@@ -33,7 +41,8 @@ module Parsanol
 
       markers = capturer_markers(parser_instance, captures)
       whitespace_kind = whitespace&.to_sym
-      injector = Injector.new(skip_atom, markers, whitespace_kind)
+      exempt_names = exempt.nil? ? nil : Set.new(exempt.map(&:to_s))
+      injector = Injector.new(skip_atom, markers, whitespace_kind, exempt_names)
       [injector.inject(root_atom, entry: true), skip_atom]
     end
 
@@ -102,10 +111,11 @@ module Parsanol
     # side observation). In-progress atoms mark a cycle re-entry and
     # return raw, exactly as the path-scoped set did.
     class Injector
-      def initialize(skip_atom, markers = nil, whitespace_kind = nil)
+      def initialize(skip_atom, markers = nil, whitespace_kind = nil, exempt_names = nil)
         @skip_atom = skip_atom
         @markers = markers
         @whitespace_kind = whitespace_kind
+        @exempt_names = exempt_names
         @wrapper_ids = {}.compare_by_identity
         # Results keyed per injection context: the same shared atom
         # can be reached both inside and outside repetition interiors,
@@ -199,30 +209,14 @@ module Parsanol
           when Atoms::Ignored
             Atoms::Ignored.new(walk(atom.wrapped_atom, mode))
           when Atoms::Entity
-            # Rule bodies own their injection when the grammar declares
-            # skip on every rule (PARG); in the DSL surface the root tree
-            # is walked once, so inject the resolved body as a fresh
-            # injection scope (even inside a repetition interior — the
-            # d54a29e exception is for rule-reference children). The
-            # reference itself stays an Entity pointing at the injected
-            # body: inlining the body into every referencing site makes
-            # every rendered string (to_s, and failure messages built
-            # from inspect) expand the grammar exponentially on
-            # cross-referencing grammars — one failing Sequence rendered
-            # a multi-gigabyte message (parsanol-ruby#190).
-            begin
-              body = walk(atom.parslet, mode == :exempt ? :exempt : false)
-              if body.is_a?(Atoms::Lookahead)
-                # A whole-body lookahead keeps its #192 boundary visible
-                # to enclosing sequences (no wrapper before it).
-                body
-              else
-                ref = Atoms::Entity.new(atom.rule_name) { body }
-                ref.label = atom.label if atom.label
-                ref
-              end
-            rescue StandardError
+            # parsanol-ruby#195: exempt rules build without injection —
+            # the reference returns untouched, its body never walked.
+            # A wrapper inside a rule that explicitly manages trivia
+            # consumes text the rule itself captures.
+            if @exempt_names&.include?(atom.rule_name.to_s)
               atom
+            else
+              inject_entity(atom, mode)
             end
           when Atoms::Str, Atoms::Re
             mode ? atom : Atoms::Sequence.new(maybe, atom)
@@ -232,6 +226,32 @@ module Parsanol
         @in_progress[mode].delete(atom)
         @memo[mode][atom] = injected
         injected
+      end
+
+      # Rule bodies own their injection when the grammar declares
+      # skip on every rule (PARG); in the DSL surface the root tree
+      # is walked once, so the resolved body is injected as a fresh
+      # injection scope (even inside a repetition interior — the
+      # d54a29e exception is for rule-reference children). The
+      # reference itself stays an Entity pointing at the injected
+      # body: inlining the body into every referencing site makes
+      # every rendered string (to_s, and failure messages built
+      # from inspect) expand the grammar exponentially on
+      # cross-referencing grammars — one failing Sequence rendered
+      # a multi-gigabyte message (parsanol-ruby#190).
+      def inject_entity(atom, mode)
+        body = walk(atom.parslet, mode == :exempt ? :exempt : false)
+        if body.is_a?(Atoms::Lookahead)
+          # A whole-body lookahead keeps its #192 boundary visible
+          # to enclosing sequences (no wrapper before it).
+          body
+        else
+          ref = Atoms::Entity.new(atom.rule_name) { body }
+          ref.label = atom.label if atom.label
+          ref
+        end
+      rescue StandardError
+        atom
       end
     end
   end

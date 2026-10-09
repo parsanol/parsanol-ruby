@@ -55,7 +55,8 @@ module Parsanol
           if skip_name
             Parsanol::Skip.inject(self, atom, skip_name,
                                   captures: self.class.skip_captures,
-                                  whitespace: self.class.skip_whitespace)[0]
+                                  whitespace: self.class.skip_whitespace,
+                                  exempt: self.class.skip_exempt)[0]
           else
             atom
           end
@@ -90,10 +91,11 @@ module Parsanol
       #   rule(:line_comment) { str("//") >> match(/[^\n]/).repeat }
       #   skip :trivia, capture: { line_comment: :line_comment }
       #
-      def skip(rule_name, capture: nil, whitespace: nil)
+      def skip(rule_name, capture: nil, whitespace: nil, exempt: nil)
         @skip_rule_name = rule_name
         @skip_captures = capture
         @skip_whitespace = whitespace
+        @skip_exempt = exempt
         nil
       end
 
@@ -113,6 +115,12 @@ module Parsanol
       # record under it), or nil — see {.skip}.
       def skip_whitespace
         @skip_whitespace
+      end
+
+      # The declared exemption list (rule names whose bodies build
+      # without injection), or nil — see {.skip}.
+      def skip_exempt
+        @skip_exempt
       end
     end
 
