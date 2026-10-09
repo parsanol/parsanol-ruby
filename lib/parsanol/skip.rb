@@ -201,12 +201,26 @@ module Parsanol
           when Atoms::Entity
             # Rule bodies own their injection when the grammar declares
             # skip on every rule (PARG); in the DSL surface the root tree
-            # is walked once, so descend through resolved bodies with
-            # the in-progress set guarding recursion. A rule body is a
-            # fresh injection scope even inside a repetition interior —
-            # the d54a29e exception is for rule-reference children.
+            # is walked once, so inject the resolved body as a fresh
+            # injection scope (even inside a repetition interior — the
+            # d54a29e exception is for rule-reference children). The
+            # reference itself stays an Entity pointing at the injected
+            # body: inlining the body into every referencing site makes
+            # every rendered string (to_s, and failure messages built
+            # from inspect) expand the grammar exponentially on
+            # cross-referencing grammars — one failing Sequence rendered
+            # a multi-gigabyte message (parsanol-ruby#190).
             begin
-              walk(atom.parslet, mode == :exempt ? :exempt : false)
+              body = walk(atom.parslet, mode == :exempt ? :exempt : false)
+              if body.is_a?(Atoms::Lookahead)
+                # A whole-body lookahead keeps its #192 boundary visible
+                # to enclosing sequences (no wrapper before it).
+                body
+              else
+                ref = Atoms::Entity.new(atom.rule_name) { body }
+                ref.label = atom.label if atom.label
+                ref
+              end
             rescue StandardError
               atom
             end

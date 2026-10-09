@@ -157,7 +157,11 @@ module Parsanol
       # @param outer [Integer] caller's precedence
       # @return [String]
       def to_s(outer = TOP)
-        text = label || to_s_inner(precedence)
+        # The inner text is cached per instance: renders walk the atom
+        # tree through shared references, and an uncached render is
+        # exponential on cross-referencing grammars (parsanol-ruby#190).
+        # The paren wrapper stays dynamic; the label is read live.
+        text = label || (@to_s_inner_cache ||= to_s_inner(precedence))
         outer < precedence ? "(#{text})" : text
       end
 
