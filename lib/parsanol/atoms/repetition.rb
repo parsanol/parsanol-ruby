@@ -48,15 +48,24 @@ module Parsanol
         # Internal value for comparisons (nil becomes infinity)
         @max_internal = max_count || Float::INFINITY
 
-        # Pre-built error messages
-        @min_error = "Expected at least #{min_count} of #{parser.inspect}"
+        # Error messages render LAZILY (error_msgs): construction is
+        # hot-path builder/injector work, and stringifying the whole
+        # subtree eagerly is exponential on shared cross-referencing
+        # grammars (the same class of cost Sequence's fail_msg had,
+        # parsanol-ruby#180/#184).
         @extra_error = "Extra input after last repetition"
       end
 
       # Error messages hash (for compatibility)
       def error_msgs
-        { minrep: @min_error, unconsumed: @extra_error }
+        { minrep: min_error, unconsumed: @extra_error }
       end
+
+      # Rendered lazily and memoized on first failure (see initialize).
+      def min_error
+        @min_error ||= "Expected at least #{@min} of #{@parslet.inspect}"
+      end
+      private :min_error
 
       # Executes the repetition.
       #
@@ -110,8 +119,6 @@ module Parsanol
         first
       end
 
-      private
-
       # Optional match (0 or 1)
       def try_maybe(source, context, _consume_all)
         success, value = @parslet.apply(source, context, false)
@@ -136,39 +143,39 @@ module Parsanol
         success, value = @parslet.apply(source, context, consume_all)
         return ok([@result_tag, value]) if success
 
-        context.err_at(self, source, @min_error, source.bytepos, [value])
+        context.err_at(self, source, min_error, source.bytepos, [value])
       end
 
       def double_match(source, context, consume_all)
         success, v1 = @parslet.apply(source, context, false)
         unless success
-          return context.err_at(self, source, @min_error, source.bytepos,
+          return context.err_at(self, source, min_error, source.bytepos,
                                 [v1])
         end
 
         success, v2 = @parslet.apply(source, context, consume_all)
         return ok([@result_tag, v1, v2]) if success
 
-        context.err_at(self, source, @min_error, source.bytepos, [v2])
+        context.err_at(self, source, min_error, source.bytepos, [v2])
       end
 
       def triple_match(source, context, consume_all)
         success, v1 = @parslet.apply(source, context, false)
         unless success
-          return context.err_at(self, source, @min_error, source.bytepos,
+          return context.err_at(self, source, min_error, source.bytepos,
                                 [v1])
         end
 
         success, v2 = @parslet.apply(source, context, false)
         unless success
-          return context.err_at(self, source, @min_error, source.bytepos,
+          return context.err_at(self, source, min_error, source.bytepos,
                                 [v2])
         end
 
         success, v3 = @parslet.apply(source, context, consume_all)
         return ok([@result_tag, v1, v2, v3]) if success
 
-        context.err_at(self, source, @min_error, source.bytepos, [v3])
+        context.err_at(self, source, min_error, source.bytepos, [v3])
       end
 
       # General repetition: builds the tagged result Array in place so
@@ -205,7 +212,7 @@ module Parsanol
         # Check minimum bound
         if occurrence < @min
           source.bytepos = start_pos
-          return context.err_at(self, source, @min_error, start_pos,
+          return context.err_at(self, source, min_error, start_pos,
                                 failure_children(last_failure))
         end
 
@@ -283,7 +290,7 @@ module Parsanol
         if occurrence < @min
           context.release_array(positions)
           source.bytepos = start_pos
-          return context.err_at(self, source, @min_error, start_pos,
+          return context.err_at(self, source, min_error, start_pos,
                                 failure_children(last_failure))
         end
 
@@ -303,7 +310,7 @@ module Parsanol
         # Check minimum
         if occurrence < @min
           source.bytepos = start_pos
-          return context.err_at(self, source, @min_error, start_pos,
+          return context.err_at(self, source, min_error, start_pos,
                                 failure_children(last_failure))
         end
 
