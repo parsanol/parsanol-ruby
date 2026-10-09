@@ -296,17 +296,41 @@ module Parsanol
           if peek&.type == :punct && peek.value == "*"
             advance
             max = peek&.type == :num ? advance.value.to_i : nil
-            node = Node.new(:rep, parse_postfixed, min, max)
+            node = Node.new(:rep, parse_rep_body, min, max)
           else
-            node = Node.new(:rep, parse_postfixed, min, min)
+            node = Node.new(:rep, parse_rep_body, min, min)
           end
-          return node
+          return capture_postfix(node)
         elsif token.type == :punct && token.value == "*"
           advance
           max = peek&.type == :num ? advance.value.to_i : nil
-          return Node.new(:rep, parse_postfixed, 0, max)
+          return capture_postfix(Node.new(:rep, parse_rep_body, 0, max))
         end
         parse_postfixed
+      end
+
+      # A repetition's body must not claim the `as` that follows the
+      # repetition's own closing paren (parsanol-ruby#197): the body
+      # parser is postfix-blind, and the postfix wraps the REPETITION —
+      # `*( X ) as name` captures the whole repeated run, matching the
+      # Ruby DSL's `.repeat.as(:name)`. An `as` inside the body's own
+      # parens still binds the body — write `*( ( X ) as name )` for
+      # that (naming each iteration's X).
+      def parse_rep_body
+        sign = nil
+        if peek&.type == :punct && %w[! &].include?(peek.value)
+          sign = advance.value == "&"
+        end
+        node = parse_primary
+        sign.nil? ? node : Node.new(:pred, sign, node)
+      end
+
+      def capture_postfix(node)
+        if peek&.type == :ident && peek.value == "as"
+          advance
+          node = Node.new(:cap, ident.value, node)
+        end
+        node
       end
 
       def parse_postfixed
@@ -314,11 +338,7 @@ module Parsanol
         if peek&.type == :punct && %w[! &].include?(peek.value)
           sign = advance.value == "&"
         end
-        node = parse_primary
-        if peek&.type == :ident && peek.value == "as"
-          advance
-          node = Node.new(:cap, ident.value, node)
-        end
+        node = capture_postfix(parse_primary)
         sign.nil? ? node : Node.new(:pred, sign, node)
       end
 
