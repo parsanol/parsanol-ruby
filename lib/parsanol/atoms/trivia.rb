@@ -61,13 +61,17 @@ module Parsanol
       def record(source, context, start_pos, end_pos)
         text = source.input[start_pos...end_pos]
         # A trivia unit may lead with whitespace before the comment
-        # shape; markers test the comment head.
+        # shape; markers test the comment head. The recorded offset
+        # must agree with the recorded content as a slice of the
+        # input: trimmed marker text starts after the unit's leading
+        # whitespace, not at the wrapper (native parity, ruby#180).
         stripped = text.lstrip
         marker, label = @capturers&.find { |m, _label| stripped.start_with?(m) }
         if marker
-          context.push_captured_trivia(label, stripped.strip)
+          context.push_captured_trivia(label, stripped.strip,
+                                       start_pos + (text.length - stripped.length))
         elsif @whitespace_kind
-          context.push_captured_trivia(@whitespace_kind, text)
+          context.push_captured_trivia(@whitespace_kind, text, start_pos)
         end
       end
     end
