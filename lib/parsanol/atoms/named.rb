@@ -41,7 +41,7 @@ module Parsanol
 
         comments = context.take_pending_trivia
         result = wrap_result(value)
-        result = attach_comments(result, comments) unless comments.empty?
+        result = attach_comments(result, comments, source) unless comments.empty?
         ok(result)
       end
 
@@ -50,9 +50,13 @@ module Parsanol
       # parsanol-ruby#152: trivia captured ahead of this capture rides
       # with it under `comments:`. The attachment only fires when the
       # grammar declared capture AND trivia actually preceded — key
-      # absence everywhere else keeps v1 trees byte-identical.
-      def attach_comments(result, comments)
-        list = comments.map { |unit| { unit[:kind] => unit[:text] } }
+      # absence everywhere else keeps v1 trees byte-identical. Units
+      # carry their input offset so the value is a positioned Slice,
+      # like every other capture value (native parity, ruby#180).
+      def attach_comments(result, comments, source)
+        list = comments.map do |unit|
+          { unit[:kind] => Slice.new(unit[:pos], unit[:text], source.input) }
+        end
         if result.is_a?(Hash)
           result.merge(comments: list)
         else

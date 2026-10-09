@@ -143,4 +143,87 @@ RSpec.describe "DSL skip capturers" do
       .to eq([{ space: " " }, { space: " " }])
     expect(native_tree[:list][0][:item]).not_to have_key(:comments)
   end
+
+  # Units are positioned Slices on both engines — source replay (the
+  # point of whitespace mode) reads the offset, and the recorded text
+  # must be the input slice at that offset: trimmed marker text starts
+  # after the unit's leading whitespace, not at the wrapper.
+  it "records marker and whitespace units at their true offsets on both engines" do
+    skip "native engine unavailable" unless Parsanol::Native.available?
+
+    parser = capture_parser_class(line_comment: :line)
+    tree = parser.new.parse("alpha, // intro\nbeta")
+    unit = tree[:list][1][:item][:comments].first
+    expect(unit[:line].offset).to eq(7)
+    expect(unit[:line].content).to eq("// intro")
+    expect("alpha, // intro\nbeta"[7, 8]).to eq("// intro")
+  end
+
+  # A Named whose value is a repetition of hashes (decl.repeat.as)
+  # keeps the hash items unwrapped even when a trivia attachment makes
+  # the Named hash multi-key — the single-key path already kept them,
+  # and the engines must agree (the native side double-wrapped every
+  # element under the repetition name).
+  it "keeps named-repetition items unwrapped under a trivia attachment" do
+    skip "native engine unavailable" unless Parsanol::Native.available?
+
+    klass = Class.new(Parsanol::Parser) do
+      rule(:spaces) { match(/[ \t\n]/).repeat(1) }
+      rule(:simple_id) { match(/[a-z]/).repeat(1).as(:id) }
+      rule(:decl) { str("x").as(:dx) >> str(",").maybe }
+      rule(:body) { decl.repeat.as(:items).as(:body) }
+      rule(:doc) do
+        str("schema").as(:tSCHEMA) >> simple_id.as(:sid) >> str(";") >>
+          body >> str("end").as(:tEND) >> str(";")
+      end
+      skip :spaces, whitespace: :space
+      root :doc
+
+      def self.name
+        "DslSkipAttachRepetition"
+      end
+    end
+    input = "schema a; x end;"
+    parser = klass.new
+    ruby_tree = parser.parse(input, mode: :ruby)
+    native_tree = parser.parse(input, mode: :native)
+    expect(native_tree).to eq(ruby_tree)
+    expect(ruby_tree[:body][:items].first).to have_key(:dx)
+    expect(ruby_tree[:body][:items].first).not_to have_key(:items)
+  end
+
+  # Keyword ladders drain pending units through empty-matching Named
+  # captures inside branches that later fail: the unit must survive
+  # the failed branch (Named snapshot/restore) and attach exactly
+  # once, at its true offset, on both engines (the native side used
+  # to lose the unit to a truncate-only rollback).
+  it "survives keyword ladders that drain through failed branches" do
+    skip "native engine unavailable" unless Parsanol::Native.available?
+
+    klass = Class.new(Parsanol::Parser) do
+      rule(:spaces) { match(/[ \t\n]/).repeat(1) }
+      rule(:own_spaces) { match(/[ \t]/).repeat(0).as(:own) }
+      rule(:kw_abs) { (own_spaces >> str("ABS")).as(:kw) }
+      rule(:word) { match(/[a-z]/).repeat(1).as(:w) }
+      rule(:stmt) { (kw_abs | word).as(:stmt) }
+      rule(:doc) { stmt >> str(";").as(:semi) }
+      skip :spaces, whitespace: :space
+      root :doc
+
+      def self.name
+        "DslSkipKeywordLadder"
+      end
+    end
+    input = " alpha;"
+    parser = klass.new
+    ruby_tree = parser.parse(input, mode: :ruby)
+    native_tree = parser.parse(input, mode: :native)
+    expect(native_tree).to eq(ruby_tree)
+    # the unit drained into the empty own_spaces inside the failed
+    # kw branch comes back and attaches to the successful word capture
+    comments = ruby_tree[:stmt][:comments]
+    expect(comments).to eq([{ space: " " }])
+    expect(comments.first[:space].offset).to eq(0)
+    expect(ruby_tree[:semi]).to be_a(Parsanol::Slice)
+  end
 end

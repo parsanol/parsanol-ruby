@@ -310,9 +310,16 @@ module Parsanol
                               transformed
                             elsif is_repetition
                               if transformed.is_a?(Array)
-                                if transformed.all? do |item|
-                                  item.is_a?(Hash) && item.key?(sym_key)
-                                end
+                                if transformed.all?(Hash)
+                                  # Hash items carry their own capture
+                                  # names (parslet semantics) — the
+                                  # single-key path
+                                  # (transform_repetition_value) already
+                                  # keeps them; this multi-key path (a
+                                  # Named with a trivia attachment, or
+                                  # merged siblings) must agree — only
+                                  # unnamed items take the parent name
+                                  # per item.
                                   transformed
                                 else
                                   transformed.map { |item| { sym_key => item } }

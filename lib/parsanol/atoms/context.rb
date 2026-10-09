@@ -263,10 +263,10 @@ module Parsanol
         [false, @reporter.err(*)]
       end
 
-      # Records one captured trivia unit (kind, text) for attachment to
-      # the next successful Named capture.
-      def push_captured_trivia(kind, text)
-        @pending_trivia << { kind: kind, text: text }
+      # Records one captured trivia unit (kind, text, input offset)
+      # for attachment to the next successful Named capture.
+      def push_captured_trivia(kind, text, pos)
+        @pending_trivia << { kind: kind, text: text, pos: pos }
         nil
       end
 
