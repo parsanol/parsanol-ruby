@@ -235,7 +235,10 @@ module Parsanol
           kids = atom.parslets.map { |child| inject_skip_trivia(child) }
           out = []
           kids.each do |child|
-            out << skip_maybe_atom unless skip_wrapper?(child)
+            # parsanol-ruby#192: no injected skip directly before a
+            # lookahead — its contract is the raw next character.
+            out << skip_maybe_atom unless skip_wrapper?(child) ||
+              child.is_a?(Atoms::Lookahead)
             out << child
           end
           out.length == 1 ? out.first : Atoms::Sequence.new(*out)
@@ -271,7 +274,11 @@ module Parsanol
           # `atomic` rules deliberately stop doing.
           Atoms::Named.new(inject_skip_trivia(atom.parslet), atom.name)
         when Atoms::Lookahead
-          Atoms::Lookahead.new(inject_skip_trivia(atom.bound_parslet), atom.positive)
+          # parsanol-ruby#192: a lookahead's contract is the RAW text
+          # ahead — injected separators inside would make keyword
+          # boundary checks examine the wrong character. Interiors
+          # stay injection-exempt, not even rule references re-scope.
+          atom
         when Atoms::Str, Atoms::Re
           # bare terminal as a whole rule body: leading trivia position
           Atoms::Sequence.new(skip_maybe_atom, atom)

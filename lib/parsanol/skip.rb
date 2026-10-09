@@ -109,9 +109,13 @@ module Parsanol
         @wrapper_ids = {}.compare_by_identity
         # Results keyed per injection context: the same shared atom
         # can be reached both inside and outside repetition interiors,
-        # and the refinement injects differently there.
-        @memo = { true => {}.compare_by_identity, false => {}.compare_by_identity }
-        @in_progress = { true => {}.compare_by_identity, false => {}.compare_by_identity }
+        # and the refinement injects differently there. The :exempt
+        # context (lookahead interiors, ruby#192) suppresses injection
+        # everywhere, rule references included.
+        @memo = { true => {}.compare_by_identity, false => {}.compare_by_identity,
+                  exempt: {}.compare_by_identity }
+        @in_progress = { true => {}.compare_by_identity, false => {}.compare_by_identity,
+                         exempt: {}.compare_by_identity }
       end
 
       def inject(atom, entry: false)
@@ -149,27 +153,33 @@ module Parsanol
       # terminals inside a repetition consumes trivia within the
       # ENCLOSING capture's scope and mis-attaches recorded units when
       # the iteration fails.
-      def walk(atom, rep_interior)
-        cached = @memo[rep_interior][atom]
+      def walk(atom, mode)
+        cached = @memo[mode][atom]
         return cached if cached
-        return atom if @in_progress[rep_interior].key?(atom)
+        return atom if @in_progress[mode].key?(atom)
         return atom if atom.equal?(@skip_atom)
 
-        @in_progress[rep_interior][atom] = true
+        @in_progress[mode][atom] = true
         injected =
           case atom
           when Atoms::Sequence
             out = []
             atom.parslets.each do |child|
-              walked = walk(child, rep_interior)
-              unless rep_interior || wrapper?(walked) || walked.is_a?(Atoms::Trivia)
+              walked = walk(child, mode)
+              # parsanol-ruby#192: no wrapper directly before a
+              # lookahead — a lookahead's contract is the raw next
+              # character, and an injected separator between a
+              # keyword and its boundary check makes the check
+              # examine the wrong character.
+              unless mode || wrapper?(walked) || walked.is_a?(Atoms::Trivia) ||
+                  walked.is_a?(Atoms::Lookahead)
                 out << maybe
               end
               out << walked
             end
             out.length == 1 ? out.first : Atoms::Sequence.new(*out)
           when Atoms::Alternative
-            Atoms::Alternative.new(*atom.alternatives.map { |a| walk(a, rep_interior) })
+            Atoms::Alternative.new(*atom.alternatives.map { |a| walk(a, mode) })
           when Atoms::Repetition
             if wrapper?(atom)
               atom
@@ -178,11 +188,16 @@ module Parsanol
                                     atom.result_tag)
             end
           when Atoms::Named
-            Atoms::Named.new(walk(atom.parslet, rep_interior), atom.name)
+            Atoms::Named.new(walk(atom.parslet, mode), atom.name)
           when Atoms::Lookahead
-            Atoms::Lookahead.new(walk(atom.bound_parslet, rep_interior), atom.positive)
+            # parsanol-ruby#192: a lookahead's contract is the RAW
+            # text ahead — no injection inside, rule references
+            # included (an injected separator between a keyword and
+            # its boundary check makes the check examine the wrong
+            # character).
+            Atoms::Lookahead.new(walk(atom.bound_parslet, :exempt), atom.positive)
           when Atoms::Ignored
-            Atoms::Ignored.new(walk(atom.wrapped_atom, rep_interior))
+            Atoms::Ignored.new(walk(atom.wrapped_atom, mode))
           when Atoms::Entity
             # Rule bodies own their injection when the grammar declares
             # skip on every rule (PARG); in the DSL surface the root tree
@@ -191,17 +206,17 @@ module Parsanol
             # fresh injection scope even inside a repetition interior —
             # the d54a29e exception is for rule-reference children.
             begin
-              walk(atom.parslet, false)
+              walk(atom.parslet, mode == :exempt ? :exempt : false)
             rescue StandardError
               atom
             end
           when Atoms::Str, Atoms::Re
-            rep_interior ? atom : Atoms::Sequence.new(maybe, atom)
+            mode ? atom : Atoms::Sequence.new(maybe, atom)
           else
             atom
           end
-        @in_progress[rep_interior].delete(atom)
-        @memo[rep_interior][atom] = injected
+        @in_progress[mode].delete(atom)
+        @memo[mode][atom] = injected
         injected
       end
     end
