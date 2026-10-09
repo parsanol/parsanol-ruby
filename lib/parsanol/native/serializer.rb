@@ -334,7 +334,10 @@ module Parsanol
       inner_id = serialize_atom(atom.wrapped_atom)
       payload = {
         "atom" => inner_id,
-        "rules" => atom.capturers.map { |marker, label| [marker, label.to_s] },
+        # a whitespace-only trivia declaration (whitespace: :space with
+        # no capture:) has no capturer map — the wire field is optional
+        # (relaton with the expressir grammar, parsanol-ruby#180)
+        "rules" => atom.capturers&.map { |marker, label| [marker, label.to_s] } || [],
       }
       # parsanol-ruby#180: the optional whitespace kind — units that
       # match no marker record under it (source-preserving grammars).
