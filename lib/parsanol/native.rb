@@ -202,6 +202,38 @@ module Parsanol
         stats
       end
 
+      # True when the grammar carries no atoms the native tier cannot
+      # express (Dynamic callbacks, artifact custom bindings). Cached by
+      # grammar identity — the scan walks the atom tree once.
+      def native_expressible?(grammar)
+        root = grammar.is_a?(Parsanol::Parser) ? grammar.root : grammar
+        cache = (@expressible_cache ||= {}.compare_by_identity)
+        cache.fetch(root) do
+          expressible = !contains_inexpressible?(root, {}.compare_by_identity)
+          cache[root] = expressible
+        end
+      end
+
+      def contains_inexpressible?(atom, seen)
+        return false if seen.key?(atom)
+
+        seen[atom] = true
+        case atom
+        when Parsanol::Atoms::Dynamic, Parsanol::Atoms::CustomRef then true
+        when Parsanol::Atoms::Sequence, Parsanol::Atoms::Alternative
+          children = atom.respond_to?(:parslets) ? atom.parslets : atom.alternatives
+          children.any? { |child| contains_inexpressible?(child, seen) }
+        when Parsanol::Atoms::Entity, Parsanol::Atoms::Repetition,
+             Parsanol::Atoms::Named, Parsanol::Atoms::Capture, Parsanol::Atoms::Ignored,
+             Parsanol::Atoms::Trivia, Parsanol::Atoms::TriviaCapture, Parsanol::Atoms::Lookahead
+          inner = atom.respond_to?(:parslet) ? atom.parslet : nil
+          inner ||= atom.wrapped_atom if atom.respond_to?(:wrapped_atom)
+          inner && contains_inexpressible?(inner, seen)
+        else
+          false
+        end
+      end
+
       # Translates a native backend failure into the Parsanol error protocol.
       #
       # When the grammar atom is at hand, reparses through the pure Ruby
@@ -227,9 +259,19 @@ module Parsanol
         # across long parses (#123).
         message = error.message
         if parsanol_grammar && (pos_str = message[NATIVE_POS_MARKER, 1])
+          # The interpreter reparse exists to RECOVER grammars the
+          # native tier cannot express (Dynamic/CustomRef atoms —
+          # parsanol-ruby#80/#129). For grammars without them the
+          # native failure is authoritative and the deepest-position
+          # diagnostics ride in this message — reparsing through the
+          # interpreter buys nothing and, on capture-heavy injected
+          # grammars, explodes (#190: the interpreter memo never
+          # stores capture-spanning outcomes).
           source = Parsanol::Source.new(input)
-          success, value = grammar.run_with_context(source, nil, true)
-          return grammar.finalize_result(value) if success
+          unless native_expressible?(grammar)
+            success, value = grammar.run_with_context(source, nil, true)
+            return grammar.finalize_result(value) if success
+          end
 
           pos = pos_str.to_i
           msg = message.sub(NATIVE_POS_MARKER, "")
