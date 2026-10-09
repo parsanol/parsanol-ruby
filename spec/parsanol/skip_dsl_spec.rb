@@ -60,4 +60,29 @@ RSpec.describe "skip DSL" do
     end
     expect(klass.new.parse(" abc ", mode: :ruby)[:w].to_s).to eq("abc")
   end
+
+  # parsanol-ruby#190: the injector used to inline rule bodies at every
+  # referencing site, so rendering any injected atom (to_s, and failure
+  # messages built from inspect) expanded the grammar exponentially —
+  # a cross-referencing grammar's first failing parse built a
+  # multi-gigabyte message and died. Rule references stay Entities:
+  # the render is name-based and linear.
+  it "renders and fails linearly on cross-referencing injected grammars" do
+    klass = Class.new(Parsanol::Parser) do
+      rule(:spaces) { match(/[ \t]/).repeat(1) }
+      rule(:word) { match(/[a-z]/).repeat(1).as(:w) }
+      rule(:tail) { (str(",") >> item).maybe }
+      rule(:item) { word >> tail }
+      rule(:doc) { str("[") >> item >> str("]") }
+      skip :spaces
+      root :doc
+    end
+    parser = klass.new
+    expect(parser.root.to_s).to eq("DOC")
+    expect(parser.parse(" [ a ] ", mode: :ruby)[:w].to_s).to eq("a")
+    # the failing parse builds a failure message from the injected tree
+    # without exponential expansion
+    expect { parser.parse("[ a ,", mode: :ruby) }
+      .to raise_error(Parsanol::ParseFailed)
+  end
 end
