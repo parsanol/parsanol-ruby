@@ -60,7 +60,7 @@ puts '-' * 70
 Parsanol::Native.clear_cache
 
 start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-result = Parsanol::Native::Parser.parse(parser, test_input)
+Parsanol::Native::Parser.parse(parser, test_input)
 cold_time = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
 
 puts "Time: #{cold_time} μs"
@@ -74,7 +74,7 @@ puts '-' * 70
 times = []
 50.times do
   start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
-  result = Parsanol::Native::Parser.parse(parser, test_input)
+  Parsanol::Native::Parser.parse(parser, test_input)
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - start
   times << elapsed
 end
