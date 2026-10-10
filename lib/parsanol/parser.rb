@@ -77,6 +77,13 @@ module Parsanol
       # `skip = trivia capture: comments` shape) instead of being
       # discarded; whitespace-shaped units never record.
       #
+      # +exempt:+ (parsanol-ruby#195) lists rule names whose bodies
+      # build WITHOUT injection — the DSL mirror of the PARG
+      # compiler's automatic skip-rule-closure exemption. Declare it
+      # for rules that manage their own trivia explicitly (expressir's
+      # remark rules): a wrapper inside them consumes text the rule
+      # itself captures, corrupting the value and double-recording it.
+      #
       # @example
       #   class MyParser < Parsanol::Parser
       #     rule(:spaces) { match(/[ \t]/).repeat(1) }
