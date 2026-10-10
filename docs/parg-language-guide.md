@@ -106,11 +106,43 @@ String escapes: `\"`, `\\`, `\n`, `\t`, `\r`.
 | `4x` | exactly four | `Repetition(4, 4)` |
 | `!x` | negative lookahead | `Lookahead(false)` |
 | `&x` | positive lookahead | `Lookahead(true)` |
+| `!<x` | negative behind-guard | `Lookbehind(negative)` |
+| `&<x` | positive behind-guard | `Lookbehind(positive)` |
 | `x as name` | capture — names the parse result | `Named(name)` |
 
 Repetition prefixes bind one primary: `3*(a b)` — parenthesize composites.
 A capture binds the primary it follows: `dash number as part` captures
-`number` only.
+`number` only — and after a repetition's closing paren, `*( x ) as name`
+captures the whole repeated run (an `as` inside the body's own parens,
+`*( ( x ) as each )`, names each iteration's `x`).
+
+### Behind-guards
+
+`!<x` / `&<x` inspect the text **behind** the current position and
+consume nothing — the flank guards for intraword constraints
+(constrained emphasis must not fire mid-word):
+
+```
+emph = ( !< ALPHA "*" 1*( !star ANY ) "*" ) as emph
+```
+
+- a **character-class body** (or builtin class reference) compiles to
+  the end-anchored flanking regex — the class must (not) match the
+  text ending at the position
+- a **case-sensitive literal** compiles to the fixed byte window;
+  case-insensitive literals compile to an `(?i:…)` regex
+- anything else (rule references included) is a compile error — a
+  behind-window over an arbitrary rule has no bounded expression
+
+### Character classes
+
+A character class is a hex range — `%x5f` (one code point),
+`%x21-2f` (a range) — or an **alternation of ranges**:
+`(%x21-2f / %x3a-40 / %x5b-60 / %x7b-7e)` is the punctuation set.
+`[ … ]` is NOT a class: it is the **optional** form. Brackets whose
+elements are all classes fail compilation with the alternation
+spelling in the message (an optional sequence of single-character
+classes can match empty, and captures over it yield nil).
 
 ### Data-driven alternatives
 
@@ -222,9 +254,11 @@ trivia = 1*( ( 1*" " ) / line_comment / block_comment )
   whose leading literal is non-whitespace — the comment shapes
 - matched trivia rides with the NEXT successful capture; trailing
   trivia attaches to the enclosing entry capture
-- whitespace is never recorded; `comments:` appears only when trivia
-  actually preceded a capture, so plain `skip` grammars stay
-  byte-identical
+- whitespace is never recorded (the DSL's `skip :rule, whitespace:
+  :kind` records marker-less units verbatim under the declared kind —
+  the source-preserving mode; units carry their input offsets)
+- `comments:` appears only when trivia actually preceded a capture,
+  so plain `skip` grammars stay byte-identical
 - captured bytes never join span captures (the injection span
   discipline is unchanged)
 - on the Ruby engine: capture grammars run on the interpreter (the
