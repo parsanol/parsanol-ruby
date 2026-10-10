@@ -421,7 +421,23 @@ module Parsanol
           Atoms::Alternative.new(*node.a.map { |child| build_atom(child) })
         when :rep
           Atoms::Repetition.new(build_atom(node.a), node.b, node.c)
-        when :opt then Atoms::Repetition.new(build_atom(node.a), 0, 1, :maybe)
+        when :opt
+          # [ … ] is the OPTIONAL form; a bracket whose elements are all
+          # character classes reads as an optional SEQUENCE of single
+          # characters (matchable empty — captures come back nil), which
+          # is almost certainly a mis-typed multi-range class
+          # (parsanol-ruby#201). One class alone stays a legitimate
+          # optional ([ %x0D ] — CRLF handling).
+          if (content = node.a).kind == :seq && content.a.length > 1 &&
+              content.a.all? { |el| el.kind == :class }
+            raise CompileError,
+                  "brackets contain a sequence of character classes: " \
+                  "[ … ] is the optional form, so each class matches one " \
+                  "character and the sequence can match empty (an as-capture " \
+                  "over it yields nil). A multi-range character class is an " \
+                  "alternation: (%x21-2f / %x3a-40 / …)"
+          end
+          Atoms::Repetition.new(build_atom(node.a), 0, 1, :maybe)
         when :pred
           if node.c == :behind
             build_lookbehind(node)
