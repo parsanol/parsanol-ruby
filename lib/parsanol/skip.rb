@@ -41,9 +41,44 @@ module Parsanol
 
       markers = capturer_markers(parser_instance, captures)
       whitespace_kind = whitespace&.to_sym
-      exempt_names = exempt.nil? ? nil : Set.new(exempt.map(&:to_s))
+      exempt_names = Set.new(exempt.nil? ? [] : exempt.map(&:to_s))
+      exempt_names.merge(closure_names(skip_atom))
       injector = Injector.new(skip_atom, markers, whitespace_kind, exempt_names)
       [injector.inject(root_atom, entry: true), skip_atom]
+    end
+
+    # The skip rule's transitive rule-reference closure (parsanol-ruby#195
+    # follow-up): those rule bodies build without injection — the same
+    # exemption the PARG compiler applies to its skip declaration's
+    # closure. The docstring promised this; the code exempted only the
+    # skip atom itself. Rules the grammar manages explicitly stay
+    # declarable through +exempt:+ (their names merge with these).
+    def self.closure_names(skip_atom)
+      names = Set.new
+      seen = {}.compare_by_identity
+      queue = [skip_atom]
+      until queue.empty?
+        node = queue.shift
+        next if node.nil? || seen.key?(node)
+
+        seen[node] = true
+        case node
+        when Atoms::Entity
+          names << node.rule_name.to_s
+          begin
+            queue << node.parslet
+          rescue StandardError
+            nil
+          end
+        else
+          queue.concat(node.parslets) if node.respond_to?(:parslets)
+          queue.concat(node.alternatives) if node.respond_to?(:alternatives)
+          queue << node.parslet if node.respond_to?(:parslet)
+          queue << node.bound_parslet if node.respond_to?(:bound_parslet)
+          queue << node.wrapped_atom if node.respond_to?(:wrapped_atom)
+        end
+      end
+      names
     end
 
     # Derives each capturer's leading literal (the leftmost Str the
