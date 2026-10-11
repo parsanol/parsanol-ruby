@@ -96,6 +96,40 @@ RSpec.describe "skip DSL" do
     expect(parser.parse(input, mode: :native)).to eq(tree)
   end
 
+  # The skip rule's transitive closure builds without injection (the
+  # PARG compiler's skip_exempt_names semantics): a trivia-member rule
+  # that explicitly consumes its own interior (a remark's own spaces)
+  # keeps that text — an injected wrapper inside it would eat the
+  # interior space and the captured unit would lose it ("--note").
+  it "exempts the skip rule's transitive closure from injection" do
+    klass = Class.new(Parsanol::Parser) do
+      rule(:spaces) { match(/[ \t\n]/).repeat(1) }
+      rule(:line_remark) do
+        str("--") >> match(/[ \t]/).repeat(1) >> match(/[^\n]/).repeat
+      end
+      rule(:trivia) { (spaces | line_remark).repeat(1) }
+      rule(:word) { match(/[a-z]/).repeat(1).as(:w) }
+      rule(:doc) { word.as(:a) >> word.as(:b) }
+      skip :trivia, capture: { line_remark: :line }, whitespace: :space
+      root :doc
+
+      def self.name
+        "DslSkipClosureExempt"
+      end
+    end
+    parser = klass.new
+    input = "a\n-- note\nb"
+    tree = parser.parse(input, mode: :ruby)
+    unit = tree[:b][:comments].first
+    # the remark's interior space survives into the captured unit —
+    # the closure rule's body is uninjected
+    expect(unit[:line]).to eq("-- note")
+    expect(unit[:line].offset).to eq(2)
+
+    skip "native engine unavailable" unless Parsanol::Native.available?
+    expect(parser.parse(input, mode: :native)).to eq(tree)
+  end
+
   # parsanol-ruby#190: the injector used to inline rule bodies at every
   # referencing site, so rendering any injected atom (to_s, and failure
   # messages built from inspect) expanded the grammar exponentially —
