@@ -758,6 +758,12 @@ module Parsanol
           end,
           "docs" => @document.docs,
           "source" => @document.source,
+          # Freshness (parsanol-ruby#209): what the artifact was compiled
+          # from and with, so loaders can detect a stale artifact and fall
+          # back to a reference implementation instead of failing obscurely
+          # at parse time. Checksummed like the rest of the envelope.
+          "source_hash" => Digest::SHA256.hexdigest(@document.source.to_s),
+          "compiler_version" => Parsanol::VERSION,
         }
         if @document.skip_declaration
           # parsanol-ruby#134: declared trivia rule. Injection is baked
