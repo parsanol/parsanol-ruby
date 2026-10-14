@@ -12,20 +12,21 @@ module Parsanol
     # consume; the embedded PARG source lets a Ruby runtime recompile the atom
     # tree locally without any other dependency.
     class Artifact
-      attr_reader :envelope, :path, :tables_dir
+      attr_reader :envelope, :path, :tables_dir, :imports_dir
 
-      def self.load(path, tables_dir: nil)
+      def self.load(path, tables_dir: nil, imports_dir: nil)
         envelope = JSON.parse(PARG.read_utf8(path))
-        new(envelope, path, tables_dir || File.dirname(path))
+        new(envelope, path, tables_dir || File.dirname(path),
+            imports_dir: imports_dir)
       end
 
-      def self.from_json(text, tables_dir: nil)
-        new(JSON.parse(text), nil, tables_dir)
+      def self.from_json(text, tables_dir: nil, imports_dir: nil)
+        new(JSON.parse(text), nil, tables_dir, imports_dir: imports_dir)
       end
 
       SUPPORTED_SHAPE = "parsanol-tree/v2"
 
-      def initialize(envelope, path, tables_dir)
+      def initialize(envelope, path, tables_dir, imports_dir: nil)
         unless envelope["shape"] == SUPPORTED_SHAPE
           raise ArtifactError,
                 "unsupported artifact shape #{envelope['shape'].inspect} " \
@@ -39,6 +40,10 @@ module Parsanol
         @envelope = envelope
         @path = path
         @tables_dir = tables_dir
+        # parsanol-ruby#208: `use`-importing grammars need the imported
+        # sources when the pure-Ruby path recompiles the embedded source;
+        # in-memory artifacts (path nil) pass the directory explicitly.
+        @imports_dir = imports_dir
         verify_checksum!
         @compiler = nil
       end
@@ -278,8 +283,10 @@ module Parsanol
           # without this the pure-Ruby path fails on artifacts whose
           # native atom graphs inline everything. The imported sources
           # sit beside the artifact (vendors ship them together).
-          imports_dir = path && File.directory?(File.dirname(path)) ? File.dirname(path) : nil
-          Imports.merge!(document, [imports_dir].compact) if imports_dir
+          dirs = [path ? File.dirname(path) : nil, @imports_dir]
+            .compact
+            .select { |dir| File.directory?(dir) }
+          Imports.merge!(document, dirs) unless dirs.empty?
           Compiler.new(document, @tables_dir)
         end
       end
