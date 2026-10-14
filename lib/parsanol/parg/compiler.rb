@@ -758,6 +758,14 @@ module Parsanol
           end,
           "docs" => @document.docs,
           "source" => @document.source,
+          # parsanol-ts#5: provenance for staleness detection. The hash
+          # covers the .parg source text (already embedded above); the
+          # compiler version names the gem that produced the envelope.
+          # Both sit inside the checksum, and loaders that predate them
+          # simply ignore the fields.
+          "source_hash" =>
+            "sha256:#{Digest::SHA256.hexdigest(@document.source.to_s)}",
+          "compiler_version" => Parsanol::VERSION,
         }
         if @document.skip_declaration
           # parsanol-ruby#134: declared trivia rule. Injection is baked

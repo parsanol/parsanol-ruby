@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "digest"
 require "json"
 require "yaml"
 
@@ -43,6 +44,32 @@ module Parsanol
       end
 
       def version = envelope["version"]
+
+      # The wire-format family this artifact speaks ("parsanol-tree/v2"):
+      # a shape bump requires a new engine family, artifacts declaring
+      # the same shape parse identically forever.
+      def shape = envelope["shape"]
+
+      # parsanol-ts#5 provenance: the SHA-256 of the .parg source text
+      # ("sha256:<hex>") and the compiler version that produced the
+      # envelope. Artifacts compiled before these fields existed return
+      # nil - unverifiable rather than stale.
+      def source_hash = envelope["source_hash"]
+
+      def compiler_version = envelope["compiler_version"]
+
+      def source = envelope["source"]
+
+      # True when this artifact was compiled from +text+ (the current
+      # revision of its .parg source): the embedded hash matches the
+      # text's SHA-256. Returns nil for artifacts without a source hash
+      # (pre-provenance compilers) - unverifiable, not stale.
+      def compiled_from?(text)
+        hash = source_hash
+        return nil if hash.nil?
+
+        hash == "sha256:#{Digest::SHA256.hexdigest(text.to_s)}"
+      end
 
       def entries = envelope["entries"].keys
 

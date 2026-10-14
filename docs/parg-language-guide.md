@@ -326,6 +326,8 @@ every alternative and reports:
   "tables": { "stages": "stages.yaml" },
   "lint": { "order_warnings": ["…"] },
   "source": "…the original .parg text…",
+  "source_hash": "sha256:…",
+  "compiler_version": "1.3.91",
   "checksum": "sha256:…"
 }
 ```
@@ -341,6 +343,18 @@ every alternative and reports:
 - Semver: capture renames/removals → major; new alternatives → minor;
   literal fixes → patch. `version` and `binding_version` move separately:
   model-side-only changes bump `binding_version`.
+- **Provenance (parsanol-ts#5)**: `source_hash` is the SHA-256 of the
+  `.parg` source text, and `compiler_version` names the compiler that
+  produced the envelope — both inside the `checksum`. Loaders use them to
+  detect a stale artifact (compiled from an older grammar revision) and
+  fall back to a reference implementation: Ruby's `Artifact` exposes
+  `source_hash`, `compiler_version`, `source`, `shape` (the wire-format
+  family — a shape bump requires a new engine family), and
+  `compiled_from?(source_text)` (`true` fresh / `false` stale / `nil`
+  for pre-provenance artifacts, which are unverifiable rather than
+  stale). @parsanol/wasm's `PargRuntime` mirrors the same fields and
+  `compiledFrom(source)`. Artifacts compiled before parsanol 1.3.92
+  carry neither field.
 
 ## Importing foreign grammars
 
