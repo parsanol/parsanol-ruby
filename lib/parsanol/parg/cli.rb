@@ -233,7 +233,7 @@ module Parsanol
       def artifact_for(file)
         if file.end_with?(".json")
           Parsanol::PARG::Artifact.load(file, tables_dir: @tables_dir || default_tables_dir(file),
-                                        imports_dir: File.dirname(file))
+                                              imports_dir: File.dirname(file))
         else
           artifact = compile_source(file)
           Parsanol::PARG::Artifact.from_json(JSON.generate(artifact.envelope),

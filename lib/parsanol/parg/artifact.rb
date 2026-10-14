@@ -284,8 +284,8 @@ module Parsanol
           # native atom graphs inline everything. The imported sources
           # sit beside the artifact (vendors ship them together).
           dirs = [path ? File.dirname(path) : nil, @imports_dir]
-                  .compact
-                  .select { |dir| File.directory?(dir) }
+            .compact
+            .select { |dir| File.directory?(dir) }
           Imports.merge!(document, dirs) unless dirs.empty?
           Compiler.new(document, @tables_dir)
         end
