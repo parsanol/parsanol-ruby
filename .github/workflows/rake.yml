@@ -106,6 +106,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The cross-engine conformance corpus lives in parsanol-rs
+      # (corpus/conformance): the gate compiles each committed .parg and
+      # replays every artifact's test section on both Ruby execution
+      # modes (see spec/parsanol/parg/conformance_spec.rb).
+      - uses: actions/checkout@v4
+        with:
+          repository: parsanol/parsanol-rs
+          path: parsanol-rs
+
       - uses: oxidize-rb/actions/setup-ruby-and-rust@v1
         with:
           ruby-version: ${{ matrix.ruby }}
@@ -118,6 +127,8 @@ jobs:
 
       - name: Run ruby tests
         run: bundle exec rspec spec/ --format progress
+        env:
+          PARG_CONFORMANCE_DIR: ${{ github.workspace }}/parsanol-rs/corpus/conformance
 
       - name: Run performance benchmarks
         if: matrix.os == 'ubuntu-22.04' && matrix.ruby == '3.4'
