@@ -18,8 +18,12 @@ require "fileutils"
 # when it is not a sibling checkout.
 RSpec.describe "PARG conformance corpus" do
   def conformance_dir
-    dir = ENV["PARG_CONFORMANCE_DIR"]
-    return Pathname.new(dir) if dir
+    dir = ENV.fetch("PARG_CONFORMANCE_DIR", nil)
+    # The env var is set unconditionally by CI, but the corpus checkout
+    # may predate the corpus landing (parsanol-rs#234 merged after the
+    # first ruby run checked out rs main). Absent corpus = skip, not
+    # fail: the gate enforces when present.
+    return Pathname.new(dir) if dir && File.directory?(dir)
 
     Pathname.new(__dir__).ascend do |ancestor|
       candidate = ancestor.join("parsanol-rs").join("corpus").join("conformance")
@@ -37,19 +41,19 @@ RSpec.describe "PARG conformance corpus" do
 
   it "compile-parity: recompiling each .parg reproduces the committed envelope" do
     skip unless corpus
-    Dir.glob(corpus.join("*.parg")).sort.each do |parg|
+    Dir.glob(corpus.join("*.parg")).each do |parg|
       name = File.basename(parg, ".parg")
       committed = JSON.parse(File.read(corpus.join("#{name}.json")))
       document = Parsanol::PARG::Parser.new(File.read(parg)).parse
       compiled = Parsanol::PARG::Compiler.new(document, corpus.to_s).compile.envelope
       expect(JSON.generate(compiled)).to eq(JSON.generate(committed)),
-           "#{name}: compiler drift — recompilation differs from the committed artifact"
+                                         "#{name}: compiler drift — recompilation differs from the committed artifact"
     end
   end
 
   it "native engine: every embedded test section passes" do
     skip unless corpus
-    Dir.glob(corpus.join("*.json")).sort.each do |json|
+    Dir.glob(corpus.join("*.json")).each do |json|
       name = File.basename(json, ".json")
       artifact = Parsanol::PARG::Artifact.from_json(File.read(json), tables_dir: corpus.to_s)
       failures = artifact.run_tests(mode: :native)
@@ -59,7 +63,7 @@ RSpec.describe "PARG conformance corpus" do
 
   it "Ruby engine: every embedded test section passes" do
     skip unless corpus
-    Dir.glob(corpus.join("*.json")).sort.each do |json|
+    Dir.glob(corpus.join("*.json")).each do |json|
       name = File.basename(json, ".json")
       artifact = Parsanol::PARG::Artifact.from_json(File.read(json), tables_dir: corpus.to_s)
       failures = artifact.run_tests(mode: :ruby)
