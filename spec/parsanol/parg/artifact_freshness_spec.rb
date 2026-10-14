@@ -30,20 +30,20 @@ RSpec.describe Parsanol::PARG::Artifact do
 
   it "checksums the freshness fields with the envelope" do
     envelope = compile_artifact
-    expect { Parsanol::PARG::Artifact.new(envelope, nil, nil) }.not_to raise_error
+    expect { described_class.new(envelope, nil, nil) }.not_to raise_error
     tampered = envelope.merge("source_hash" => "0" * 64)
-    expect { Parsanol::PARG::Artifact.new(tampered, nil, nil) }
+    expect { described_class.new(tampered, nil, nil) }
       .to raise_error(Parsanol::PARG::ArtifactError)
   end
 
   describe "#fresh_against?" do
     it "is true for the source it was compiled from" do
-      artifact = Parsanol::PARG::Artifact.new(compile_artifact, nil, nil)
+      artifact = described_class.new(compile_artifact, nil, nil)
       expect(artifact.fresh_against?(source)).to be(true)
     end
 
     it "is false for a different source" do
-      artifact = Parsanol::PARG::Artifact.new(compile_artifact, nil, nil)
+      artifact = described_class.new(compile_artifact, nil, nil)
       expect(artifact.fresh_against?(source.sub('"x"', '"y"'))).to be(false)
     end
 
@@ -51,7 +51,7 @@ RSpec.describe Parsanol::PARG::Artifact do
       envelope = compile_artifact
       envelope.delete("source_hash")
       envelope["checksum"] = Parsanol::PARG::Compiler.checksum(envelope)
-      artifact = Parsanol::PARG::Artifact.new(envelope, nil, nil)
+      artifact = described_class.new(envelope, nil, nil)
       expect(artifact.source_hash).to be_nil
       expect(artifact.fresh_against?(source)).to be(false)
     end
