@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "digest"
 require "json"
 require "yaml"
 
@@ -43,6 +44,20 @@ module Parsanol
       end
 
       def version = envelope["version"]
+
+      # Freshness (parsanol-ruby#209): what source revision and compiler
+      # produced this artifact. `source_hash` is the SHA-256 of the .parg
+      # text at compile time; nil on artifacts baked before the field
+      # existed, so `fresh_against?` answers false rather than guessing.
+      def source_hash = envelope["source_hash"]
+
+      def compiler_version = envelope["compiler_version"]
+
+      def fresh_against?(source_text)
+        return false if source_hash.nil?
+
+        source_hash == Digest::SHA256.hexdigest(source_text.to_s)
+      end
 
       def entries = envelope["entries"].keys
 

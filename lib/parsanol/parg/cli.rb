@@ -22,6 +22,10 @@ module Parsanol
           test    <file.parg|artifact.json>   run the grammar's test section
           parse   <file> [--entry E] INPUT  parse one input; prints the tree
                                             and the bound captures
+          check   --source x.parg --artifact y.json
+                                            verify the artifact was compiled
+                                            from that source (source hash +
+                                            compiler version); exit 1 stale
           repl    <file> [--entry E]        interactive parse loop (blank
                                             line quits, :quit exits)
           doc     <file> [rule]             print rule documentation
@@ -53,6 +57,7 @@ module Parsanol
         when "test" then test
         when "schema" then schema
         when "parse" then parse
+        when "check" then check
         when "repl" then repl
         when "doc" then doc
         when "lsp" then Lsp.new.run && 0
@@ -86,6 +91,33 @@ module Parsanol
         File.write(out, "#{JSON.generate(envelope)}\n", encoding: Encoding::UTF_8)
         puts "#{out}  #{envelope['checksum']}  warnings=#{envelope['lint']['order_warnings'].size}"
         0
+      end
+
+      # Freshness (parsanol-ruby#209): verify an artifact was compiled
+      # from the given source. The stale-shipped-artifact incident class
+      # (an old artifact silently taking precedence over the corrected
+      # grammar) is undetectable without the recorded source hash.
+      # Exit 0 fresh, 1 stale or unrecorded.
+      def check
+        source = flag_value("--source")
+        artifact_path = flag_value("--artifact")
+        unless source && artifact_path && File.file?(source) && File.file?(artifact_path)
+          warn USAGE
+          return 1
+        end
+        artifact = Artifact.load(artifact_path)
+        if artifact.source_hash.nil?
+          puts "STALE?  #{artifact_path}: no source hash recorded (pre-freshness artifact)"
+          return 1
+        end
+        if artifact.fresh_against?(PARG.read_utf8(source))
+          puts "FRESH   #{artifact_path} == #{source} (compiler #{artifact.compiler_version})"
+          0
+        else
+          puts "STALE   #{artifact_path} does not match #{source} " \
+               "(built from #{artifact.source_hash[0, 12]}… by #{artifact.compiler_version})"
+          1
+        end
       end
 
       def test
