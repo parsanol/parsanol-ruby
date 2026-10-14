@@ -19,7 +19,11 @@ require "fileutils"
 RSpec.describe "PARG conformance corpus" do
   def conformance_dir
     dir = ENV["PARG_CONFORMANCE_DIR"]
-    return Pathname.new(dir) if dir
+    # The env var is set unconditionally by CI, but the corpus checkout
+    # may predate the corpus landing (parsanol-rs#234 merged after the
+    # first ruby run checked out rs main). Absent corpus = skip, not
+    # fail: the gate enforces when present.
+    return Pathname.new(dir) if dir && File.directory?(dir)
 
     Pathname.new(__dir__).ascend do |ancestor|
       candidate = ancestor.join("parsanol-rs").join("corpus").join("conformance")
