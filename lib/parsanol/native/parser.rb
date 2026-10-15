@@ -186,9 +186,11 @@ module Parsanol
           when Parsanol::Atoms::Sequence, Parsanol::Atoms::Alternative
             children = atom.is_a?(Parsanol::Atoms::Sequence) ? atom.parslets : atom.alternatives
             output << (atom.is_a?(Parsanol::Atoms::Sequence) ? "[:seq, [" : "[:alt, [")
-            children.each_with_index do |child, index|
+            index = 0
+            while index < children.length
               output << ", " unless index.zero?
-              append_atom_structure(child, visited, output)
+              append_atom_structure(children[index], visited, output)
+              index += 1
             end
             output << "]]"
           when Parsanol::Atoms::Repetition

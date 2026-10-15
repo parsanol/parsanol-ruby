@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "open3"
+require "rbconfig"
 require "spec_helper"
 require "parsanol/native"
 
@@ -29,6 +31,30 @@ RSpec.describe Parsanol::Native::Parser do
 
       expect(fingerprint).to eq(Digest::MD5.hexdigest("[:seq, [[:str, \"a\"], [:str, \"b\"]]]"))
       expect(array_inspections).to eq(0)
+    end
+
+    it "fingerprints nested sequences within a bounded Fiber stack" do
+      script = <<~RUBY
+        require "parsanol"
+        require "parsanol/native"
+        atom = Parsanol::Atoms::Str.new("a")
+        80.times do
+          atom = Parsanol::Atoms::Sequence.new(atom, Parsanol::Atoms::Str.new("b"))
+        end
+        puts Fiber.new { Parsanol::Native::Parser.public_structure_hash(atom) }.resume
+      RUBY
+      environment = {
+        "RUBY_FIBER_VM_STACK_SIZE" => "32768",
+        # Isolate the Ruby frame budget from platform-specific C stack limits.
+        "RUBY_FIBER_MACHINE_STACK_SIZE" => "4194304",
+      }
+      limits = Process.const_defined?(:RLIMIT_CORE) ? { rlimit_core: 0 } : {}
+      output, status = Open3.capture2e(environment, RbConfig.ruby,
+                                       "-I", File.expand_path("../../../lib", __dir__),
+                                       "-e", script, **limits)
+
+      expect(status.exitstatus).to eq(0), output
+      expect(output).to eq("de454752d04f42aecccb736d5f2f89f4\n")
     end
 
     it "preserves fingerprints for each structural atom kind" do
