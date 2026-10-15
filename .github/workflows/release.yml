@@ -28,12 +28,23 @@ on:
         required: false
         type: boolean
         default: false
+  # Auto-release: a version bump landing on main IS the release
+  # decision — ship it (the leptris-ruby#452 pattern). No tag trigger:
+  # tags+paths in one push block is under-documented and can silently
+  # break both; releases here go through dispatch or this trigger.
   push:
-    tags: ["v*"]
+    branches:
+      - main
+    paths:
+      - "lib/parsanol/version.rb"
 
+# ONE release at a time — fixed group so a push-triggered run and a
+# manual dispatch serialize (interpolated groups would let them race
+# into a half-published gem), and a duplicate QUEUES behind an
+# in-flight publish instead of cancelling it (the 1.9.359 lesson).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -67,7 +78,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if [ "${{ inputs.bump_type }}" = "skip" ]; then
+          # Empty bump_type = the auto-release trigger (a version bump
+          # landing on main IS the release decision): read the version
+          # already on main and ship it.
+          if [ -z "${{ inputs.bump_type }}" ] || [ "${{ inputs.bump_type }}" = "skip" ]; then
             # Skip version bump - just read current version and create tag if needed
             echo "Skipping version bump, using current version..."
             VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed 's/.*"\([^"]*\)".*/\1/')
@@ -107,9 +121,11 @@ jobs:
 
       - name: Push version bump commit and tag
         run: |
-          # Only needed when bump_type=skip (gem bump --push not used)
-          if [ "${{ inputs.bump_type }}" = "skip" ]; then
-            git push origin HEAD:${{ github.ref_name }}
+          # Only needed when the version was not bumped by gem bump
+          # (skip mode / auto-release: HEAD is already on main, only
+          # the tag needs pushing)
+          if [ -z "${{ inputs.bump_type }}" ] || [ "${{ inputs.bump_type }}" = "skip" ]; then
+            git push origin HEAD:${{ github.ref_name }} || true
             git push origin ${{ steps.version.outputs.tag }}
           fi
 
