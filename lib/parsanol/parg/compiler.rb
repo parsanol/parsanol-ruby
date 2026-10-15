@@ -314,7 +314,6 @@ module Parsanol
       def run_tests
         return [] if @document.tests.empty?
 
-        default_entry = resolve_default_entry
         view = test_view
         @document.tests.filter_map do |test|
           entry_name = test.entry || default_entry
@@ -337,6 +336,13 @@ module Parsanol
             end
           end
         end
+      end
+
+      # Only consulted when a test omits its entry: a multi-entry
+      # grammar whose tests are all explicit must compile (parsanol-
+      # ruby#216). Memoized so the raise happens once, on first need.
+      def default_entry
+        @default_entry ||= resolve_default_entry
       end
 
       def resolve_default_entry
