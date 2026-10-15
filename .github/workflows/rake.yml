@@ -134,6 +134,25 @@ jobs:
         if: matrix.os == 'ubuntu-22.04' && matrix.ruby == '3.4'
         run: bundle exec rspec spec/performance/native_benchmark_spec.rb --format documentation
 
+  ext-lock-freshness:
+    name: Ext lock freshness (crates.io)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # The ext lock rides every rs release by hand: fail loudly (with
+      # the fix) when crates.io has a newer parsanol than Cargo.lock —
+      # the released gem must never ship a silently stale engine.
+      - name: Compare Cargo.lock against crates.io
+        run: |
+          locked=$(grep -A1 '^name = "parsanol"' Cargo.lock | grep '^version' | head -1 | sed 's/.*"\(.*\)"/\1/')
+          latest=$(curl -sf https://crates.io/api/v1/crates/parsanol -H "User-Agent: parsanol-ruby-ci (github.com/parsanol)" | ruby -rjson -e 'puts JSON.parse(STDIN.read)["crate"]["max_stable_version"]')
+          echo "Cargo.lock pins rs parsanol $locked; crates.io latest is $latest"
+          if [ "$locked" != "$latest" ]; then
+            echo "::error::Cargo.lock pins rs parsanol $locked but crates.io has $latest. Ride it: cargo update -p parsanol, then commit the lock change."
+            exit 1
+          fi
+
   lint:
     runs-on: ubuntu-22.04
     steps:
