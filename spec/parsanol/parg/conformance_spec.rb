@@ -39,15 +39,29 @@ RSpec.describe "PARG conformance corpus" do
     expect(corpus.join("README.md")).to be_file
   end
 
+  # Parity view: provenance fields are excluded. compiler_version is
+  # stamped from Parsanol::VERSION, so every gem release legitimately
+  # changes it (and the checksum covering it) — parity binds the
+  # artifact to its SOURCE via source_hash, not to a compiler build.
+  def parity_view(envelope)
+    envelope.except("compiler_version", "checksum")
+  end
+
   it "compile-parity: recompiling each .parg reproduces the committed envelope" do
     skip unless corpus
-    Dir.glob(corpus.join("*.parg")).each do |parg|
-      name = File.basename(parg, ".parg")
+    # Dir.children, not Dir.glob: the CI env path carries backslashes,
+    # which Dir.glob treats as escapes on Windows (the gate passed
+    # vacuously there once already).
+    pargs = Dir.children(corpus.to_s).select { |f| f.end_with?(".parg") }.sort
+    expect(pargs).not_to be_empty, "conformance corpus has no .parg cases"
+    pargs.each do |file|
+      parg = corpus.join(file)
+      name = File.basename(file, ".parg")
       committed = JSON.parse(File.read(corpus.join("#{name}.json")))
       document = Parsanol::PARG::Parser.new(File.read(parg)).parse
       compiled = Parsanol::PARG::Compiler.new(document, corpus.to_s).compile.envelope
-      expect(JSON.generate(compiled)).to eq(JSON.generate(committed)),
-                                         "#{name}: compiler drift — recompilation differs from the committed artifact"
+      expect(JSON.generate(parity_view(compiled))).to eq(JSON.generate(parity_view(committed))),
+                                                      "#{name}: compiler drift — recompilation differs from the committed artifact"
     end
   end
 
