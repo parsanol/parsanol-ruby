@@ -17,6 +17,41 @@ RSpec.describe Parsanol::Native::Parser do
       expect(calls).to eq(0)
     end
 
+    it "writes the structural fingerprint without inspecting intermediate arrays" do
+      atom = Parsanol::Atoms::Str.new("a") >> Parsanol::Atoms::Str.new("b")
+      array_inspections = 0
+      trace = TracePoint.new(:c_call) do |event|
+        array_inspections += 1 if event.defined_class == Array && event.method_id == :inspect
+      end
+      fingerprint = nil
+
+      trace.enable { fingerprint = described_class.public_structure_hash(atom) }
+
+      expect(fingerprint).to eq(Digest::MD5.hexdigest("[:seq, [[:str, \"a\"], [:str, \"b\"]]]"))
+      expect(array_inspections).to eq(0)
+    end
+
+    it "preserves fingerprints for each structural atom kind" do
+      literal = Parsanol::Atoms::Str.new("x")
+      value = { "a" => [1, nil] }
+      atoms = {
+        Parsanol::Atoms::Re.new("[a-z]") => [:re, "[a-z]"],
+        literal | Parsanol::Atoms::Str.new("y") => [:alt, [[:str, "x"], [:str, "y"]]],
+        literal.repeat(1, 3) => [:rep, 1, 3, [:str, "x"]],
+        literal.present? => [:lookahead, true, [:str, "x"]],
+        literal.absent? => [:lookahead, false, [:str, "x"]],
+        Parsanol::Atoms::Constant.new(value) => [:constant, value.inspect],
+        Parsanol::Atoms::Lookbehind.new(1, /x/, positive: false) => [:lookbehind, 1, /x/, false],
+        Parsanol::Atoms::Trivia.new(literal) => [:trivia, [:str, "x"]],
+        literal.ignore => [:ignored, [:str, "x"]],
+        Parsanol::Atoms::Base.new => [:unknown, "Parsanol::Atoms::Base"],
+      }
+
+      atoms.each do |atom, structure|
+        expect(described_class.public_structure_hash(atom)).to eq(Digest::MD5.hexdigest(structure.to_s))
+      end
+    end
+
     it "distinguishes atoms whose value equality and hash are overridden" do
       literal_class = Class.new(Parsanol::Atoms::Str) do
         def hash

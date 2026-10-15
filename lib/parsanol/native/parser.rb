@@ -167,58 +167,56 @@ module Parsanol
         end
 
         def grammar_structure_hash(atom)
-          Digest::MD5.hexdigest(atom_structure(atom).to_s)
+          Digest::MD5.hexdigest(append_atom_structure(atom))
         end
 
-        def atom_structure(atom, visited = {}.compare_by_identity)
-          # Cycle detection - return a placeholder if we've seen this atom before
+        def append_atom_structure(atom, visited = {}.compare_by_identity, output = +"")
           if visited[atom]
-            return [:cycle, atom.class.name]
+            return output << "[:cycle, " << atom.class.name.inspect << "]"
           end
 
           visited[atom] = true
-
           case atom
-          when ::Parsanol::Atoms::Entity
-            # Recursively resolve entity to get actual structure for hash
-            atom_structure(atom.parslet, visited)
-          when ::Parsanol::Atoms::Str
-            [:str, atom.str]
-          when ::Parsanol::Atoms::Re
-            [:re, atom.match]
-          when ::Parsanol::Atoms::Sequence
-            [:seq, atom.parslets.map { |p| atom_structure(p, visited) }]
-          when ::Parsanol::Atoms::Alternative
-            [:alt, atom.alternatives.map { |p| atom_structure(p, visited) }]
-          when ::Parsanol::Atoms::Repetition
-            [:rep, atom.min, atom.max, atom_structure(atom.parslet, visited)]
-          when ::Parsanol::Atoms::Named
-            [:named, atom.name.to_s, atom_structure(atom.parslet, visited)]
-          when ::Parsanol::Atoms::Lookahead
-            [:lookahead, atom.positive,
-             atom_structure(atom.bound_parslet, visited)]
-          when ::Parsanol::Atoms::Constant
-            # The value differentiates otherwise-identical constant
-            # atoms — without it every Constant hashes alike and the
-            # grammar cache serves the first wire forever.
-            [:constant, atom.value.inspect]
-          when ::Parsanol::Atoms::Lookbehind
-            [:lookbehind, atom.count, atom.pattern, atom.positive]
-          # Subclass first: TriviaCapture < Trivia < Ignored (the same
-          # dispatch discipline as the serializer's).
-          when ::Parsanol::Atoms::TriviaCapture
-            # The capturer table differentiates capture-carrying
-            # grammars from plain-trivia ones — without it the grammar
-            # cache serves one variant's wire to every other and the
-            # wrong marker table reaches the engine (parsanol-ruby#180).
-            [:trivia_capture, atom.capturers.to_a.sort,
-             atom_structure(atom.wrapped_atom, visited)]
-          when ::Parsanol::Atoms::Trivia
-            [:trivia, atom_structure(atom.wrapped_atom, visited)]
-          when ::Parsanol::Atoms::Ignored
-            [:ignored, atom_structure(atom.wrapped_atom, visited)]
+          when Parsanol::Atoms::Entity
+            append_atom_structure(atom.parslet, visited, output)
+          when Parsanol::Atoms::Str
+            output << "[:str, " << atom.str.inspect << "]"
+          when Parsanol::Atoms::Re
+            output << "[:re, " << atom.match.inspect << "]"
+          when Parsanol::Atoms::Sequence, Parsanol::Atoms::Alternative
+            children = atom.is_a?(Parsanol::Atoms::Sequence) ? atom.parslets : atom.alternatives
+            output << (atom.is_a?(Parsanol::Atoms::Sequence) ? "[:seq, [" : "[:alt, [")
+            children.each_with_index do |child, index|
+              output << ", " unless index.zero?
+              append_atom_structure(child, visited, output)
+            end
+            output << "]]"
+          when Parsanol::Atoms::Repetition
+            output << "[:rep, " << atom.min.inspect << ", " << atom.max.inspect << ", "
+            append_atom_structure(atom.parslet, visited, output) << "]"
+          when Parsanol::Atoms::Named
+            output << "[:named, " << atom.name.to_s.inspect << ", "
+            append_atom_structure(atom.parslet, visited, output) << "]"
+          when Parsanol::Atoms::Lookahead
+            output << "[:lookahead, " << atom.positive.inspect << ", "
+            append_atom_structure(atom.bound_parslet, visited, output) << "]"
+          when Parsanol::Atoms::Constant
+            # The inspected constant remains a string inside the fingerprint.
+            output << "[:constant, " << atom.value.inspect.inspect << "]"
+          when Parsanol::Atoms::Lookbehind
+            output << "[:lookbehind, " << atom.count.inspect << ", " << atom.pattern.inspect << ", " << atom.positive.inspect << "]"
+          # Capturing trivia must precede its Trivia and Ignored parents.
+          when Parsanol::Atoms::TriviaCapture
+            output << "[:trivia_capture, " << atom.capturers.to_a.sort.inspect << ", "
+            append_atom_structure(atom.wrapped_atom, visited, output) << "]"
+          when Parsanol::Atoms::Trivia
+            output << "[:trivia, "
+            append_atom_structure(atom.wrapped_atom, visited, output) << "]"
+          when Parsanol::Atoms::Ignored
+            output << "[:ignored, "
+            append_atom_structure(atom.wrapped_atom, visited, output) << "]"
           else
-            [:unknown, atom.class.name]
+            output << "[:unknown, " << atom.class.name.inspect << "]"
           end
         end
       end
