@@ -204,6 +204,45 @@ RSpec.describe Parsanol::PARG do
         .to raise_error(Parsanol::PARG::CompileError, /expected captures/)
     end
 
+    it "compiles a multi-entry grammar whose tests all name their entry" do
+      multi = <<~PARG
+        grammar M version "1.0.0" {
+          a = "x" as a
+          b = "y" as b
+        }
+
+        entry a: a
+        entry b: b
+
+        test a {
+          accept "x"
+        }
+
+        test b {
+          accept "y"
+        }
+      PARG
+      expect { compile_source(multi, tables_dir: nil) }.not_to raise_error
+    end
+
+    it "still names the missing entry when a multi-entry test omits one" do
+      multi = <<~PARG
+        grammar M version "1.0.0" {
+          a = "x" as a
+          b = "y" as b
+        }
+
+        entry a: a
+        entry b: b
+
+        test {
+          accept "x"
+        }
+      PARG
+      expect { compile_source(multi, tables_dir: nil) }
+        .to raise_error(Parsanol::PARG::CompileError, /tests need an explicit entry/)
+    end
+
     it "embeds tests and docs in the artifact and re-runs them" do
       Dir.mktmpdir do |dir|
         env = compile_source(authored, tables_dir: dir).envelope
