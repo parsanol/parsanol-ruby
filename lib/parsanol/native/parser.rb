@@ -170,14 +170,13 @@ module Parsanol
           Digest::MD5.hexdigest(atom_structure(atom).to_s)
         end
 
-        def atom_structure(atom, visited = {})
+        def atom_structure(atom, visited = {}.compare_by_identity)
           # Cycle detection - return a placeholder if we've seen this atom before
-          obj_id = atom.object_id
-          if visited[obj_id]
+          if visited[atom]
             return [:cycle, atom.class.name]
           end
 
-          visited[obj_id] = true
+          visited[atom] = true
 
           case atom
           when ::Parsanol::Atoms::Entity
