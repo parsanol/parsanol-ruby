@@ -146,7 +146,12 @@ module Parsanol
           # The shared program's compile-time analysis (heavy-memo
           # seeding) covered this structure; the fresh root inherits
           # it so its first parse memoizes like the original's.
-          (@heavy ||= {}.compare_by_identity)[root] = true if @heavy_by_hash&.[](hash_key)
+          if @heavy_by_hash&.[](hash_key)
+            (@heavy ||= {}.compare_by_identity)[root] = true
+            trim_cache(@heavy)
+          end
+          cache[root] = shared
+          trim_cache(cache)
           return shared
         end
 

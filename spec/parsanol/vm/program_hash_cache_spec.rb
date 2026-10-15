@@ -42,23 +42,78 @@ RSpec.describe "VM program structure-hash cache" do
     expect(first.parse("a,b,c")).to eq(second.parse("a,b,c"))
   end
 
+  context "when a fresh root shares a program" do
+    let(:parser_class) { build_grammar_class }
+    let(:first_root) { parser_class.new.root }
+    let(:fresh_root) { parser_class.new.root }
+
+    before { Parsanol::VM.clear_program_cache }
+    after { Parsanol::VM.clear_program_cache }
+
+    it "hashes that root only once across repeated lookups" do
+      program = Parsanol::VM.program_for(first_root)
+      expect(Parsanol::Native::Parser).to receive(:public_structure_hash)
+        .with(fresh_root).once.and_call_original
+
+      3.times { expect(Parsanol::VM.program_for(fresh_root)).to equal(program) }
+    end
+
+    it "bounds identity programs and heavy flags while equivalent roots churn" do
+      limit = Parsanol::VM::PROGRAM_CACHE_LIMIT
+      roots = Array.new(limit + 8) { parser_class.new.root }
+      program = Parsanol::VM.program_for(roots.first)
+      roots.drop(1).each do |root|
+        expect(Parsanol::VM.program_for(root)).to equal(program)
+      end
+
+      programs = Parsanol::VM.instance_variable_get(:@programs)
+      heavy = Parsanol::VM.instance_variable_get(:@heavy)
+      expect(programs.keys).to eq(roots.last(limit))
+      expect(heavy.keys).to eq(roots.last(limit))
+    end
+
+    it "keeps a disabled shared root separate from other equivalent roots" do
+      program = Parsanol::VM.program_for(first_root)
+      expect(Parsanol::VM.program_for(fresh_root)).to equal(program)
+      Parsanol::VM.disable_for!(fresh_root)
+
+      2.times { expect(Parsanol::VM.program_for(fresh_root)).to be_nil }
+      expect(Parsanol::VM.program_for(first_root)).to equal(program)
+      expect(Parsanol::VM.program_for(parser_class.new.root)).to equal(program)
+    end
+
+    it "recompiles after clearing both identity and structural caches" do
+      program = Parsanol::VM.program_for(first_root)
+      expect(Parsanol::VM.program_for(fresh_root)).to equal(program)
+      Parsanol::VM.clear_program_cache
+      expect(Parsanol::VM).to receive(:compile).with(fresh_root).once.and_call_original
+
+      rebuilt = Parsanol::VM.program_for(fresh_root)
+      expect(rebuilt).to be_a(Array)
+      expect(rebuilt).not_to equal(program)
+      expect(Parsanol::VM.program_for(fresh_root)).to equal(rebuilt)
+    end
+  end
+
   # Order-dependent hole: a symbol verdict (:fallback / :oversize)
   # is a property of one compile attempt's path, not of the
   # structure. The share must serve only real programs — a stored
   # verdict would silently send a compile-capable grammar to the
   # interpreter, unseeded (the vm_fail_dispatch order-dependent CI
   # failure).
-  it "never serves a stored symbol verdict as a program" do
+  it "never serves stored fallback or oversize verdicts as programs" do
     root = build_grammar_class.new.root
 
-    result = Parsanol::VM.instance_exec do
-      clear_program_cache
-      key = Parsanol::Native::Parser.public_structure_hash(root)
-      (@programs_by_hash ||= {})[key] = :fallback
-      program_for(root)
+    results = %i[fallback oversize].map do |verdict|
+      Parsanol::VM.instance_exec do
+        clear_program_cache
+        key = Parsanol::Native::Parser.public_structure_hash(root)
+        (@programs_by_hash ||= {})[key] = verdict
+        program_for(root)
+      end
     end
 
-    expect(result).to be_a(Array)
+    expect(results).to all(be_a(Array))
   end
 
   # The share hit must mirror the shared program's compile-time
