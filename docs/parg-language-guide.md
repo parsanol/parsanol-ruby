@@ -187,6 +187,40 @@ Steps are declarative data operations. v1 ships `table_lookup` (map the
 value through a table column pair). Anything not expressible here is
 application logic and belongs above the binding layer.
 
+### In-file tests
+
+A `test` section pins a grammar's observable behavior. The compiler runs
+it at build time (a failing test fails the build) and the artifact
+carries it, so every engine re-plays the same expectations.
+
+```
+test main {
+  accept "AB2020"
+  reject "AB20"
+  capture "AB2020" { pub: "AB" }
+  example "AB2020" { pub: "AB" }
+}
+```
+
+Two assertion phases:
+
+- `capture` — the **grammar layer**: expectations match the raw capture
+  tree (`capture -> value` pairs). No `bindings` section needed — a
+  grammar can pin its parse behavior before any attribute mapping
+  exists.
+- `example` — the **bindings layer**: expectations match the bound,
+  preprocessed attribute hash, i.e. exactly what `parse` hands the
+  consumer. Requires a `bindings` section; without one the compiler
+  rejects the test with an authoring error instead of failing obscurely.
+
+Expectations compare through one canonical form (terminals reduce to
+their text, structure recurses), so a test never passes on one engine
+and fails on another over representation differences. `accept` /
+`reject` need no explanation — the input must parse / must not parse.
+
+Tests in a multi-entry grammar name their entry (`test main { ... }`);
+a single-entry grammar may omit it.
+
 ### Tables
 
 `alt from_table` and `table_lookup` resolve `NAME.yaml` / `NAME.yml` /
