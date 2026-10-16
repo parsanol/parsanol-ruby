@@ -204,6 +204,70 @@ RSpec.describe Parsanol::PARG do
         .to raise_error(Parsanol::PARG::CompileError, /expected captures/)
     end
 
+    describe "capture kind (grammar-layer phase)" do
+      let(:capture_grammar) do
+        <<~PARG
+          grammar T version "1.0.0" {
+            digit = %x30-39
+            pub = %x41-5A %x41-5A
+            identifier = pub as pub 4digit
+          }
+
+          entry identifier: identifier
+
+          test {
+            accept "AB2020"
+            capture "AB2020" { pub: "AB" }
+          }
+        PARG
+      end
+
+      it "asserts raw captures without a bindings section" do
+        expect { compile_source(capture_grammar, tables_dir: nil) }.not_to raise_error
+      end
+
+      it "fails the build when a capture expectation mismatches" do
+        broken = capture_grammar.sub('{ pub: "AB" }', '{ pub: "XY" }')
+        expect { compile_source(broken, tables_dir: nil) }
+          .to raise_error(Parsanol::PARG::CompileError, /expected captures/)
+      end
+
+      it "replays capture tests on the artifact in both modes" do
+        Dir.mktmpdir do |dir|
+          envelope = compile_source(capture_grammar, tables_dir: dir).envelope
+          artifact = Parsanol::PARG::Artifact.from_json(JSON.generate(envelope))
+          expect(artifact.run_tests(mode: :ruby)).to be_empty
+          expect(artifact.run_tests(mode: :native)).to be_empty
+        end
+      end
+
+      it "surfaces a stale capture expectation through artifact replay" do
+        broken = capture_grammar.sub('{ pub: "AB" }', '{ pub: "ZZ" }')
+        Dir.mktmpdir do |dir|
+          expect do
+            compile_source(broken, tables_dir: dir)
+          end.to raise_error(Parsanol::PARG::CompileError)
+        end
+      end
+    end
+
+    it "rejects example tests in grammars without a bindings section" do
+      sourceless = <<~PARG
+        grammar T version "1.0.0" {
+          pub = %x41-5A %x41-5A as pub
+          identifier = pub
+        }
+
+        entry identifier: identifier
+
+        test {
+          example "AB" { pub: "AB" }
+        }
+      PARG
+      expect { compile_source(sourceless, tables_dir: nil) }
+        .to raise_error(Parsanol::PARG::CompileError, /bindings section/)
+    end
+
     it "compiles a multi-entry grammar whose tests all name their entry" do
       multi = <<~PARG
         grammar M version "1.0.0" {

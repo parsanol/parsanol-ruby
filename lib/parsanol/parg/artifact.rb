@@ -157,16 +157,33 @@ module Parsanol
           hash = test.is_a?(Document::Test) ? test_to_hash(test) : test
           entry_name = hash["entry"] || entries.first
           begin
-            bound = parse_and_bind(entry_name, hash["input"], mode: mode)
-            if hash["kind"] == "reject"
+            shape = parse(entry_name, hash["input"], mode: mode)
+            case hash["kind"]
+            when "reject"
               "test #{hash['input'].inspect}: expected the input to be rejected"
-            elsif hash["kind"] == "example"
+            when "example"
+              bound = apply_bindings(entry_name, shape)
               expect = hash["expect"].to_h { |key, value| [key.to_sym, value] }
-              mismatched = expect.reject { |key, value| bound.key?(key) && bound[key] == value }
+              mismatched = expect.reject do |key, value|
+                bound.key?(key) && Bindings.canonical(bound[key]) == Bindings.canonical(value)
+              end
               next if mismatched.empty?
 
               "test #{hash['input'].inspect}: expected captures " \
                 "#{mismatched.transform_values(&:inspect).inspect}, got #{bound.inspect}"
+            when "capture"
+              captures = Bindings.collect_captures(shape)
+              mismatched = hash["expect"].reject do |key, value|
+                actual = captures[key.to_sym]&.first
+                !actual.nil? && Bindings.canonical(actual) == Bindings.canonical(value)
+              end
+              next if mismatched.empty?
+
+              actuals = mismatched.keys.to_h do |key|
+                [key, Bindings.canonical(captures[key.to_sym]&.first)]
+              end
+              "test #{hash['input'].inspect}: expected captures " \
+                "#{mismatched.transform_values(&:inspect).inspect}, got #{actuals.inspect}"
             end
           rescue Parsanol::ParseFailed
             unless hash["kind"] == "reject"

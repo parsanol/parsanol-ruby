@@ -83,7 +83,7 @@ module Parsanol
           kind = ident.value
           input = unquote(expect(:str).value)
           expect_pairs = {}
-          if kind == "example" && peek&.type == :punct && peek.value == "{"
+          if Document::PAIR_KINDS.include?(kind) && peek&.type == :punct && peek.value == "{"
             advance
             skip_newlines
             until peek&.type == :punct && peek.value == "}"
