@@ -23,6 +23,19 @@ module Parsanol
         out
       end
 
+      # Canonical test-value form: one equality surface for capture and
+      # example expectations on both sides of the comparison (Slice vs
+      # source literal was comparing heterogeneous types). Terminals
+      # reduce to their text; structure recurses; keys stringify.
+      def canonical(value)
+        case value
+        when Hash then value.to_h { |key, item| [key.to_s, canonical(item)] }
+        when Array then value.map { |item| canonical(item) }
+        when nil, true, false, Integer then value
+        else String(value)
+        end
+      end
+
       def collect_captures(shape)
         found = Hash.new { |hash, key| hash[key] = [] }
         queue = [shape]

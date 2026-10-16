@@ -320,15 +320,37 @@ module Parsanol
           rule = @document.entries.fetch(entry_name)
           begin
             shape = atom_for(rule).parse(test.input)
-            if test.kind == :reject
+            case test.kind
+            when :reject
               "test #{test.input.inspect}: expected the input to be rejected"
-            elsif test.kind == :example
-              bound = Bindings.apply(view, { "bindings" => binding_list(rule) }, shape)
-              mismatched = test.expect.reject { |key, value| bound.key?(key) && bound[key] == value }
+            when :example
+              bindings = binding_list(rule)
+              if bindings.empty?
+                raise CompileError,
+                      "example tests need a bindings section (use `capture` " \
+                      "for raw-capture assertions)"
+              end
+              bound = Bindings.apply(view, { "bindings" => bindings }, shape)
+              mismatched = test.expect.reject do |key, value|
+                bound.key?(key) && Bindings.canonical(bound[key]) == Bindings.canonical(value)
+              end
               next if mismatched.empty?
 
               "test #{test.input.inspect}: expected captures " \
                 "#{mismatched.transform_values(&:inspect).inspect}, got #{bound.inspect}"
+            when :capture
+              captures = Bindings.collect_captures(shape)
+              mismatched = test.expect.reject do |key, value|
+                actual = captures[key.to_sym]&.first
+                !actual.nil? && Bindings.canonical(actual) == Bindings.canonical(value)
+              end
+              next if mismatched.empty?
+
+              actuals = mismatched.keys.to_h do |key|
+                [key, Bindings.canonical(captures[key.to_sym]&.first)]
+              end
+              "test #{test.input.inspect}: expected captures " \
+                "#{mismatched.transform_values(&:inspect).inspect}, got #{actuals.inspect}"
             end
           rescue Parsanol::ParseFailed
             unless test.kind == :reject

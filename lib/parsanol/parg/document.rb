@@ -5,7 +5,15 @@ module Parsanol
     # Parsed PARG document: grammar rules plus the binding sections.
     class Document
       Binding = Struct.new(:capture, :path, :type, :card, :preprocess)
-      TEST_KINDS = %i[accept reject example].freeze
+      # `capture` = phase 1 (grammar layer): asserts the raw capture tree,
+      # no bindings section needed. `example` = phase 2 (bindings layer):
+      # asserts the bound, preprocessed attribute hash.
+      # `capture` = phase 1 (grammar layer): asserts the raw capture tree,
+      # no bindings section needed. `example` = phase 2 (bindings layer):
+      # asserts the bound, preprocessed attribute hash.
+      TEST_KINDS = %i[accept reject example capture].freeze
+      # Test kinds whose expectations are `{ key: value }` pairs.
+      PAIR_KINDS = %w[example capture].freeze
 
       Test = Struct.new(:entry, :kind, :input, :expect)
 
