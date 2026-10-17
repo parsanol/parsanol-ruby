@@ -152,12 +152,16 @@ module Parsanol
 
       # Run an external test list (suite files yield Document::Test
       # structs; embedded tests are artifact-shaped hashes).
-      def run_test_list(tests, mode: :native)
+      # parse_with overrides how the input is turned into a shape
+      # (the envelope self-test drives the baked grammar JSON natively
+      # instead of root_atom's source rebuild); bindings and
+      # expectations still flow through the standard surface.
+      def run_test_list(tests, mode: :native, parse_with: nil)
         tests.filter_map do |test|
           hash = test.is_a?(Document::Test) ? test_to_hash(test) : test
           entry_name = hash["entry"] || entries.first
           begin
-            shape = parse(entry_name, hash["input"], mode: mode)
+            shape = parse_with ? parse_with.call(hash["input"]) : parse(entry_name, hash["input"], mode: mode)
             case hash["kind"]
             when "reject"
               "test #{hash['input'].inspect}: expected the input to be rejected"
