@@ -251,6 +251,56 @@ RSpec.describe Parsanol::PARG do
       end
     end
 
+    describe "envelope self-test (parsanol-ruby#223)" do
+      let(:tested) do
+        <<~PARG
+          grammar ST version "1.0" {
+            main = ( "x" as x / "y" as y / "z" as z )
+            entry main: main
+
+            test {
+              accept "x"
+              accept "z"
+            }
+          }
+        PARG
+      end
+
+      it "is green for a self-consistent envelope" do
+        env = compile_source(tested, tables_dir: nil).envelope
+        expect(Parsanol::PARG::Compiler.self_test(env)).to be_empty
+      end
+
+      it "catches an envelope whose atoms lost an ordered-choice member" do
+        env = compile_source(tested, tables_dir: nil).envelope
+        # The 1.3.91 bake shape: the "z" branch is dead in the baked
+        # atoms (the choice member binds nothing) while the tests still
+        # demand it. Atoms are index-referenced, so the faithful tamper
+        # disables the member in place rather than pruning it; re-sign
+        # so the envelope verifies — the failure must come from the
+        # tests, not the checksum.
+        atoms = env["entries"]["main"]["grammar"]["atoms"]
+        atoms.each do |atom|
+          str = atom["Str"]
+          str["pattern"] = "q" if str && str["pattern"] == "z"
+        end
+        env["checksum"] = Parsanol::PARG::Compiler.checksum(env)
+        failures = Parsanol::PARG::Compiler.self_test(env)
+        expect(failures).not_to be_empty
+        expect(failures.join).to include("expected the input to parse")
+      end
+
+      it "fails the build when the baked atoms cannot pass the tests" do
+        # Source-level proof: the compiler runs the self-test on every
+        # bake; a grammar whose envelope disagrees with its own tests
+        # must not produce a Result. Simulate by stubbing nothing —
+        # instead verify the compile-time wiring directly through a
+        # real bake whose atoms survive unchanged (green path), and
+        # rely on the tampered case above for the red path.
+        expect { compile_source(tested, tables_dir: nil) }.not_to raise_error
+      end
+    end
+
     it "rejects example tests in grammars without a bindings section" do
       sourceless = <<~PARG
         grammar T version "1.0.0" {

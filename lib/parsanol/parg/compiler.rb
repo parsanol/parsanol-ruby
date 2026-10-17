@@ -76,7 +76,38 @@ module Parsanol
         raise CompileError, failures.join("\n") unless failures.empty?
 
         envelope = build_envelope
+        failures = self.class.self_test(envelope, tables_dir: @tables_dir)
+        raise CompileError, failures.join("\n") unless failures.empty?
+
         Result.new(@atom_cache, @warnings, envelope)
+      end
+
+      # Bake-time self-test (parsanol-ruby#223): replay the grammar's
+      # embedded tests against the BAKED ENVELOPE atom JSON, not the
+      # source this process just compiled. A bake that drops or
+      # rewrites a member (the 1.3.91 ordered-choice class) makes the
+      # envelope disagree with its own tests, and every Ruby-side
+      # parse path would mask it — root_atom rebuilds from the
+      # embedded source, so only the native engine's JSON registration
+      # executes the atom graph a wasm/rs consumer actually runs.
+      # Skips (empty) when the native engine is unavailable; the CI
+      # and release bakes always have it. Returns failure descriptions.
+      def self.self_test(envelope, tables_dir: nil)
+        tests = envelope["tests"].to_a
+        return [] if tests.empty?
+        return [] unless Native.available?
+
+        artifact = Artifact.from_json(JSON.generate(envelope), tables_dir: tables_dir)
+        default = envelope["default_entry"] || artifact.entries.first
+        grammars = {}
+        tests.filter_map do |test|
+          entry = test["entry"] || default
+          grammar_json = (grammars[entry] ||= JSON.generate(artifact.entry(entry)["grammar"]))
+          artifact.run_test_list(
+            [test],
+            parse_with: ->(input) { Native.parse_json_grammar(grammar_json, input) },
+          )
+        end.flatten
       end
 
       def resolve_custom(name)
