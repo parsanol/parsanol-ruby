@@ -50,7 +50,9 @@ jobs:
 
           cases.each do |json|
             name = File.basename(json, ".json")
-            artifact = Parsanol::PARG::Artifact.from_json(File.read(json), tables_dir: corpus)
+            artifact = Parsanol::PARG::Artifact.from_json(
+              File.read(json), tables_dir: corpus, imports_dir: corpus
+            )
             native = artifact.run_tests(mode: :native)
             ruby = artifact.run_tests(mode: :ruby)
             raise "#{name}: native=#{native.inspect} ruby=#{ruby.inspect}" unless native.empty? && ruby.empty?
