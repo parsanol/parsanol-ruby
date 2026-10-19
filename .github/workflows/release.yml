@@ -130,9 +130,38 @@ jobs:
               --title "Release: bump parsanol to ${VERSION}" \
               --body-file /tmp/bump-pr-body.md \
               --head "$BRANCH")
-            echo "Bump PR: $PR_URL (auto-merge enabled)"
+            echo "Bump PR: $PR_URL (auto-merge enabled; waiting for its CI + merge)"
             gh pr merge --auto --merge "$PR_URL"
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+            # Wait for the auto-merge to land. The merge's push cannot
+            # trigger this workflow (GITHUB_TOKEN events are suppressed),
+            # so this run continues the release itself: tag the merged
+            # head and proceed downstream on the merge commit.
+            PR_NUMBER=$(basename "$PR_URL")
+            for i in $(seq 1 120); do
+              STATE=$(gh pr view "$PR_NUMBER" --json state --jq .state)
+              [ "$STATE" = "MERGED" ] && break
+              [ "$STATE" = "CLOSED" ] && {
+                echo "Bump PR was closed without merging"
+                exit 1
+              }
+              sleep 30
+            done
+            [ "$STATE" = "MERGED" ] || {
+              echo "Timed out waiting for the bump PR to merge (60m)"
+              exit 1
+            }
+
+            git fetch origin main
+            git checkout -q main
+            git pull -q origin main
+            SHA=$(git rev-parse HEAD)
+            TAG="v${VERSION}"
+            git tag -a "$TAG" -m "Release $VERSION" "$SHA"
+            git push origin "$TAG"
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+            echo "sha=$SHA" >> $GITHUB_OUTPUT
+            echo "release=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Push version bump commit and tag
