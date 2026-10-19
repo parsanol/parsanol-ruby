@@ -100,6 +100,12 @@ jobs:
               echo "Creating tag $TAG..."
               git tag -a "$TAG" -m "Release $VERSION"
             fi
+            # Outputs feed the tag push, the build checkouts and the
+            # GitHub-release step — dropping them silently skips the
+            # tag and reds the release step (the 1.3.95 train).
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+            echo "sha=$SHA" >> $GITHUB_OUTPUT
           else
             # Dispatch-bump: the version bump lands as a PR (main is
             # protected against direct pushes), auto-merge lands it once
