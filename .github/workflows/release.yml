@@ -121,15 +121,14 @@ jobs:
             VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed 's/.*"\([^"]*\)".*/\1/')
             git push origin "$BRANCH"
 
-            cat > /tmp/bump-pr-body.md <<PRBODY
-            Version bump to ${VERSION} for release (dispatched with bump_type=${{ inputs.bump_type }}).
-
-            Merging publishes: the merge triggers the release workflow's push path, which tags this commit and builds the platform gems.
-            PRBODY
-            sed -e 's/^            //' /tmp/bump-pr-body.md > /tmp/bump-pr-body2.md
+            {
+              echo "Version bump to ${VERSION} for release (dispatched with bump_type=${{ inputs.bump_type }})."
+              echo ""
+              echo "Merging publishes: the merge triggers the release workflow's push path, which tags this commit and builds the platform gems."
+            } > /tmp/bump-pr-body.md
             PR_URL=$(gh pr create \
               --title "Release: bump parsanol to ${VERSION}" \
-              --body-file /tmp/bump-pr-body2.md \
+              --body-file /tmp/bump-pr-body.md \
               --head "$BRANCH")
             echo "Bump PR: $PR_URL (auto-merge enabled)"
             gh pr merge --auto --merge "$PR_URL"
