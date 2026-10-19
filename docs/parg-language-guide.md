@@ -239,6 +239,25 @@ exactly why the compile-time lint below exists.
 leftmost-position analysis). An unguarded left-recursive PEG loops forever
 in every engine; PARG refuses to emit such an artifact.
 
+### Repetition flattening (parslet parity)
+
+Capture flattening follows parslet exactly, including its repetition
+rules — verified byte-for-byte against parslet 2.0.0:
+
+- a repetition **all of whose iterations are text** concatenates into
+  one string
+- a repetition **any of whose iterations is a capture hash** keeps
+  **only the hash iterations** and silently drops the rest —
+  parslet's `CanFlatten#flatten_repetition` behavior, reproduced in
+  parsanol-ruby#231
+- an uncaptured sequence rule inside such a repetition contributes its
+  child captures as one array-of-hashes iteration — which the rule
+  above then drops if any other iteration is a hash
+
+The stable idiom is to **capture every structural rule** (`g = ( go
+1*( gu ) gc ) as grp`) so each iteration yields one hash, and unwrap
+in the consumer — or keep repetition bodies homogeneous.
+
 ## Skip rule (trivia injection)
 
 One declaration per grammar turns implicit trivia — whitespace, comments —
