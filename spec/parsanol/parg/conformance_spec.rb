@@ -52,25 +52,39 @@ RSpec.describe "PARG conformance corpus" do
     # Dir.children, not Dir.glob: the CI env path carries backslashes,
     # which Dir.glob treats as escapes on Windows (the gate passed
     # vacuously there once already).
-    pargs = Dir.children(corpus.to_s).select { |f| f.end_with?(".parg") }.sort
+    # A .parg without a sibling .json is an import helper - it exists
+    # to be referenced via `use` (resolved against its file name) and
+    # has no artifact of its own. `use` grammars merge imports from
+    # the corpus dir before compiling, mirroring the authoring flow.
+    pargs = Dir.children(corpus.to_s)
+      .select { |f| f.end_with?(".parg") && File.file?(corpus.join(f.sub(/\.parg\z/, ".json"))) }
+      .sort
     expect(pargs).not_to be_empty, "conformance corpus has no .parg cases"
     pargs.each do |file|
       parg = corpus.join(file)
       name = File.basename(file, ".parg")
       committed = JSON.parse(File.read(corpus.join("#{name}.json")))
       document = Parsanol::PARG::Parser.new(File.read(parg)).parse
+      Parsanol::PARG::Imports.merge!(document, [corpus.to_s])
       compiled = Parsanol::PARG::Compiler.new(document, corpus.to_s).compile.envelope
       expect(JSON.generate(parity_view(compiled))).to eq(JSON.generate(parity_view(committed))),
                                                       "#{name}: compiler drift — recompilation differs from the committed artifact"
     end
   end
 
+  # imports_dir lets `use`-carrying sources rebuild on the Ruby path;
+  # merge! is a no-op for grammars without `use`.
+  def load_artifact(json)
+    Parsanol::PARG::Artifact.from_json(
+      File.read(json), tables_dir: corpus.to_s, imports_dir: corpus.to_s
+    )
+  end
+
   it "native engine: every embedded test section passes" do
     skip unless corpus
     Dir.glob(corpus.join("*.json")).each do |json|
       name = File.basename(json, ".json")
-      artifact = Parsanol::PARG::Artifact.from_json(File.read(json), tables_dir: corpus.to_s)
-      failures = artifact.run_tests(mode: :native)
+      failures = load_artifact(json).run_tests(mode: :native)
       expect(failures).to be_empty, "#{name}: native failures: #{failures.inspect}"
     end
   end
@@ -79,8 +93,7 @@ RSpec.describe "PARG conformance corpus" do
     skip unless corpus
     Dir.glob(corpus.join("*.json")).each do |json|
       name = File.basename(json, ".json")
-      artifact = Parsanol::PARG::Artifact.from_json(File.read(json), tables_dir: corpus.to_s)
-      failures = artifact.run_tests(mode: :ruby)
+      failures = load_artifact(json).run_tests(mode: :ruby)
       expect(failures).to be_empty, "#{name}: Ruby failures: #{failures.inspect}"
     end
   end
