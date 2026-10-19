@@ -52,11 +52,13 @@ RSpec.describe "PARG conformance corpus" do
     # Dir.children, not Dir.glob: the CI env path carries backslashes,
     # which Dir.glob treats as escapes on Windows (the gate passed
     # vacuously there once already).
-    # `_`-prefixed .parg files are import helpers (referenced via `use`,
-    # no artifact of their own). `use` grammars merge imports from the
-    # corpus dir before compiling, mirroring the authoring flow.
+    # A .parg without a sibling .json is an import helper - it exists
+    # to be referenced via `use` (resolved against its file name) and
+    # has no artifact of its own. `use` grammars merge imports from
+    # the corpus dir before compiling, mirroring the authoring flow.
     pargs = Dir.children(corpus.to_s)
-      .select { |f| f.end_with?(".parg") && !f.start_with?("_") }.sort
+      .select { |f| f.end_with?(".parg") && File.file?(corpus.join(f.sub(/\.parg\z/, ".json"))) }
+      .sort
     expect(pargs).not_to be_empty, "conformance corpus has no .parg cases"
     pargs.each do |file|
       parg = corpus.join(file)
