@@ -49,6 +49,7 @@ concurrency:
 permissions:
   contents: write
   id-token: write
+  pull-requests: write
 
 jobs:
   # Version management job
@@ -59,6 +60,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       sha: ${{ steps.version.outputs.sha }}
+      release: ${{ steps.version.outputs.release }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -73,6 +75,8 @@ jobs:
 
       - name: Determine and bump version
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # Configure git identity (required for gem bump to create commits)
           git config user.name "github-actions[bot]"
@@ -82,6 +86,7 @@ jobs:
           # landing on main IS the release decision): read the version
           # already on main and ship it.
           if [ -z "${{ inputs.bump_type }}" ] || [ "${{ inputs.bump_type }}" = "skip" ]; then
+            echo "release=true" >> $GITHUB_OUTPUT
             # Skip version bump - just read current version and create tag if needed
             echo "Skipping version bump, using current version..."
             VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed 's/.*"\([^"]*\)".*/\1/')
@@ -96,28 +101,40 @@ jobs:
               git tag -a "$TAG" -m "Release $VERSION"
             fi
           else
-            # Determine the version argument for gem-release
+            # Dispatch-bump: the version bump lands as a PR (main is
+            # protected against direct pushes), auto-merge lands it once
+            # the PR's CI is green, and THAT merge triggers this
+            # workflow's push path — which publishes. This run only
+            # prepares the bump; its publish jobs skip (release=false).
+            echo "release=false" >> $GITHUB_OUTPUT
             if [ "${{ inputs.bump_type }}" = "custom" ]; then
               VERSION_ARG="${{ inputs.custom_version }}"
             else
               VERSION_ARG="${{ inputs.bump_type }}"
             fi
 
-            # Bump version using gem-release (creates commit, tag, and pushes both)
-            # Note: --tag creates tag locally, --push pushes both commit and tag to origin
-            gem bump --version $VERSION_ARG --tag --push
-
-            # Read the new version from the version file
+            BRANCH="release/bump-$VERSION_ARG-$(date +%s)"
+            git checkout -b "$BRANCH"
+            # Bump version using gem-release (creates the commit; the
+            # tag is created by the merge-triggered run, from main).
+            gem bump --version $VERSION_ARG
             VERSION=$(grep "VERSION =" lib/parsanol/version.rb | sed 's/.*"\([^"]*\)".*/\1/')
+            git push origin "$BRANCH"
 
-            # Get the SHA of the commit gem-release just created
-            SHA=$(git rev-parse HEAD)
-            TAG="v${VERSION}"
+            cat > /tmp/bump-pr-body.md <<PRBODY
+            Version bump to ${VERSION} for release (dispatched with bump_type=${{ inputs.bump_type }}).
+
+            Merging publishes: the merge triggers the release workflow's push path, which tags this commit and builds the platform gems.
+            PRBODY
+            sed -e 's/^            //' /tmp/bump-pr-body.md > /tmp/bump-pr-body2.md
+            PR_URL=$(gh pr create \
+              --title "Release: bump parsanol to ${VERSION}" \
+              --body-file /tmp/bump-pr-body2.md \
+              --head "$BRANCH")
+            echo "Bump PR: $PR_URL (auto-merge enabled)"
+            gh pr merge --auto --merge "$PR_URL"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
           fi
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "sha=$SHA" >> $GITHUB_OUTPUT
 
       - name: Push version bump commit and tag
         run: |
@@ -132,6 +149,7 @@ jobs:
   ci-data:
     runs-on: ubuntu-22.04
     needs: prepare-version
+    if: needs.prepare-version.outputs.release == 'true'
     outputs:
       result: ${{ steps.fetch.outputs.result }}
     steps:
@@ -159,6 +177,7 @@ jobs:
   build:
     name: Build native gems
     needs: [prepare-version, ci-data]
+    if: needs.prepare-version.outputs.release == 'true'
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
@@ -194,6 +213,7 @@ jobs:
   stub-x64-mingw32:
     name: Build stub gem (x64-mingw32)
     needs: prepare-version
+    if: needs.prepare-version.outputs.release == 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -352,6 +372,7 @@ jobs:
   release:
     name: Release
     needs: [prepare-version, build, stub-x64-mingw32, smoke-linux, smoke-linux-arm, smoke-macos-arm, smoke-macos-intel, smoke-windows, smoke-windows-arm]
+    if: needs.prepare-version.outputs.release == 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
