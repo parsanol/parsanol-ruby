@@ -1,0 +1,148 @@
+name: Shipped artifact audit
+
+# Replay the cross-engine conformance corpus through the PUBLISHED
+# artifacts — the rubygems gem, the npm package, the crates.io crate —
+# not the repos. Repo CI tests the checkouts; this tests the
+# registries, where a release desync (wrong engine vendored, partial
+# platform publish, stale tarball) would otherwise be invisible — the
+# parsanol-ruby#223 class. Run after each release train completes.
+# Fails loudly; a red run blocks the release-completion checklist.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shipped-audit
+  cancel-in-progress: false
+
+jobs:
+  gem:
+    name: gem (rubygems)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: parsanol/parsanol-rs
+          path: parsanol-rs
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+      - name: Install published gem into a sandbox
+        run: |
+          gem install parsanol --install-dir "$HOME/audit-gem" --no-document
+          echo "GEM_PATH=$HOME/audit-gem" >> "$GITHUB_ENV"
+      - name: Replay the corpus through the installed gem
+        env:
+          PARG_CONFORMANCE_DIR: ${{ github.workspace }}/parsanol-rs/corpus/conformance
+        run: |
+          ruby <<'RUBY'
+          require "parsanol"
+          require "parsanol/parg"
+          require "json"
+
+          puts "auditing gem #{Parsanol::VERSION} (installed from rubygems)"
+          corpus = ENV.fetch("PARG_CONFORMANCE_DIR")
+          cases = Dir.glob(File.join(corpus, "*.json")).sort
+          raise "conformance corpus is empty" if cases.empty?
+
+          cases.each do |json|
+            name = File.basename(json, ".json")
+            artifact = Parsanol::PARG::Artifact.from_json(File.read(json), tables_dir: corpus)
+            native = artifact.run_tests(mode: :native)
+            ruby = artifact.run_tests(mode: :ruby)
+            raise "#{name}: native=#{native.inspect} ruby=#{ruby.inspect}" unless native.empty? && ruby.empty?
+            puts "  #{name}: green"
+          end
+          puts "gem audit: #{cases.size} cases green (native + ruby)"
+          RUBY
+
+  npm:
+    name: npm (registry)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: parsanol/parsanol-rs
+          path: parsanol-rs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install published package into a fresh project
+        run: |
+          mkdir audit && cd audit
+          npm init -y >/dev/null
+          npm install parsanol --silent
+          npm ls parsanol
+      - name: Replay the corpus through the installed package
+        env:
+          PARG_CONFORMANCE_DIR: ${{ github.workspace }}/parsanol-rs/corpus/conformance
+        run: |
+          cd audit
+          cat > audit.mjs <<'JS'
+          import { PargRuntime } from "parsanol";
+          import { readdirSync } from "node:fs";
+          import { join } from "node:path";
+          import assert from "node:assert/strict";
+
+          const corpus = process.env.PARG_CONFORMANCE_DIR;
+          const names = readdirSync(corpus).filter((f) => f.endsWith(".json")).sort();
+          assert.ok(names.length > 0, "conformance corpus is empty");
+          for (const name of names) {
+            const rt = PargRuntime.fromFile(join(corpus, name));
+            const failures = JSON.parse(rt.artifact.runTests());
+            assert.deepEqual(failures, [], `${name}: ${failures}`);
+            console.log(`  ${name}: green`);
+          }
+          console.log(`npm audit: ${names.length} cases green`);
+          JS
+          node audit.mjs
+
+  crate:
+    name: crate (crates.io)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: parsanol/parsanol-rs
+          path: parsanol-rs
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Replay the corpus through the published crate
+        env:
+          PARG_CORPUS_DIR: ${{ github.workspace }}/parsanol-rs/corpus/conformance
+        run: |
+          cargo new audit --quiet
+          cd audit
+          cargo add parsanol --quiet
+          mkdir -p tests
+          cat > tests/conformance_audit.rs <<'RS'
+          use parsanol::PargArtifact;
+          use std::path::PathBuf;
+
+          #[test]
+          fn published_crate_replays_the_conformance_corpus() {
+              let dir = PathBuf::from(std::env::var("PARG_CORPUS_DIR").expect("PARG_CORPUS_DIR"));
+              let mut names: Vec<String> = std::fs::read_dir(&dir)
+                  .expect("corpus present")
+                  .flatten()
+                  .filter_map(|e| {
+                      let p = e.path();
+                      (p.extension()?.to_str()? == "json")
+                          .then(|| p.file_stem().unwrap().to_string_lossy().into_owned())
+                  })
+                  .collect();
+              names.sort();
+              assert!(!names.is_empty(), "conformance corpus is empty");
+              for name in &names {
+                  let artifact = PargArtifact::from_path(dir.join(format!("{name}.json")))
+                      .unwrap_or_else(|err| panic!("{name}: rejected: {err}"));
+                  let failures = artifact.run_tests();
+                  assert!(failures.is_empty(), "{name}: {failures:?}");
+                  println!("{name}: green");
+              }
+              println!("crate audit: {} cases green", names.len());
+          }
+          RS
+          cargo test
