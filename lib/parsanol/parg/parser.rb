@@ -83,7 +83,12 @@ module Parsanol
           kind = ident.value
           input = unquote(expect(:str).value)
           expect_pairs = {}
-          if Document::PAIR_KINDS.include?(kind) && peek&.type == :punct && peek.value == "{"
+          if kind == "shape"
+            # Whole-tree assertion: the expectation is an arbitrary value
+            # (text, array, object), not a capture-name map.
+            expect_pairs = parse_test_value
+          elsif Document::PAIR_KINDS.include?(kind) &&
+              peek&.type == :punct && peek.value == "{"
             advance
             skip_newlines
             until peek&.type == :punct && peek.value == "}"

@@ -202,7 +202,7 @@ test main {
 }
 ```
 
-Two assertion phases:
+Three assertion phases:
 
 - `capture` — the **grammar layer**: expectations match the raw capture
   tree (`capture -> value` pairs). No `bindings` section needed — a
@@ -212,11 +212,23 @@ Two assertion phases:
   preprocessed attribute hash, i.e. exactly what `parse` hands the
   consumer. Requires a `bindings` section; without one the compiler
   rejects the test with an authoring error instead of failing obscurely.
+- `shape` — the **whole-tree layer**: the expectation is the canonical
+  flattened parse tree itself (text, array, or object). This is the only
+  phase that can observe repetition flattening and sequence merge laws,
+  so structural contracts use it:
+
+  ```
+  test main {
+    shape "aab" [ { x: "a" }, { x: "a" }, { y: "b" } ]
+  }
+  ```
 
 Expectations compare through one canonical form (terminals reduce to
 their text, structure recurses), so a test never passes on one engine
 and fails on another over representation differences. `accept` /
 `reject` need no explanation — the input must parse / must not parse.
+Expectation values may be strings, numbers, `true`/`false`, `null`,
+arrays, and nested objects.
 
 Tests in a multi-entry grammar name their entry (`test main { ... }`);
 a single-entry grammar may omit it.
