@@ -1,6 +1,13 @@
 # 5 — Left recursion in PARG (owner gate: deliberate parslet extension)
 
-Status: open — Tier 2. **Gate: this is a deliberate extension of the
+Status: open — owner gate. Decision request filed as
+[parsanol-ruby#251](https://github.com/parsanol/parsanol-ruby/issues/251)
+with the recommended design (ANTLR-style compile-time rewrite for direct
+left recursion; indirect stays rejected; fold-capture semantics
+specified before implementation). Awaiting the owner decision; no
+implementation has started.
+
+**Gate: this is a deliberate extension of the
 parslet contract (parslet cannot do left recursion), so it needs an
 explicit owner decision before implementation.**
 

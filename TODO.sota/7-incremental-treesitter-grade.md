@@ -1,8 +1,15 @@
 # 7 — Incremental parsing to tree-sitter grade
 
-Status: open — Tier 2. Extends TODO.max-perf/9 (prefix-tree reuse,
-splice). The engine work lives in parsanol-rs; the session API is
-shared with Ruby.
+Status: in progress — Tier 2. The retained session already keeps whole
+containers and splices repetition-spine documents. Added: a 500-edit,
+multi-region differential gate (retained result == full reparse after
+every edit) and `parsanol/examples/keystroke.rs`, a release-mode
+keystroke probe for large documents. Remaining: error-tolerant
+incremental parses (recovery composed with the session), and the
+sub-millisecond-on-giants target — the probe quantifies the current
+gap and must be run on a quiet host before its numbers are published.
+Extends the prefix-tree reuse/splice work; the engine work lives in
+parsanol-rs, the session API is shared with Ruby.
 
 ## Where we are
 
