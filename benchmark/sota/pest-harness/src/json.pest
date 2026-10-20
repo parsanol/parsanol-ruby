@@ -1,0 +1,15 @@
+// RFC 8259 JSON — the canonical pest example grammar (acceptance-only
+// benchmark).
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+
+value = { null | boolean | string | number | array | object }
+
+null = { "null" }
+boolean = { "true" | "false" }
+number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)? }
+string = ${ "\"" ~ inner ~ "\"" }
+inner = @{ (escape | !("\"" | "\\") ~ ANY)* }
+escape = { ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t") | ("u" ~ ASCII_HEX_DIGIT{4}) }
+array = { "[" ~ value ~ ("," ~ value)* ~ "]" }
+object = { "{" ~ pair ~ ("," ~ pair)* ~ "}" }
+pair = { string ~ ":" ~ value }

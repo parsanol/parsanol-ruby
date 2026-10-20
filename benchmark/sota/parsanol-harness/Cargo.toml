@@ -1,0 +1,10 @@
+[package]
+name = "parsanol-json-harness"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+parsanol = { version = "0.18.9", default-features = false }
+serde_json = "1"
+
+[workspace]
