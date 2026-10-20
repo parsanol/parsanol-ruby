@@ -1,5 +1,7 @@
-// RFC 8259 JSON — the canonical pest example grammar (acceptance-only
-// benchmark).
+// RFC 8259 JSON — the canonical pest JSON example grammar.
+// `char` consumes an escape only after a backslash; `escape` names the
+// single-character escape classes. (The earlier inline form let `inner`
+// swallow a bare quote as an "escape", which failed every object key.)
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
 value = { null | boolean | string | number | array | object }
@@ -8,8 +10,9 @@ null = { "null" }
 boolean = { "true" | "false" }
 number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)? }
 string = ${ "\"" ~ inner ~ "\"" }
-inner = @{ (escape | !("\"" | "\\") ~ ANY)* }
-escape = { ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t") | ("u" ~ ASCII_HEX_DIGIT{4}) }
+inner = @{ char* }
+char = { !("\"" | "\\") ~ ANY | "\\" ~ escape }
+escape = _{ "b" | "f" | "n" | "r" | "t" | "\"" | "\\" | "/" | ("u" ~ ASCII_HEX_DIGIT{4}) }
 array = { "[" ~ value ~ ("," ~ value)* ~ "]" }
 object = { "{" ~ pair ~ ("," ~ pair)* ~ "}" }
 pair = { string ~ ":" ~ value }
