@@ -42,6 +42,8 @@ module Parsanol
         comments = context.take_pending_trivia
         result = wrap_result(value)
         result = attach_comments(result, comments, source) unless comments.empty?
+        # Recovery journal (TODO.sota/1): nil on every normal parse.
+        context.recovery_journal << [@name, result] if context.recovery_journal
         ok(result)
       end
 

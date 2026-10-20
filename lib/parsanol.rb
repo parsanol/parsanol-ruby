@@ -273,6 +273,7 @@ module Parsanol
   end
   module_function :exp
 
+  autoload :Recovery, "parsanol/recovery"
   autoload :Resettable, "parsanol/resettable"
   autoload :Result, "parsanol/result"
   autoload :Slice, "parsanol/slice"
