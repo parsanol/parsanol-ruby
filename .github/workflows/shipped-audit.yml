@@ -10,6 +10,14 @@ name: Shipped artifact audit
 
 on:
   workflow_dispatch:
+  # Post-release protocol: every successful Release run is audited
+  # automatically — no more relying on remembering to dispatch.
+  # Runs on the default branch's workflow definition with a read
+  # token; the jobs only read public registries and check out public
+  # repositories.
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -21,6 +29,7 @@ concurrency:
 jobs:
   gem:
     name: gem (rubygems)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +72,7 @@ jobs:
 
   npm:
     name: npm (registry)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -104,6 +114,7 @@ jobs:
 
   crate:
     name: crate (crates.io)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
