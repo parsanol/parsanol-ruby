@@ -382,6 +382,20 @@ module Parsanol
             :unavailable
           end
         end
+        name_cache_version if @native_state == :loaded
+        @native_state
+      end
+
+      private
+
+      # Compiled VM programs are cached on disk across processes; naming
+      # this gem release in the cache key means a new release never runs
+      # a program an older one compiled. Extensions built before the
+      # engine grew the hook simply skip it.
+      def name_cache_version
+        return unless respond_to?(:_set_cache_version)
+
+        _set_cache_version("parsanol-ruby #{Parsanol::VERSION}")
       end
     end
   end
