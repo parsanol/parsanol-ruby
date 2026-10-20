@@ -1,6 +1,11 @@
 # 8 — Cross-engine differential fuzzing; verified core research
 
-Status: open — Tier 3. Two independent tracks.
+Status: done — Tier 3. Track A shipped: seeded random-grammar
+generator + four-path differential (native / Ruby artifact / VM /
+interpreter) with a wasm replay leg; runs in the daily
+`.github/workflows/fuzz.yml` with job-summary stats and failing-fixture
+uploads. Track B scoped in `docs/verified-core-scoping.md` (no proof
+work started, per its own gate).
 
 ## Track A — cross-engine differential fuzzing (practical, do first)
 

@@ -1,0 +1,68 @@
+name: Differential fuzz
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # daily 04:00 UTC
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: 'Generator seed (default: today, YYYYMMDD)'
+        required: false
+      cases:
+        description: 'Number of random grammars'
+        required: false
+        default: '200'
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    env:
+      FUZZ_SEED: ${{ github.event.inputs.seed || '' }}
+      FUZZ_CASES: ${{ github.event.inputs.cases || '200' }}
+      FUZZ_EXPORT_DIR: ${{ github.workspace }}/fuzz-fixtures
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Build the native extension
+        run: bundle exec rake compile
+      - name: Default the seed to today
+        run: |
+          if [ -z "$FUZZ_SEED" ]; then
+            echo "FUZZ_SEED=$(date +%Y%m%d)" >> "$GITHUB_ENV"
+          fi
+      - name: Ruby engines (native / artifact / VM / interpreter)
+        run: |
+          bundle exec rspec spec/parsanol/parg/differential_fuzz_spec.rb 2>&1 | tee fuzz.log
+          {
+            echo '### Differential fuzz — Ruby engines'
+            echo '```'
+            grep 'fuzz stats' fuzz.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Wasm engine
+        run: |
+          npm install --prefix "$RUNNER_TEMP/wasm" parsanol@0.10.5 --no-fund --no-audit
+          cp script/fuzz_wasm.mjs "$RUNNER_TEMP/wasm/"
+          node "$RUNNER_TEMP/wasm/fuzz_wasm.mjs" "$FUZZ_EXPORT_DIR" | tee wasm-fuzz.log
+          {
+            echo '### Differential fuzz — wasm engine'
+            echo '```'
+            cat wasm-fuzz.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload failing fixtures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-fixtures
+          path: fuzz-fixtures
+          retention-days: 7
