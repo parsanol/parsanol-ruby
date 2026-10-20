@@ -1,10 +1,14 @@
 # 4 — Finish the LSP; grammar playground on the site
 
-Status: in progress — Tier 1. LSP feature-complete: imports-aware
+Status: done — Tier 1. LSP feature-complete (#250): imports-aware
 diagnostics, hover, go-to-definition, find-references, completion,
-semantic tokens, and code actions; protocol-level end-to-end specs and
-client setup in `docs/parg-lsp.md`. Remaining: the wasm playground on
-the site and captured client screenshots.
+semantic tokens, code actions; protocol-level e2e specs; client setup
+in `docs/parg-lsp.md`. Playground shipped (parsanol.github.io#12) and
+live at https://www.parsanol.org/playground/ with artifact-backed
+demos, live tree/captures, embedded-test badge, and gzip share links.
+Documented follow-ups: browser-side grammar compilation (read-only
+source in v1), structured recovery diagnostics when the wasm package
+ships the recovery export, and captured client screenshots.
 
 ## LSP (lib/parsanol/parg/lsp.rb)
 

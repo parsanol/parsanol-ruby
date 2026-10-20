@@ -2,12 +2,12 @@
 
 Status: in progress — Tier 1. v1 shipped (#246): seeded JSON corpus,
 genuine harnesses for tree-sitter/Lark/parsanol-artifact, methodology
-and honest results in `benchmark/sota/BENCHMARKS.md`. All five harnesses
+and honest results in the root `BENCHMARKS.md`. All five harnesses
 now exist: pest fixed (#247 was the grammar's missing-escape bug, not
 unicode), parslet legacy baseline added, parsanol Ruby API in both
 modes (:native and :ruby). Remaining: one quiet-host rerun to fill the
-pending rows (the current host is at load >100), the four other
-corpora, and moving BENCHMARKS.md to the repo root.
+pending rows (the current host stays at load >80), and the four other
+corpora.
 
 ## Goal
 

@@ -1,6 +1,18 @@
 # 6 — Compact packrat memory discipline
 
-Status: open — Tier 2.
+Status: done with a documented deviation — Tier 2. Bound formalized
+and pinned (parsanol-rs#256): cache ≤ ~62 MiB per parser (24 B ×
+clamp(input×atoms, 4096, 2M) plus the slot table); `cache_memory_usage`
+exposed; an all-snapshot slot-table doubling bug fixed; 600 KB
+regression test added.
+
+The spill tier is **not shipped**: giant measurements (633 KB JSON)
+showed 203 MB peak RSS (Rust), 300 MB (Ruby native), 297 MB (Ruby VM),
+of which the cache is only ~62 MB — the arena and output conversion
+dominate. Spilling cache entries therefore cannot deliver the win the
+item targets; the measured negative and the arena/output lever are
+recorded in the PR. Revisit spill only if a future bound makes the
+cache the dominant tier.
 
 ## SOTA reference point
 
