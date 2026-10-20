@@ -1,0 +1,21 @@
+grammar BenchJson version "1.0.0" {
+  ## JSON (RFC 8259) for the SOTA benchmark suite: acceptance-only,
+  ## no captures — the parse contract every harness shares.
+  hexdig = ( %x30-39 / %x41-46 / %x61-66 )
+  escaped = ( %x5C ( %x22 / %x5C / %x2F / %x62 / %x66 / %x6E / %x72 / %x74 / ( %x75 4*4hexdig ) ) )
+  char_unescaped = ( %x20-21 / %x23-5B / %x5D-10FFFF )
+  string_lit = ( %x22 *( escaped / char_unescaped ) %x22 )
+  frac = ( %x2E 1*( %x30-39 ) )
+  exp = ( ( %x65 / %x45 ) [ ( %x2B / %x2D ) ] 1*( %x30-39 ) )
+  int_part = ( %x30 / ( %x31-39 *( %x30-39 ) ) )
+  number = ( [ %x2D ] int_part [ frac ] [ exp ] )
+  bool_lit = ( %x74 %x72 %x75 %x65 ) / ( %x66 %x61 %x6C %x73 %x65 )
+  null_lit = ( %x6E %x75 %x6C %x6C )
+  ws = *( %x20 / %x09 / %x0A / %x0D )
+  value = ( string_lit / number / object / array / bool_lit / null_lit )
+  pair = ( string_lit ws %x3A ws value )
+  object = ( %x7B ws [ pair *( ws %x2C ws pair ) ] ws %x7D )
+  array = ( %x5B ws [ value *( ws %x2C ws value ) ] ws %x5D )
+
+  entry value: value
+}
