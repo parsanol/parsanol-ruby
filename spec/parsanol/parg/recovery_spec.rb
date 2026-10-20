@@ -28,11 +28,13 @@ RSpec.describe "PARG recovery (TODO.sota/1 R1)" do
   end
 
   it "returns the shape on success" do
+    # The success shape is verbatim the same-mode normal parse result —
+    # recovery never alters green paths. (Never compare .inspect across
+    # modes/engines: tree inspect formats differ by construction.)
+    plain = artifact.parse("s", "(oh)")
     got = artifact.parse_recovering("s", "(oh)")
     expect(got["ok"]).to be(true)
-    expect(got["shape"].inspect).to eq(
-      artifact.parse("s", "(oh)", mode: :ruby).inspect,
-    )
+    expect(got["shape"].inspect).to eq(plain.inspect)
   end
 
   it "reports the failure offset and observed captures on failure" do
