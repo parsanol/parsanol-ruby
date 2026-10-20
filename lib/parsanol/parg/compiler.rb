@@ -337,6 +337,12 @@ module Parsanol
         find_left_cycle_from(name, [], {})
       end
 
+      # In-file test failures without raising: the LSP surfaces them as
+      # diagnostics instead of failing a build.
+      def test_failures
+        run_tests
+      end
+
       private
 
       # In-file grammar tests run at compile time: the build fails when an

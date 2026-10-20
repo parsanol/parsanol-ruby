@@ -1,7 +1,10 @@
 # 4 — Finish the LSP; grammar playground on the site
 
-Status: open — Tier 1. Diagnostics already exist via
-`compiler.run_tests` in the LSP; the rest is specced here.
+Status: in progress — Tier 1. LSP feature-complete: imports-aware
+diagnostics, hover, go-to-definition, find-references, completion,
+semantic tokens, and code actions; protocol-level end-to-end specs and
+client setup in `docs/parg-lsp.md`. Remaining: the wasm playground on
+the site and captured client screenshots.
 
 ## LSP (lib/parsanol/parg/lsp.rb)
 
