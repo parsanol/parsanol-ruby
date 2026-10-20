@@ -1,7 +1,11 @@
 # 2 — Published benchmarks vs the SOTA tools
 
-Status: open — Tier 1. Today every parsanol performance claim is
-relative to parslet. That is the floor, not the field.
+Status: in progress — Tier 1. v1 shipped (#246): seeded JSON corpus,
+genuine harnesses for tree-sitter/Lark/parsanol-artifact, methodology
+and honest results in `benchmark/sota/BENCHMARKS.md`. Remaining: pest
+harness (WIP, unicode failure — #247), parslet legacy baseline, VM and
+interpreter rows, the four other corpora, and moving BENCHMARKS.md to
+the repo root.
 
 ## Goal
 

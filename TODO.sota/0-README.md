@@ -76,9 +76,9 @@ this roadmap specifically:
 
 | File | Status |
 |---|---|
-| 1-error-recovery | open |
-| 2-sota-benchmarks | open |
-| 3-parg-formal-spec | open |
+| 1-error-recovery | open — R1 shipped |
+| 2-sota-benchmarks | in progress — v1 shipped (#246) |
+| 3-parg-formal-spec | done — docs/parg-semantics.md |
 | 4-lsp-playground | open (LSP diagnostics exist) |
 | 5-left-recursion | open — owner gate |
 | 6-compact-packrat | open |
