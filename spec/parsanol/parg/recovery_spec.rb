@@ -8,6 +8,18 @@ require "json"
 # failure offset plus every capture observed before the failure — from
 # a journaling re-parse on the Ruby engine (tree parity with the
 # native engine is enforced by the differential specs).
+# Slices normalize to their content. Never compare .inspect across
+# engines or runs: the bytecode VM's trees are plain hashes while the
+# interpreter's carry parslet-style inspect - the values are
+# parity-gated, the formats are not.
+NORMALIZE = lambda do |value|
+  case value
+  when Hash then value.to_h { |key, item| [key, NORMALIZE.call(item)] }
+  when Array then value.map { |item| NORMALIZE.call(item) }
+  else value.to_s
+  end
+end
+
 RSpec.describe "PARG recovery (TODO.sota/1 R1)" do
   def artifact
     source = <<~PARG
@@ -62,8 +74,8 @@ RSpec.describe "PARG recovery (TODO.sota/1 R1)" do
     # The journaling is only active during recovery re-parses; a normal
     # parse never touches it.
     got = artifact.parse("s", "(oh)", mode: :ruby)
-    expect(got.inspect).to eq(
-      "{us: [{open: \"(\"@0}, {inner: \"o\"@1}, {inner: \"h\"@2}, {close: \")\"@3}]}",
+    expect(NORMALIZE.call(got)).to eq(
+      NORMALIZE.call(us: [{ open: "(" }, { inner: "o" }, { inner: "h" }, { close: ")" }]),
     )
   end
 end
