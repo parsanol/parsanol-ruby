@@ -64,7 +64,9 @@ module Parsanol
         count = group.map { |binding| captures[binding["capture"].to_sym].length }.max || 0
         return if count.zero?
 
-        list = (out[prefix] ||= [])
+        # Field names are symbols everywhere else (scalar bindings, element
+        # fields); the array prefix must match or `example` lookups miss it.
+        list = (out[prefix.to_sym] ||= [])
         count.times do |index|
           element = {}
           group.each do |binding|

@@ -178,8 +178,9 @@ module Parsanol
             when "capture"
               captures = Bindings.collect_captures(shape)
               mismatched = hash["expect"].reject do |key, value|
-                actual = captures[key.to_sym]&.first
-                !actual.nil? && Bindings.canonical(actual) == Bindings.canonical(value)
+                values = captures[key.to_sym]
+                values && !values.empty? &&
+                  Bindings.canonical(values.first) == Bindings.canonical(value)
               end
               next if mismatched.empty?
 
