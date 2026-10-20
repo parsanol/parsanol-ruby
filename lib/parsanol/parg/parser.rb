@@ -91,6 +91,8 @@ module Parsanol
               punct(":")
               expect_pairs[key.to_sym] = parse_test_value
               skip_newlines
+              advance if peek&.type == :punct && peek.value == ","
+              skip_newlines
             end
             punct("}")
           end
@@ -101,18 +103,84 @@ module Parsanol
         skip_newlines
       end
 
+      # Expectation values: strings, numbers, true/false/null, arrays, and
+      # nested objects. Nested structure is what pins array bindings,
+      # absent-optional nil, and flatten/merge results in the corpus;
+      # before this the test grammar only accepted scalars.
       def parse_test_value
-        token = advance
+        token = peek
         case token&.type
-        when :str then unquote(token.value)
-        when :num then token.value.to_i
-        when :ident
-          raise ParseError, "expected true or false" unless %w[true false].include?(token.value)
+        when :str then unquote(advance.value)
+        when :num then parse_test_number
+        when :punct
+          case token.value
+          when "[" then parse_test_array
+          when "{" then parse_test_object
+          when "-"
+            advance
+            unless peek&.type == :num
+              raise ParseError, "expected a number after '-' in a test value"
+            end
 
-          token.value == "true"
+            -parse_test_number
+          else
+            raise ParseError,
+                  "expected a test value (string, number, true, false, null, array, object)"
+          end
+        when :ident
+          advance
+          case token.value
+          when "true" then true
+          when "false" then false
+          when "null" then nil
+          else
+            raise ParseError,
+                  "expected true, false, or null, got #{token.value.inspect}"
+          end
         else
-          raise ParseError, "expected a string, number, true or false"
+          raise ParseError,
+                "expected a test value (string, number, true, false, null, array, object)"
         end
+      end
+
+      # The lexer emits integers only; a decimal is num "." num.
+      def parse_test_number
+        text = advance.value
+        if peek&.type == :punct && peek.value == "." && @tokens[@pos + 1]&.type == :num
+          advance
+          text = "#{text}.#{advance.value}"
+        end
+        text.include?(".") ? Float(text) : Integer(text, 10)
+      end
+
+      def parse_test_array
+        punct("[")
+        values = []
+        skip_newlines
+        until peek&.type == :punct && peek.value == "]"
+          values << parse_test_value
+          skip_newlines
+          advance if peek&.type == :punct && peek.value == ","
+          skip_newlines
+        end
+        punct("]")
+        values
+      end
+
+      def parse_test_object
+        punct("{")
+        value = {}
+        skip_newlines
+        until peek&.type == :punct && peek.value == "}"
+          key = ident.value
+          punct(":")
+          value[key.to_sym] = parse_test_value
+          skip_newlines
+          advance if peek&.type == :punct && peek.value == ","
+          skip_newlines
+        end
+        punct("}")
+        value
       end
 
       def eof? = @pos >= @tokens.length

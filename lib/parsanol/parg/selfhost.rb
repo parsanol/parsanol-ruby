@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "json"
+
 module Parsanol
   module PARG
     # F10 phase 2 (gate slice): every .parg source must parse under the parg
