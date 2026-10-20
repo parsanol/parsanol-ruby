@@ -72,6 +72,10 @@ module Parsanol
         # and the NEXT successful Named capture attaches (and drains)
         # them under `comments:`.
         @pending_trivia = []
+
+        # Recovery journal (TODO.sota/1): non-nil only in recovery
+        # re-parses; Named captures append to the shared array.
+        @recovery_journal = Parsanol::Recovery.journal if Parsanol::Recovery.journaling?
         @evict_threshold = 200
         @evict_counter = 0
         @evict_interval = 100
@@ -326,6 +330,10 @@ module Parsanol
 
       # @return [Parsanol::Scope] capture variable bindings
       attr_reader :captures
+
+      # Recovery journal (TODO.sota/1): a shared array when this
+      # context was created inside a recovery re-parse; nil otherwise.
+      attr_accessor :recovery_journal
 
       # @return [Parsanol::Pools::ArrayPool] array object pool
       attr_reader :array_pool

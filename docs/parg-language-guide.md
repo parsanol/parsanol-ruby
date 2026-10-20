@@ -239,6 +239,31 @@ exactly why the compile-time lint below exists.
 leftmost-position analysis). An unguarded left-recursive PEG loops forever
 in every engine; PARG refuses to emit such an artifact.
 
+### Recovery (best-effort partial parses)
+
+`Artifact#parse_recovering(entry, input)` never raises: on success it
+returns `{"ok": true, "shape": <tree>}`, and on failure it returns
+
+```ruby
+{ "ok" => false,
+  "error"    => { "offset" => 12, "message" => "..." },
+  "captures" => { "atom" => [{atom: "A"@0}], ... } }
+```
+
+- `error.offset` is the deepest failure position (same value the cause
+  tree reports).
+- `captures` carries every capture **observed before the failure** —
+  including captures from branches that later failed (a documented
+  best-effort superset, identical to the rs recovery journal). Values
+  are the wrapped capture hashes; Slices stringify to their content.
+- The observed captures come from a journaling re-parse on the Ruby
+  engine (tree parity with the native engine is enforced by the
+  differential specs). Success paths never journal.
+
+Use recovery for editors, linters, and any consumer that needs the
+"what did match" answer alongside "where did it stop matching". The
+raise-on-failure `parse` remains the strict contract.
+
 ### Repetition flattening (parslet parity)
 
 Capture flattening follows parslet exactly, including its repetition

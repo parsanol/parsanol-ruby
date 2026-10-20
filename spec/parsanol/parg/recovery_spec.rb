@@ -1,0 +1,67 @@
+# frozen_string_literal: true
+
+require "spec_helper"
+require "json"
+
+# TODO.sota/1 R1: best-effort recovery. parse_recovering returns the
+# shape on success (zero behavior change) and, on ParseFailed, the
+# failure offset plus every capture observed before the failure — from
+# a journaling re-parse on the Ruby engine (tree parity with the
+# native engine is enforced by the differential specs).
+RSpec.describe "PARG recovery (TODO.sota/1 R1)" do
+  def artifact
+    source = <<~PARG
+      grammar P version "1.0.0" {
+        entry s: s
+        s = ( 1*( u ) ) as us
+        u = pa / g
+        pa = ( %x41-5A ) as atom
+        g = go 1*( gu ) gc
+        go = ( "(" ) as open
+        gu = ( %x61-7A ) as inner
+        gc = ( ")" ) as close
+      }
+    PARG
+    document = Parsanol::PARG::Parser.new(source).parse
+    compiled = Parsanol::PARG::Compiler.compile(document, tables_dir: nil)
+    Parsanol::PARG::Artifact.from_json(JSON.generate(compiled.envelope))
+  end
+
+  it "returns the shape on success" do
+    got = artifact.parse_recovering("s", "(oh)")
+    expect(got["ok"]).to be(true)
+    expect(got["shape"].inspect).to eq(
+      artifact.parse("s", "(oh)", mode: :ruby).inspect,
+    )
+  end
+
+  it "reports the failure offset and observed captures on failure" do
+    # "A(" — `atom` matches "A", then the `g` branch fails at the
+    # unmatched "(": the input does not fully parse. The journal
+    # records `atom` (committed) AND `open` (matched inside `g` before
+    # it failed) — the documented best-effort superset.
+    got = artifact.parse_recovering("s", "A(")
+    expect(got["ok"]).to be(false)
+    expect(got["error"]["offset"]).to eq(2)
+    # Journal entries are the wrapped capture hashes; Slice values
+    # stringify to their content.
+    expect(got["captures"]["atom"].map { |e| e[:atom].to_s }).to include("A")
+    expect(got["captures"]["open"].map { |e| e[:open].to_s }).to include("(")
+  end
+
+  it "reports the deepest failure offset for truncated input" do
+    got = artifact.parse_recovering("s", "(oh")
+    expect(got["ok"]).to be(false)
+    expect(got["error"]["offset"]).to eq(3)
+    expect(got["captures"]["open"].map { |e| e[:open].to_s }).to include("(")
+  end
+
+  it "leaves success paths byte-identical" do
+    # The journaling is only active during recovery re-parses; a normal
+    # parse never touches it.
+    got = artifact.parse("s", "(oh)", mode: :ruby)
+    expect(got.inspect).to eq(
+      "{us: [{open: \"(\"@0}, {inner: \"o\"@1}, {inner: \"h\"@2}, {close: \")\"@3}]}",
+    )
+  end
+end

@@ -197,6 +197,53 @@ module Parsanol
         end
       end
 
+      # Best-effort recovery (TODO.sota/1, R1): on success returns
+      # {"ok": true, "shape": tree}; on ParseFailed returns
+      # {"ok": false, "error": {"offset", "message"}, "captures":
+      # {name => [values...]}} — the captures observed before the
+      # failure, from a journaling re-parse on the Ruby engine (tree
+      # parity with the native engine is enforced by the differential
+      # specs). The journal is best-effort: it may include captures
+      # from branches that later failed.
+      def parse_recovering(entry_name, input, mode: :native)
+        shape = parse(entry_name, input, mode: mode)
+        { "ok" => true, "shape" => shape }
+      rescue Parsanol::ParseFailed => e
+        { "ok" => false,
+          "error" => recovery_error(e),
+          "captures" => recovery_journal(entry_name, input, mode) }
+      end
+
+      def recovery_error(err)
+        pos = err.parse_failure_cause&.position
+        { "offset" => pos, "message" => err.message }
+      end
+
+      # Journaling re-parse — always on the Ruby engine (journaling
+      # rides the interpreter's diagnostic reparse; the native engine
+      # has no journal). Tree parity with the native engine is enforced
+      # by the differential specs, so the observed captures agree.
+      def recovery_journal(entry_name, input, _mode)
+        Parsanol::Recovery.start_journal
+        begin
+          parse(entry_name, input, mode: :ruby)
+        rescue Parsanol::ParseFailed
+          # expected: the journaling pass fails at the same point
+        end
+        Parsanol::Recovery.stop_journal.each_with_object({}) do |(name, value), out|
+          # Both the initial attempt and the diagnostic re-parse journal
+          # into the shared thread-local; identical observations dedupe.
+          wire = value.is_a?(Slice) ? slice_wire(value) : value
+          (out[name.to_s] ||= []) << wire
+          out[name.to_s].uniq!
+        end
+      end
+
+      def slice_wire(slice)
+        { "value" => slice.to_s, "offset" => slice.offset,
+          "length" => slice.content.length }
+      end
+
       def test_to_hash(test)
         {
           "entry" => test.entry,
