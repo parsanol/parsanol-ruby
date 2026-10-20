@@ -79,8 +79,8 @@ this roadmap specifically:
 | 1-error-recovery | open — R1 shipped |
 | 2-sota-benchmarks | in progress — v1 shipped (#246) |
 | 3-parg-formal-spec | done — docs/parg-semantics.md |
-| 4-lsp-playground | open (LSP diagnostics exist) |
-| 5-left-recursion | open — owner gate |
+| 4-lsp-playground | in progress — LSP done; playground PR open |
+| 5-left-recursion | open — owner gate (parsanol-ruby#251) |
 | 6-compact-packrat | open |
 | 7-incremental-treesitter-grade | open |
-| 8-fuzzing-and-verified-core | open |
+| 8-fuzzing-and-verified-core | done — nightly four-path fuzz + wasm; Track B scoped |
