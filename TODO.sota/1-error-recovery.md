@@ -1,7 +1,20 @@
 # 1 — Error recovery: partial trees with annotated failures
 
-Status: open — Tier 1 flagship. The one SOTA frontier where parsanol has
-zero presence.
+Status: **R1 shipped** (rs#249, ruby#241, ts#11, rs#253 wasm binding;
+releases ruby 1.3.96 / rs 0.18.9 / ts 0.10.5) — R1.5 (partial trees)
+and R2 (resync) deferred, see the findings below.
+
+## Findings that shaped the shipped scope (2026-10-20)
+
+- The capture store's generational undo log empties the visible store
+  on the failing branch — that rollback IS the correctness mechanism,
+  so partial captures require an opt-in append-only journal (the rs
+  recovery journal; ruby journals via the interpreter's diagnostic
+  reparse).
+- Rule-`as` captures are TREE-level in the portable engine and never
+  reach the capture store: partial-TREE recovery (R1.5) requires the
+  walker/VM to retain a best-partial-root — an engine capability, not
+  a policy. Specced as the next engine work; R2 composes after it.
 
 ## SOTA reference points
 
