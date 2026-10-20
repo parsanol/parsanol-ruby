@@ -1,0 +1,39 @@
+# Port of lib/pubid/idf/parser.rb: IDF identifiers and their
+# supplements. The ISO joint form (ISO 5537|IDF 26) inlines these rules
+# as idf_* in iso.pg.
+
+grammar PubidIdf version "0.1.0" {
+  digit = %x30-39
+  word_char = %x30-39 / %x41-5A / %x61-7A / %x5F
+  dash = "-" / "‑" / "‐"
+  dot = "."
+  slash = "/"
+  space = " "
+  colon = ":"
+  letter = %x41-5A / %x61-7A
+  lower = %x61-7A
+  century = "19" / "20"
+  year_digits = century 2*digit !digit
+  month_digits = 2*digit
+  day_digits = 2*digit
+  publisher = "IDF" as publisher
+  number = 1*5word_char
+  part_and_subpart = dash [space] 1*word_char *1(dash 1*word_char)
+  number_with_part = (number [part_and_subpart]) as number_with_part
+  date = (year_digits [(dash month_digits)] [(dash day_digits)]) as date
+  stage_iteration = dot digit as stage_iteration
+  second_part = number_with_part [stage_iteration] [space] [(colon date)]
+  all_parts = "(all parts)" as all_parts
+  language = "(" *(1*lower [","] / (one_of_efards [slash])) as languages ")"
+  one_of_efards = %x45 / %x46 / %x41 / %x52 / %x44 / %x53
+  third_part = [space] [language] [all_parts]
+  identifier_publisher_no_third = publisher [space] [slash] [type_with_stage] [space] second_part
+  identifier_publisher = identifier_publisher_no_third third_part
+  type_with_stage = alt from_table "idf_typed_stages" column "abbr" as type_with_stage [digit as stage_iteration space]
+  supplement_type_with_stage = alt from_table "idf_typed_stages_supplements" column "abbr" as type_with_stage
+  supplement_identifier_no_third = (identifier_publisher_no_third as base) [space] slash [space] supplement_type_with_stage [space] second_part
+  supplement_identifier = supplement_identifier_no_third third_part
+  identifier = supplement_identifier / identifier_publisher
+
+  entry identifier: identifier
+}

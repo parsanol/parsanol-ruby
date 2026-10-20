@@ -1,0 +1,13 @@
+provenance: vendored from lutaml/pubid-grammar
+repo: https://github.com/lutaml/pubid-grammar
+commit: 563040bc8b2bfd0845ff261196f7c9f1e05e707f
+source: grammars/iso.parg + grammars/idf.parg (use idf) -> artifacts/iso.json
+artifact_version: 0.3.0
+entry: identifier
+tables: organizations, typed_stages, typed_stages_supplements, tc_types,
+  wg_types, directives_typed_stages, directives_supplements_typed_stages,
+  iso_publishers, idf_typed_stages, idf_typed_stages_supplements
+note: checksum-verified on load; the corpus generator replays accept cases.
+  The tables and idf.parg are needed only by the Ruby artifact path, which
+  rebuilds the atom tree from source; the native path reads the baked
+  portable grammar.

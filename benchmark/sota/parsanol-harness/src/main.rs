@@ -1,5 +1,9 @@
 // parsanol artifact acceptance harness: parses each corpus doc through
 // the compiled PARG artifact (the shipped artifact path).
+//
+// Usage: parsanol-json-harness <corpus> <artifact> <iterations> [entry]
+// `entry` defaults to "value" (the JSON grammar's entry); pass another
+// name for domain corpora (for example "identifier" for pubid).
 use parsanol::PargArtifact;
 use std::time::Instant;
 
@@ -8,6 +12,7 @@ fn main() {
     let corpus_path = &args[1];
     let artifact_path = &args[2];
     let iterations: usize = args[3].parse().expect("iterations");
+    let entry = args.get(4).map(String::as_str).unwrap_or("value");
     let corpus: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(corpus_path).unwrap()).unwrap();
     let artifact = PargArtifact::from_path(std::path::Path::new(artifact_path))
@@ -22,7 +27,7 @@ fn main() {
     // Warmup + acceptance verification.
     for (name, text) in &docs {
         artifact
-            .parse_shape("value", text)
+            .parse_shape(entry, text)
             .unwrap_or_else(|e| panic!("{name} failed to parse: {e}"));
     }
     let mut samples: Vec<(String, usize, Vec<f64>)> =
@@ -30,7 +35,7 @@ fn main() {
     for _ in 0..iterations {
         for (i, (_, text)) in docs.iter().enumerate() {
             let start = Instant::now();
-            let _ = artifact.parse_shape("value", text);
+            let _ = artifact.parse_shape(entry, text);
             samples[i].2.push(start.elapsed().as_secs_f64() * 1000.0);
         }
     }
