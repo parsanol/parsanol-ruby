@@ -1,15 +1,23 @@
 # 7 — Incremental parsing to tree-sitter grade
 
-Status: in progress — Tier 2. The retained session already keeps whole
+Status: in progress — Tier 2. The retained session keeps whole
 containers and splices repetition-spine documents. Added: a 500-edit,
 multi-region differential gate (retained result == full reparse after
-every edit) and `parsanol/examples/keystroke.rs`, a release-mode
-keystroke probe for large documents. Remaining: error-tolerant
-incremental parses (recovery composed with the session), and the
-sub-millisecond-on-giants target — the probe quantifies the current
-gap and must be run on a quiet host before its numbers are published.
-Extends the prefix-tree reuse/splice work; the engine work lives in
-parsanol-rs, the session API is shared with Ruby.
+every edit) and `parsanol/examples/keystroke.rs`, a release-mode probe
+(parsanol-rs#257).
+
+Measured gap (contended host; latencies indicative, engagement counts
+exact): 5.8 KB document 0.034 ms/edit with 4/5 edits spliced; 11.8 KB
+9.3 ms with 1/5; 25.8 KB 97.5 ms with 0/5; a 600 KB document did not
+complete 20 tail edits in ten minutes (probe stopped). Reuse plateaus
+at ~3k entries while the eligible prefix grows linearly. **The
+sub-millisecond-on-giants target is not met.** The engagement collapse
+is filed as parsanol-rs#258 with reproduction and hypotheses; closing
+requires engagement to scale and <5 ms on 600 KB. Error-tolerant
+incremental parses also remain (recovery composed with the session).
+
+The engine work lives in parsanol-rs; the session API is shared with
+Ruby.
 
 ## Where we are
 
