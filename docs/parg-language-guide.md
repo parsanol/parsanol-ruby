@@ -235,6 +235,11 @@ PARG has **PEG semantics**: ordered choice, greedy repetition, no ambiguity.
 There is no global ambiguity to report because first match wins — which is
 exactly why the compile-time lint below exists.
 
+The normative small-step rules — the match relation, capture and flattening
+laws, trivia rewrite, bindings obligations, diagnostics, and the corpus
+coverage matrix — live in [parg-semantics.md](parg-semantics.md). This guide is
+the friendly edition; the semantics document wins where they disagree.
+
 **Left recursion is rejected at compile time** (direct and indirect,
 leftmost-position analysis). An unguarded left-recursive PEG loops forever
 in every engine; PARG refuses to emit such an artifact.

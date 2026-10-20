@@ -1,7 +1,9 @@
 # 3 — Formal operational semantics of PARG
 
-Status: open — Tier 1. The conformance corpus already behaves like a
-spec; make the derivation explicit.
+Status: done — Tier 1. `docs/parg-semantics.md` ships the normative
+rules (M/V/T/C/K/S/F/B/D/A/X/E), the case→rule coverage matrix, and
+the rule→case citations. Corpus gaps found by the matrix are filed as
+parsanol-rs#254; the corpus README will require rule citations.
 
 ## Goal
 
