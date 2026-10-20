@@ -1,6 +1,8 @@
 # BENCHMARKS — parsanol vs the field
 
-Status: **v1 (JSON corpus, 3 of 4 harnesses; pest WIP)**.
+Status: **v1 (JSON corpus; five harnesses committed; the results table
+was measured on a quiet host, and the pest/parslet/Ruby rows await a
+rerun under the same conditions — see “Measurement conditions”)**.
 Methodology + harnesses live in `benchmark/sota/`. Every number here is
 reproducible from the committed harnesses.
 
@@ -14,13 +16,30 @@ reproducible from the committed harnesses.
   equivalent grammar per tool:
   - parsanol: `json.parg` → compiled artifact → `PargArtifact::parse_shape`
     (the shipped artifact path; no bindings overhead)
-  - pest: the canonical pest JSON example grammar (LALR-free PEG)
+  - pest: the canonical pest JSON example grammar (PEG, pair-tree
+    construction)
   - Lark: the canonical Lark JSON grammar, `parser="lalr"`
   - tree-sitter: the official `tree-sitter-json` grammar
-- **Protocol**: interleaved round-robin (tool → doc → iteration) to
-  spread load/thermal effects; **median** of N iterations reported
-  (N=50 here); warmup + acceptance verification before timing. Per the
-  house laws: no sequential A/B, no tiny-input-only ratios.
+  - parslet: the legacy baseline parsanol replaced (pure Ruby, PEG)
+  - parsanol Ruby API: the shipped artifact through the extension
+    (`:native`) and through the bytecode VM with interpreter fallback
+    (`:ruby`)
+- **Protocol**: warmup + acceptance verification, then **median** of N
+  iterations per document (N=50 here). Within a harness, documents are
+  visited round-robin on each iteration. Tools run in one session;
+  absolute milliseconds are host-load-sensitive, so only ratios within
+  a session are meaningful.
+
+## Measurement conditions
+
+The table below was measured in a single quiet-host session (load
+average < 2). Reruns must record the load average: on a contended host
+(load > 50, other sessions) the same harnesses measured 2–7x slower,
+non-uniformly across runtimes, which makes cross-tool comparison
+meaningless. The pest, parslet, and Ruby-API harnesses were added after
+that session and are **withheld from the table until they can be run
+under the same quiet conditions** — publishing contended numbers next
+to quiet ones would misrepresent the field.
 
 ## Results (2026-10-20, Apple M-series, median milliseconds)
 
@@ -28,8 +47,11 @@ reproducible from the committed harnesses.
 |---|---|---|---|---|
 | **tree-sitter** (C, ts-json) | 0.040 | 0.014 | 0.248 | **2.714** |
 | **Lark** (python, LALR) | 0.443 | 0.156 | 2.975 | 34.070 |
-| **parsanol-native** (artifact path) | 1.680 | 0.534 | 5.841 | **184.808** |
-| pest (rust, PEG) | WIP | WIP | WIP | WIP |
+| **parsanol-native** (Rust artifact path) | 1.680 | 0.534 | 5.841 | **184.808** |
+| pest (rust, PEG) | pending | pending | pending | pending |
+| parslet (ruby, legacy) | pending | pending | pending | pending |
+| parsanol-ruby `:native` | pending | pending | pending | pending |
+| parsanol-ruby `:ruby` (VM) | pending | pending | pending | pending |
 
 ## Honest reading
 
@@ -50,23 +72,35 @@ reproducible from the committed harnesses.
 
 ## Known gaps in this suite (open items)
 
-- **pest**: the harness fails on non-ASCII strings in the large corpus
-  (`inner`/`ANY` unicode handling under investigation); harness
-  committed, results withheld until fixed.
+- **Rerun all harnesses on a quiet host** and fill the pending rows
+  (pest, parslet, parsanol-ruby `:native`/`:ruby`). Their harnesses are
+  committed and acceptance-verified; only the timing run is pending.
+- The pest failure tracked as #247 was a **harness grammar bug**, not a
+  unicode issue: the inline form let `inner` swallow a bare quote as an
+  "escape", so every object whose first key was a string failed. Fixed
+  by the canonical `char = { !("\"" | "\\") ~ ANY | "\\" ~ escape }`
+  shape; the harness now accepts every corpus document, including the
+  non-ASCII large one.
 - Corpora beyond JSON (pubid identifiers, asciichem, EXPRESS giants,
   backtracking traps) are the next iteration — each needs an
   equivalent-grammar port per tool.
-- VM (Ruby bytecode) numbers pending; the native artifact path is the
-  shipped fast path.
-- One machine, one run session; medians of 50. Reruns should pin the
-  machine and load.
+- The Ruby API path adds artifact-atom registration, result decoding,
+  and flattening on top of the engine; the first (contended) readings
+  suggest this layer dominates the large-document cost. That is a
+  measurement to confirm on a quiet host before any optimization work.
+- One machine, one run session; medians of 50. Reruns must record the
+  machine and load average.
 
 ## Reproduce
 
-    benchmark/sota/corpora/gen_json_corpus.rb          # corpus
-    benchmark/sota/parsanol-harness                    # cargo run --release
-    benchmark/sota/pest-harness                        # cargo run --release (WIP)
-    benchmark/sota/lark-harness/run_lark.py            # pip: lark
-    benchmark/sota/ts-harness/run_ts.py                # pip: tree-sitter tree-sitter-json
+    benchmark/sota/corpora/gen_json_corpus.rb              # corpus
+    benchmark/sota/parsanol-harness <corpus> <artifact> N  # cargo run --release -- …
+    benchmark/sota/pest-harness <corpus> N                 # cargo run --release -- …
+    benchmark/sota/lark-harness/run_lark.py <corpus> N     # pip: lark
+    benchmark/sota/ts-harness/run_ts.py <corpus> N         # pip: tree-sitter tree-sitter-json
+    benchmark/sota/parslet-harness/run_parslet.rb <corpus> N
+    benchmark/sota/ruby-harness/run_ruby.rb <artifact> <corpus> N
 
 Each harness prints `tool,doc,bytes,iterations,median_ms` CSV lines.
+Ruby harnesses run under `bundle exec`; the Python harnesses need the
+dependencies above.
