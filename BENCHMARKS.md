@@ -12,6 +12,13 @@ reproducible from the committed harnesses.
   (`corpora/json_inputs.json`): small 1.2 KB, medium 344 B, large
   83 KB (200-object array), wide 2.7 KB. Deterministic — every tool
   parses byte-identical inputs.
+- **Pathological corpus** (`corpora/traps_inputs.json`): nine
+  deterministic documents aimed at documented weak spots — 150-deep
+  arrays and 100-deep objects (container/recursion cost), token-prefix
+  near misses at volume, an escape storm, a 200 KB single string, a
+  20k-element array, a 4k-key object, whitespace-heavy pretty-printing,
+  and number-grammar edges. Every harness takes this file as its corpus
+  argument, so the same protocol applies.
 - **Grammar**: acceptance-only JSON (RFC 8259 with escapes), one
   equivalent grammar per tool:
   - parsanol: `json.parg` → compiled artifact → `PargArtifact::parse_shape`
@@ -81,9 +88,14 @@ to quiet ones would misrepresent the field.
   by the canonical `char = { !("\"" | "\\") ~ ANY | "\\" ~ escape }`
   shape; the harness now accepts every corpus document, including the
   non-ASCII large one.
-- Corpora beyond JSON (pubid identifiers, asciichem, EXPRESS giants,
-  backtracking traps) are the next iteration — each needs an
-  equivalent-grammar port per tool.
+- Corpora beyond JSON (pubid identifiers, asciichem, EXPRESS giants)
+  remain — each needs an equivalent-grammar port per tool. The
+  backtracking/pathological set is now committed as
+  `corpora/traps_inputs.json`.
+- **Deep nesting ceiling:** the portable engine's governor counts atom
+  frames, so JSON arrays fail near ~198 nesting levels, surfacing as a
+  misleading `expected ]` rather than a recursion-limit diagnostic. The
+  trap corpus stays at 150 and the ceiling is tracked in parsanol-rs#260.
 - The Ruby API path adds artifact-atom registration, result decoding,
   and flattening on top of the engine; the first (contended) readings
   suggest this layer dominates the large-document cost. That is a
@@ -94,6 +106,7 @@ to quiet ones would misrepresent the field.
 ## Reproduce
 
     benchmark/sota/corpora/gen_json_corpus.rb              # corpus
+    benchmark/sota/corpora/gen_trap_corpus.rb              # pathological corpus
     benchmark/sota/parsanol-harness <corpus> <artifact> N  # cargo run --release -- …
     benchmark/sota/pest-harness <corpus> N                 # cargo run --release -- …
     benchmark/sota/lark-harness/run_lark.py <corpus> N     # pip: lark
