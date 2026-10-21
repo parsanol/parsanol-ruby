@@ -299,8 +299,9 @@ are unobservable optimizations (E1).
 raw input, and — if it is an entry — receives no leading/trailing skip wrapper.
 Apart from trivia interaction, atomic rules follow C1–C7 exactly.
 
-*Pins: covered indirectly (atomic rules appear in the wider suites; a corpus
-case exercising atomic-vs-skip is not yet present — see G8).*
+*Pins: `atomic_skip` (the same sequence under a skip declaration, atomic and
+non-atomic: the non-atomic body interleaves trivia and takes the S5 wrappers,
+the atomic one rejects all four).*
 
 ### C9 — Direct left recursion (compile-time rewrite)
 
@@ -737,6 +738,7 @@ Gaps in the other direction (rules without cases) are in §14.
 | `merge_laws` | V1, C1, K1, A1, A4, M0 | right-biased duplicate keys; text dropped beside maps |
 | `merge_array` | V1, V3, C1, C3, K1, A1, A4, M0 | array hoisting in sequence merge |
 | `leftrec_arith` | C9, C2, C3, C7, K1, A1, A4, M0 | tiered precedence, left associativity, fold shape |
+| `atomic_skip` | C8, S1, S5 | atomic body is contiguous and wrapper-free; the non-atomic twin interleaves trivia |
 | `stages.yaml`/`overlap.yaml` | D2 | table rows embedded in the artifact |
 | all in-file tests | A1, A2, A3, A4, B6 | canonical equality across engines |
 
@@ -746,8 +748,7 @@ Rules without a corpus case are tracked in **parsanol-rs#254**. Summary:
 
 | # | Rule | Missing case |
 |---|---|---|
-| G7f | B3 | float casts — artifacts refuse floats anywhere in the envelope ("no canonical form"); needs an owner decision on float canonicalization |
-| G8b | C8 | atomic-vs-skip (the lookahead half is covered by `skip_lookahead`) |
+| — | — | none: G7f (float canonical form, rs#267) and G8b (atomic-vs-skip, `atomic_skip`) are closed; the remaining pins are the not-corpus-expressible X/E classes |
 
 Not corpus-expressible (pinned by compiler/runtime specs): X1–X6 and E2.
 E1 is pinned indirectly — `trivia_capture` forces the Ruby VM's decline path.
