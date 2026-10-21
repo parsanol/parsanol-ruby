@@ -1,0 +1,10 @@
+provenance: vendored from asciichem/asciichem-rs
+repo: https://github.com/asciichem/asciichem-rs
+commit: 275e96deff5fc28ef06fcc068fbc11ae784b49b1 (branch model-text)
+source: artifacts/asciichem.json (grammar AsciiChemCore 0.4.0, entry formula)
+corpus_fixtures: https://github.com/asciichem/asciichem-tests
+corpus_commit: 37526ca094bf6e007806a14e580afb7cb47987ef
+entry: formula
+note: checksum-verified on load. The artifact embeds its PARG source, so
+  both Ruby modes run (native register-and-run and the VM rebuild); the
+  corpus generator replays the fixtures' parse-acceptance contract.

@@ -27,6 +27,23 @@ reproducible from the committed harnesses.
   real-world-shaped inputs rather than throughput. Only the parsanol
   artifact harness can run it today — competitor grammars for pubid do
   not exist, so no cross-tool ratio is published.
+- **asciichem corpus** (`corpora/asciichem_inputs.json`): 145 accepted
+  chemistry-notation documents drawn from the asciichem conformance
+  fixtures (CAS numbers, InChI, SMILES, molecule formulae — 1–75 B
+  each), filtered by the vendored `asciichem/asciichem.artifact.json`
+  acceptance contract (provenance in `asciichem/BUILT_FROM`; the
+  artifact embeds its PARG source, so both Ruby engines run). Per-parse
+  overhead on a second real grammar, parsanol-only like pubid.
+- **EXPRESS giant corpus** (`corpora/express_inputs.json`): two real
+  ISO 10303 schemas from expressir — the 637 KB mathematical-functions
+  schema and the 4.2 MB concatenated MIM oracle (4.85 MB total;
+  provenance in `express/BUILT_FROM`). This is the large-input case the
+  seeded JSON documents only approximate: a production grammar with
+  ~250 rules over hand-written committee text. The grammar is
+  DSL-built, so there is no artifact envelope — the harness parses
+  through expressir's parser in both engines (`:native`, `:ruby`);
+  competitors do not ship EXPRESS grammars, so no cross-tool ratio is
+  published.
 - **Grammar**: acceptance-only JSON (RFC 8259 with escapes), one
   equivalent grammar per tool:
   - parsanol: `json.parg` → compiled artifact → `PargArtifact::parse_shape`
@@ -96,9 +113,11 @@ to quiet ones would misrepresent the field.
   by the canonical `char = { !("\"" | "\\") ~ ANY | "\\" ~ escape }`
   shape; the harness now accepts every corpus document, including the
   non-ASCII large one.
-- The pubid corpus is committed (parsanol-only rows pending a quiet-host
-  run); asciichem and EXPRESS giants remain — each needs an
-  equivalent-grammar port per tool.
+- The pubid and asciichem corpora are committed (parsanol-only rows
+  pending a quiet-host run); the EXPRESS giant corpus is committed with
+  its two-document harness. Competitor corpora for asciichem/EXPRESS
+  would each need an equivalent-grammar port per tool before any
+  cross-tool ratio is published.
 - **Deep nesting ceiling:** the portable engine's governor counts
   rule-reference frames, so JSON arrays reach the default 1000-frame
   limit near ~198 nesting levels. This is now reported as
@@ -116,12 +135,15 @@ to quiet ones would misrepresent the field.
     benchmark/sota/corpora/gen_json_corpus.rb              # corpus
     benchmark/sota/corpora/gen_trap_corpus.rb              # pathological corpus
     benchmark/sota/corpora/gen_pubid_corpus.rb              # pubid corpus
+    benchmark/sota/corpora/gen_asciichem_corpus.rb          # asciichem corpus
+    benchmark/sota/corpora/gen_express_corpus.rb            # EXPRESS giants (expressir bundle)
     benchmark/sota/parsanol-harness <corpus> <artifact> N [entry]
     benchmark/sota/pest-harness <corpus> N                 # cargo run --release -- …
     benchmark/sota/lark-harness/run_lark.py <corpus> N     # pip: lark
     benchmark/sota/ts-harness/run_ts.py <corpus> N         # pip: tree-sitter tree-sitter-json
     benchmark/sota/parslet-harness/run_parslet.rb <corpus> N
     benchmark/sota/ruby-harness/run_ruby.rb <artifact> <corpus> N
+    benchmark/sota/ruby-harness/run_ruby_express.rb <corpus> N   # expressir bundle
 
 Each harness prints `tool,doc,bytes,iterations,median_ms` CSV lines.
 Ruby harnesses run under `bundle exec`; the Python harnesses need the

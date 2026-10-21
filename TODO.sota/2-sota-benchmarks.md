@@ -6,12 +6,16 @@ and honest results in the root `BENCHMARKS.md`. All five harnesses
 now exist: pest fixed (#247 was the grammar's missing-escape bug, not
 unicode), parslet legacy baseline added, parsanol Ruby API in both
 modes (:native and :ruby). Corpora: JSON, a nine-document pathological
-set, and the pubid ISO suite (vendored contract artifact with
+set, the pubid ISO suite (vendored contract artifact with
 provenance, 175 verified identifiers, harness `entry` argument;
-parsanol-only because competitor grammars do not exist). Remaining:
-one quiet-host rerun to fill the pending rows (the host has stayed at
-load >80 all session, spiking past 280), and the asciichem/EXPRESS
-corpora with their competitor grammar ports.
+parsanol-only because competitor grammars do not exist), the asciichem
+suite (145 accepted fixtures replayed through the vendored artifact,
+both engines), and the EXPRESS giants (two real ISO 10303 schemas,
+637 KB and 4.2 MB, parsed through expressir's production DSL grammar
+in both engines). Remaining: one quiet-host rerun to fill the pending
+rows (the host has stayed at load >80 all session, spiking past 280).
+Competitor grammar ports for asciichem/EXPRESS are tracked as future
+work — no cross-tool ratio is claimed without them.
 
 ## Goal
 
