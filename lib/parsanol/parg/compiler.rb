@@ -40,6 +40,10 @@ module Parsanol
         end
       end
 
+      # Read access for recovery tooling (the artifact's inferred
+      # resync walks the rule graph to find the spine body).
+      attr_reader :document
+
       def initialize(document, tables_dir, bindings: nil)
         @document = document
         @tables_dir = tables_dir

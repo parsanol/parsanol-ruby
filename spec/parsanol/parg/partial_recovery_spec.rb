@@ -48,6 +48,32 @@ RSpec.describe "PARG partial-tree recovery (R1.5)" do
     end
   end
 
+  it "resyncs past garbage and recovers later items (both engines, R2)" do
+    art = artifact
+    %i[native ruby].each do |mode|
+      got = art.parse_recovering("main", "a=1;b=2;###garbage###c=3;d=4;", mode: mode)
+      expect(got["ok"]).to be(false)
+      items = got["partial"][got["partial"].keys.first]
+      expect(items.length).to eq(4), "#{mode}: expected all four pairs"
+      expect(Parsanol::PARG::Bindings.canonical(items[2])).to eq(
+        Parsanol::PARG::Bindings.canonical(k: "c", v: "3"),
+      )
+      resyncs = got["resyncs"]
+      expect(resyncs.length).to eq(1), "#{mode}: expected one resync"
+      expect(resyncs[0]["skipped"]).to eq("###garbage###")
+      expect(resyncs[0]["offset"]).to eq(8)
+      expect(resyncs[0]["resumed_at"]).to eq(21)
+    end
+  end
+
+  it "adds no resyncs on plain truncation (both engines)" do
+    art = artifact
+    %i[native ruby].each do |mode|
+      got = art.parse_recovering("main", "a=1;b=2;c=3", mode: mode)
+      expect(got["resyncs"]).to eq([]), "#{mode}: truncation needs no resync"
+    end
+  end
+
   it "leaves success paths untouched (no partial key)" do
     art = artifact
     got = art.parse_recovering("main", "a=1;b=2;", mode: :native)

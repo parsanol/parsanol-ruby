@@ -222,10 +222,95 @@ module Parsanol
         # initial parse's (the native FFI's coarse failure position
         # loses the deepest offset).
         captures, reparse_error = recovery_journal(entry_name, input, mode)
+        partial = recovery_partial(entry_name)
+        resyncs = []
+        if partial && reparse_error
+          items = partial.values.first
+          extended, resyncs = resync_extension(entry_name, input,
+                                               reparse_error["offset"])
+          items.concat(extended) if extended
+        end
         { "ok" => false,
           "error" => reparse_error || recovery_error(e),
           "captures" => captures,
-          "partial" => recovery_partial(entry_name) }
+          "partial" => partial,
+          "resyncs" => resyncs }
+      end
+
+      # R2 (TODO.sota/1), inferred resync on the interpreter — the same
+      # policy as the rs engine (parsanol-rs#280): from the failure
+      # offset, scan forward for the next byte position where a
+      # spine-body iteration matches with progress; the skipped span is
+      # annotated and the recovered items join the partial tree.
+      # Bounded (8 rounds, each must advance) so recovery stays linear.
+      # Returns [items, resyncs]; [nil, []] when the grammar has no
+      # resolvable spine.
+      def resync_extension(entry_name, input, cursor)
+        body_rule = spine_body_rule(entry_name)
+        return [[], []] unless body_rule
+
+        body_atom = compiler.atom_for(body_rule)
+        max = input.length
+        resyncs = []
+        items = []
+        rounds = 0
+        while rounds < 8
+          found = nil
+          scan = cursor
+          while scan < max
+            attempt = try_iteration(body_atom, input, scan)
+            if attempt && attempt[1] > scan
+              found = [scan, attempt[1], attempt[0]]
+              break
+            end
+            scan += 1
+          end
+          break unless found
+
+          skip_start, resume, value = found
+          resyncs << {
+            "offset" => cursor,
+            "skipped" => input[cursor...skip_start],
+            "resumed_at" => skip_start,
+          }
+          items << root_atom(entry_name).flatten(value)
+          cursor = resume
+          rounds += 1
+          until cursor >= max
+            attempt = try_iteration(body_atom, input, cursor)
+            break unless attempt && attempt[1] > cursor
+
+            items << root_atom(entry_name).flatten(attempt[0])
+            cursor = attempt[1]
+          end
+          break if cursor >= max
+        end
+        [items, resyncs]
+      end
+
+      # Apply the body atom at one position: [value, end_pos] on a
+      # progressing match, nil otherwise.
+      def try_iteration(atom, input, pos)
+        source = Parsanol::Source.new(input)
+        source.bytepos = pos
+        context = Parsanol::Atoms::Context.new(nil, parser_class: atom.class)
+        success, value = atom.apply(source, context, false)
+        success && source.bytepos > pos ? [value, source.bytepos] : nil
+      end
+
+      # The root rule's repetition-body rule name, when the grammar is
+      # a repetition spine (root = rep of a single rule reference).
+      # Conservative: anything but rep/opt/cap wrapping a bare ref
+      # returns nil and resync is skipped.
+      def spine_body_rule(entry_name)
+        root_rule = entry(entry_name)["root"]
+        node = compiler.document.rules[root_rule.to_sym] ||
+               compiler.document.rules[root_rule]
+        while node.is_a?(Parsanol::PARG::Node) &&
+              %i[rep opt cap].include?(node.kind)
+          node = node.a
+        end
+        node.is_a?(Parsanol::PARG::Node) && node.kind == :ref ? node.a : nil
       end
 
       # R1.5 (TODO.sota/1): the deepest repetition prefix the failed
