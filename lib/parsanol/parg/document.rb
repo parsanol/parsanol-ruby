@@ -11,7 +11,7 @@ module Parsanol
       # `capture` = phase 1 (grammar layer): asserts the raw capture tree,
       # no bindings section needed. `example` = phase 2 (bindings layer):
       # asserts the bound, preprocessed attribute hash.
-      TEST_KINDS = %i[accept reject example capture].freeze
+      TEST_KINDS = %i[accept reject example capture shape].freeze
       # Test kinds whose expectations are `{ key: value }` pairs.
       PAIR_KINDS = %w[example capture].freeze
 

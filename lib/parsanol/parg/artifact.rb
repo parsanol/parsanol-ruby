@@ -165,6 +165,13 @@ module Parsanol
             case hash["kind"]
             when "reject"
               "test #{hash['input'].inspect}: expected the input to be rejected"
+            when "shape"
+              actual = Bindings.canonical(shape)
+              expected = Bindings.canonical(hash["expect"])
+              next if actual == expected
+
+              "test #{hash['input'].inspect}: expected shape #{expected.inspect}, " \
+                "got #{actual.inspect}"
             when "example"
               bound = apply_bindings(entry_name, shape)
               expect = hash["expect"].to_h { |key, value| [key.to_sym, value] }

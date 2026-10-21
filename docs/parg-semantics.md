@@ -549,8 +549,18 @@ Compares the **bindings-layer** result: bound, preprocessed attributes, exactly
 what `parse_and_bind` hands the consumer. Requires a `bindings` section to exist
 for the entry; without one, compilation fails with an authoring error.
 
-*Pins: `bindings_types` (the only current `example` case; the corpus's other
-bindings-layer surface is exercised through `parse_and_bind` specs).*
+*Pins: `bindings_types` (scalar casts), `bindings_array` (array paths),
+`bindings_casts` (boolean).*
+
+### A4 — `shape "w" <value>`
+
+Compares the **whole flattened parse tree** canonically (B6) against an
+arbitrary expectation value (text, number, boolean, null, array, or nested
+object). This is the only phase that can observe V1 merge laws and V3
+repetition flattening, because `capture` asserts per-name first values only.
+No bindings section is required.
+
+*Pins: `repeat_flatten` (V3), `merge_laws` and `merge_array` (V1).*
 
 The compiler runs all in-file tests at build time: a failing test fails the
 build. The artifact carries the tests so every engine replays the same
@@ -679,8 +689,21 @@ Gaps in the other direction (rules without cases) are in §14.
 | `short_rep` | T3, C3 (bounded), K1, V3, B3 (string), A1, A2, M0 | upper bound then M0 rejection |
 | `skip_trivia` | S1, S2, S3, S4, S5, T1, T3, C1, C7, K1, B1, A1, A2, M0 | interleaved trivia; entry-leading skip; failure after skip |
 | `trivia_capture` | K5, S1, S2, S3, S4, S5, T1, T3, C3, C5, C7, K1, A1, A2, M0, E1 | comment trivia, nested block comments, VM decline path |
-| `stages.yaml` | D2 | table rows embedded in the artifact |
-| all in-file tests | A1, A2, A3, B6 | canonical equality across engines |
+| `lookahead_positive` | C5 (positive), T1, C3, M0, A1 | positive lookahead, zero width |
+| `zero_width_marker` | T6, T3, C3, K1, A1, A2, M0 | `"" as name` presence marker |
+| `byte_sequence` | T4, T3, C3, M0, A1 | CRLF byte sequence; lone CR/LF rejected |
+| `skip_lookahead` | C5, S1, S4, S5, S6, T1, M0, A1 | lookahead sees raw text; entry trailing trivia |
+| `trailing_trivia` | S1, S5, T1, C3, M0, A1 | trailing whitespace before full consumption |
+| `table_overlap` | D1, D2, C2, T1, M0, A1 | longest-first table expansion |
+| `casefold_nonascii` | T2, T1, C1, M0, A1 | Unicode case folding |
+| `optional_capture` | C4, K1, K2, V2, M0, A1, A2 | absent optional captured as nil |
+| `bindings_array` | B1, B2, B3, B4, C3, K1, A1, A3, M0 | array-of-objects bindings |
+| `bindings_casts` | B2, B3, K1, C1, A1, A3, M0 | boolean cast |
+| `repeat_flatten` | V3, C3, K1, A1, A2, A4, M0 | hash-only retention; text concatenation |
+| `merge_laws` | V1, C1, K1, A1, A4, M0 | right-biased duplicate keys; text dropped beside maps |
+| `merge_array` | V1, V3, C1, C3, K1, A1, A4, M0 | array hoisting in sequence merge |
+| `stages.yaml`/`overlap.yaml` | D2 | table rows embedded in the artifact |
+| all in-file tests | A1, A2, A3, A4, B6 | canonical equality across engines |
 
 ## 14. Coverage gaps
 
@@ -688,18 +711,8 @@ Rules without a corpus case are tracked in **parsanol-rs#254**. Summary:
 
 | # | Rule | Missing case |
 |---|---|---|
-| G1 | C5 | positive lookahead |
-| G2 | T6 | zero-width presence marker |
-| G3 | T4 | multi-byte `%x0D.0A` |
-| G4 | C4/K2 | absent optional inside a capture (`ε` vs `""`) |
-| G5 | V3 | repetition flatten laws (mixed captured/uncaptured iterations, parslet parity) |
-| G6 | B4 | `[]` array bindings and cardinality |
-| G7 | B3 | float/boolean casts |
-| G8 | S6/C8 | lookahead and atomic injection exemptions |
-| G9 | D1 | `from_table` prefix-overlap ordering |
-| G10 | S5 | trailing trivia at entry |
-| G11 | V1 | merge laws: duplicate keys, array shapes |
-| G12 | T2 | non-ASCII case folding parity across engine regex implementations |
+| G7f | B3 | float casts — artifacts refuse floats anywhere in the envelope ("no canonical form"); needs an owner decision on float canonicalization |
+| G8b | C8 | atomic-vs-skip (the lookahead half is covered by `skip_lookahead`) |
 
 Not corpus-expressible (pinned by compiler/runtime specs): X1–X6 and E2.
 E1 is pinned indirectly — `trivia_capture` forces the Ruby VM's decline path.

@@ -360,6 +360,13 @@ module Parsanol
             case test.kind
             when :reject
               "test #{test.input.inspect}: expected the input to be rejected"
+            when :shape
+              actual = Bindings.canonical(shape)
+              expected = Bindings.canonical(test.expect)
+              next if actual == expected
+
+              "test #{test.input.inspect}: expected shape #{expected.inspect}, " \
+                "got #{actual.inspect}"
             when :example
               bindings = binding_list(rule)
               if bindings.empty?
@@ -790,6 +797,17 @@ module Parsanol
 
       # ---- artifact envelope ----------------------------------------------
 
+      # Test expectations are JSON-shaped: pair expectations are maps with
+      # symbol keys; `shape` expectations may be any value. Normalize keys
+      # recursively so the envelope is plain JSON.
+      def normalize_expect(value)
+        case value
+        when Hash then value.to_h { |key, item| [key.to_s, normalize_expect(item)] }
+        when Array then value.map { |item| normalize_expect(item) }
+        else value
+        end
+      end
+
       def build_envelope
         entries = @document.entries.to_h do |name, rule|
           [name, entry_envelope(rule)]
@@ -819,7 +837,7 @@ module Parsanol
               "entry" => test.entry || (@document.own_entries.first if @document.own_entries.size == 1),
               "kind" => test.kind.to_s,
               "input" => test.input,
-              "expect" => test.expect.transform_keys(&:to_s),
+              "expect" => normalize_expect(test.expect),
             }
           end,
           "docs" => @document.docs,
