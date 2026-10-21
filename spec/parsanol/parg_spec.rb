@@ -103,13 +103,15 @@ RSpec.describe Parsanol::PARG do
 
   describe "Compiler" do
     it "rejects left recursion (direct and indirect)" do
+      # Direct left recursion is rewritten (left_recursion_spec); a rule
+      # with nothing but the recursive reference cannot anchor the fold.
       expect do
         compile_source(<<~PARG, tables_dir: nil)
           grammar X version "1" {
             a = a "x"
           }
         PARG
-      end.to raise_error(Parsanol::PARG::CompileError, /left recursion/)
+      end.to raise_error(Parsanol::PARG::CompileError, /no non-recursive alternative/)
 
       expect do
         compile_source(<<~PARG, tables_dir: nil)
