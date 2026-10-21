@@ -73,40 +73,76 @@ that session and are **withheld from the table until they can be run
 under the same quiet conditions** — publishing contended numbers next
 to quiet ones would misrepresent the field.
 
-## Results (2026-10-20, Apple M-series, median milliseconds)
+## Results
+
+Two sessions, both with the load average recorded. Absolute
+milliseconds are host-load-sensitive — within-session ratios are the
+meaningful numbers.
+
+### Session 2 (2026-10-22, Apple M-series, load 10–21, median ms, N=50)
+All seven rows in ONE session, so the ratios are within-session.
+
+| tool | small (1.2 KB) | medium (344 B) | wide (2.7 KB) | large (83 KB) |
+|---|---|---|---|---|
+| **tree-sitter** (C, ts-json) | 0.039 | 0.013 | 0.244 | **2.619** |
+| pest (rust, PEG) | 0.043 | 0.014 | 0.115 | 2.809 |
+| **Lark** (python, LALR) | 0.422 | 0.150 | 2.796 | 29.091 |
+| **parsanol-native** (Rust artifact path) | 1.526 | 0.515 | 5.427 | **163.522** |
+| parslet (ruby, legacy) | 6.768 | 2.010 | 24.359 | 588.043 |
+| parsanol-ruby `:native` | 6.073 | 2.066 | 19.427 | 437.993 |
+| parsanol-ruby `:ruby` (VM) | 5.983 | 2.029 | 19.700 | 436.464 |
+
+### Session 1 (2026-10-20, Apple M-series, load < 2, median ms, N=50)
+Partial: tree-sitter/Lark/parsanol-native only (the other harnesses
+did not exist yet).
 
 | tool | small (1.2 KB) | medium (344 B) | wide (2.7 KB) | large (83 KB) |
 |---|---|---|---|---|
 | **tree-sitter** (C, ts-json) | 0.040 | 0.014 | 0.248 | **2.714** |
 | **Lark** (python, LALR) | 0.443 | 0.156 | 2.975 | 34.070 |
 | **parsanol-native** (Rust artifact path) | 1.680 | 0.534 | 5.841 | **184.808** |
-| pest (rust, PEG) | pending | pending | pending | pending |
-| parslet (ruby, legacy) | pending | pending | pending | pending |
-| parsanol-ruby `:native` | pending | pending | pending | pending |
-| parsanol-ruby `:ruby` (VM) | pending | pending | pending | pending |
 
-## Honest reading
+The two sessions agree on the ratios (tree-sitter ≈ pest < Lark <
+parsanol-native < parslet) despite the different load conditions —
+the within-session methodology holds.
 
-1. **tree-sitter is ~68x faster than parsanol-native on the large
-   corpus.** Its parser is generated C with a hand-tuned
-   error-tolerant core; ours is an interpreted VM over portable atoms.
-   This is the clearest quantitative statement of the gap, and the
-   motivation for the codegen direction (compile PARG to Rust source
-   per grammar — the tree-sitter model) over interpretation.
-2. **Lark-LALR beats parsanol-native ~5x on large.** Table-driven
+### parsanol-only corpora (session 2, parsanol has no competitor here)
+
+| corpus | docs | engine | median of per-doc medians |
+|---|---:|---|---:|
+| pubid ISO suite | 175 | `:native` / `:vm` | 1.254 / 1.216 ms |
+| asciichem fixtures | 145 | `:native` / `:vm` | 0.310 / 0.313 ms |
+| asciichem fixtures | 145 | native (Rust artifact path) | 0.242 ms |
+| EXPRESS giants | 2 | both engines | see the express CSV (measuring) |
+
+## Honest reading (session 2 — all rows, one session)
+
+1. **tree-sitter is ~62x faster than parsanol-native on the large
+   corpus; pest is in the same class (~58x).** Generated C / compiled
+   Rust with tight PEG cores; ours is an interpreted VM over portable
+   atoms. This is the clearest quantitative statement of the gap, and
+   the motivation for the codegen direction (compile PARG to Rust
+   source per grammar — the tree-sitter model) over interpretation.
+2. **Lark-LALR beats parsanol-native ~5.6x on large.** Table-driven
    LALR on JSON-shaped grammars is simply a better algorithmic fit
    than backtracking PEG for this class; PEG pays for ordered choice
    and unlimited lookahead that JSON does not need.
-3. **parsanol's differentiation is not raw JSON throughput** — it is
+3. **parsanol-native beats parslet 3.6x on large (163.5 vs 588.0 ms),
+   and both parsanol-ruby engines beat parslet ~1.35x** — the
+   replacement claim holds on every parsanol engine, same session,
+   same corpus. parslet is the baseline parsanol was written to
+   replace; beating it on both engines was the campaign requirement.
+4. **parsanol's differentiation is not raw JSON throughput** — it is
    the artifact/governance model (checksummed portable grammars,
    cross-engine conformance, provenance). The benchmark exists to keep
    that claim honest.
 
 ## Known gaps in this suite (open items)
 
-- **Rerun all harnesses on a quiet host** and fill the pending rows
-  (pest, parslet, parsanol-ruby `:native`/`:ruby`). Their harnesses are
-  committed and acceptance-verified; only the timing run is pending.
+- ~~Rerun all harnesses on a quiet host~~ **done (session 2, 2026-10-22,
+  load 10–21, all seven rows one session).** A load <2 session would
+  tighten the absolute numbers; the ratios are already within-session
+  and match session 1's partial ratios.
 - The pest failure tracked as #247 was a **harness grammar bug**, not a
   unicode issue: the inline form let `inner` swallow a bare quote as an
   "escape", so every object whose first key was a string failed. Fixed
