@@ -318,6 +318,9 @@ describe "Regressions from real examples" do
 
     it "fails gracefully on a missing end (2)" do
       # Exact cause trees are the Ruby engine's diagnostics contract.
+      # The default reporter is Deepest (parsanol-ruby#265): the root
+      # cause stays the raised message's first line, and the tree
+      # bottoms out at the furthest failure — here the end of input.
       error = catch_failed_parse do
         subject.parse('
           begin a
@@ -328,10 +331,10 @@ describe "Regressions from real examples" do
         ', mode: :ruby)
       end
 
-      expect(di(error.ascii_tree)).to eq(di(%q(
+      expect(di(error.ascii_tree)).to eq(di('
         Failed to match sequence (NL? BLOCK (NL BLOCK){0, } NL?) at line 3 char 14.
-        `- Don't know what to do with "begin b\n  " at line 4 char 11.
-        )))
+        `- Unexpected end of input at line 7 char 9.
+        '))
     end
 
     it "fails gracefully on a missing end (deepest reporter)" do
@@ -356,6 +359,25 @@ describe "Regressions from real examples" do
         Failed to match sequence (NL? BLOCK (NL BLOCK){0, } NL?) at line 3 char 16.
         `- Expected "end", but got "li\n" at line 6 char 17.
         )))
+    end
+
+    it "reports the deepest position without an explicit reporter (parsanol-ruby#265)" do
+      # The interpreter default now matches the native engine's deepest
+      # diagnostics; consumers surfacing file:line:col from the message
+      # (lutaml-lml's nightly HEAD job) must not degrade to line 1.
+      error = catch_failed_parse do
+        subject.parse('
+          begin a
+          end
+          begin b
+            begin c
+              li
+            end
+          end
+        ', mode: :ruby)
+      end
+
+      expect(error.ascii_tree).to include(%q(Expected "end", but got "li\n" at line 6 char 15.))
     end
   end
 end

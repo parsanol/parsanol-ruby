@@ -236,9 +236,15 @@ module Parsanol
       end
 
       # Reports detailed error by reparsing with reporter.
+      #
+      # The default reporter is Deepest (parsanol-ruby#265): the native
+      # engine's failure diagnostics report the furthest failure, and a
+      # consumer's file:line:col degrades to "line 1 char 1" when the
+      # interpreter raises the outermost sequence instead. Explicit
+      # reporters (Tree for full cause trees) are honored unchanged.
       def report_detailed_error(input, consume_all, reporter, _initial_error)
         input.bytepos = 0
-        error_reporter = reporter || Parsanol::ErrorReporter::Tree.new
+        error_reporter = reporter || Parsanol::ErrorReporter::Deepest.new
         success, cause = run_with_context(input, error_reporter, consume_all)
 
         # Second parse should also fail

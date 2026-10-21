@@ -282,8 +282,10 @@ module Parsanol
         if parsanol_grammar
           # No native diagnostics (e.g. incomplete-input errors): one
           # interpreter pass with the reporter attached — a success
-          # recovers the tree, a failure raises the cause tree.
-          reporter = Parsanol::ErrorReporter::Tree.new
+          # recovers the tree, a failure raises the cause tree. Deepest
+          # keeps the fallback's diagnostics at parity with the direct
+          # interpreter path (parsanol-ruby#265).
+          reporter = Parsanol::ErrorReporter::Deepest.new
           source = Parsanol::Source.new(input)
           success, value = grammar.run_with_context(source, reporter, true)
           return grammar.finalize_result(value) if success
