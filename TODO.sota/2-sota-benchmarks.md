@@ -1,21 +1,15 @@
 # 2 — Published benchmarks vs the SOTA tools
 
-Status: in progress — Tier 1. v1 shipped (#246): seeded JSON corpus,
-genuine harnesses for tree-sitter/Lark/parsanol-artifact, methodology
-and honest results in the root `BENCHMARKS.md`. All five harnesses
-now exist: pest fixed (#247 was the grammar's missing-escape bug, not
-unicode), parslet legacy baseline added, parsanol Ruby API in both
-modes (:native and :ruby). Corpora: JSON, a nine-document pathological
-set, the pubid ISO suite (vendored contract artifact with
-provenance, 175 verified identifiers, harness `entry` argument;
-parsanol-only because competitor grammars do not exist), the asciichem
-suite (145 accepted fixtures replayed through the vendored artifact,
-both engines), and the EXPRESS giants (two real ISO 10303 schemas,
-637 KB and 4.2 MB, parsed through expressir's production DSL grammar
-in both engines). Remaining: one quiet-host rerun to fill the pending
-rows (the host has stayed at load >80 all session, spiking past 280).
-Competitor grammar ports for asciichem/EXPRESS are tracked as future
-work — no cross-tool ratio is claimed without them.
+Status: in progress — Tier 1, corpus-complete. All five corpora are
+committed with harnesses: seeded JSON, the nine-document pathological
+set, the pubid ISO suite, asciichem (145 accepted fixtures through the
+vendored artifact, both engines), and the EXPRESS giants (637 KB +
+4.2 MB real ISO schemas through expressir's production DSL grammar,
+both engines). Remaining: ONE quiet-host timing run to fill the
+pending table rows (the host has sat at load 20-150; contended
+timings are 2-7x and non-uniform, not publishable). Competitor
+grammar ports for pubid/asciichem/EXPRESS stay future work — no
+cross-tool ratio is claimed without them.
 
 ## Goal
 

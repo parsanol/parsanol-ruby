@@ -1,10 +1,13 @@
 # 7 — Incremental parsing to tree-sitter grade
 
-Status: in progress — Tier 2. The retained session keeps whole
-containers and splices repetition-spine documents. Added: a 500-edit,
-multi-region differential gate (retained result == full reparse after
-every edit) and `parsanol/examples/keystroke.rs`, a release-mode probe
-(parsanol-rs#257).
+Status: in progress — Tier 2. The splice-engagement collapse
+(rs#258) is root-caused and fixed (rs#271, released 0.18.13): the
+plan's body chain comes from the root repetition's own iteration
+trace, so engagement holds at every document size (1,200 pairs
+53 ms -> 0.023 ms per tail edit, 5/5 spliced; 50k pairs 20/20 at
+~1 ms). Remaining: the cold-parse superlinearity (rs#270: 2.3 s CPU
+at 59 KB -> ~4 min at 590 KB on a contended host) and the sub-ms
+target on 500 KB+ documents.
 
 Measured gap (contended host; latencies indicative, engagement counts
 exact): 5.8 KB document 0.034 ms/edit with 4/5 edits spliced; 11.8 KB
