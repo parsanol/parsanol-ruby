@@ -53,7 +53,12 @@ module Parsanol
         @dynamic = false
         @tables = {}
         @warnings = []
+        @expanded = false
       end
+
+      # Reserved prefix for the tier rules synthesized by the direct
+      # left-recursion expansion (see expand_left_recursion!).
+      LEFT_RECURSION_PREFIX = "__left_"
 
       # QoL shorthands (ABNF core rules): materialized on reference when
       # the grammar does not define its own rule of that name.
@@ -67,6 +72,7 @@ module Parsanol
       }.freeze
 
       def compile
+        expand_left_recursion!
         @document.rules.each_key { |name| atom_for(name) }
         errors = Lints.errors(@document, self)
         raise CompileError, errors.join("\n") unless errors.empty?
@@ -121,6 +127,7 @@ module Parsanol
       end
 
       def atom_for(name)
+        expand_left_recursion! unless @expanded
         @atom_cache[name] ||= begin
           atom = build_atom(fetch_rule(name))
           # Atomic rules build without injection entirely: token-shaped
@@ -348,6 +355,105 @@ module Parsanol
       # In-file grammar tests run at compile time: the build fails when an
       # accept/example test does not parse or an example's expected capture
       # pairs do not match the bound result.
+      # Direct left recursion (owner decision 2026-10-21, parsanol-ruby#251):
+      # rewrite `r = r op1 r / r op2 r / ... / primary` into a chain of
+      # ordinary left-folding tier rules — the ANTLR 4 model. Branches in
+      # source order are precedence tiers, earlier binding tighter; the
+      # non-recursive alternatives are the primary (loosest operand). The
+      # rewritten tiers are plain rules, so every engine inherits the
+      # feature through the unchanged artifact format and the fold value is
+      # exactly the flattening of the equivalent loop grammar (V1/V3).
+      # Indirect left recursion keeps its compile error.
+      def expand_left_recursion!
+        return if @expanded
+
+        @expanded = true
+        if @document.rules.any? { |name, _| name.start_with?(LEFT_RECURSION_PREFIX) }
+          raise CompileError,
+                "rule names beginning with #{LEFT_RECURSION_PREFIX.inspect} are reserved " \
+                "for the compiler's left-recursion expansion"
+        end
+
+        # Snapshot: expansion adds tier rules to @document.rules.
+        @document.rules.dup.each_key do |name|
+          body = @document.rules[name]
+          next unless left_recursive_body?(name, body)
+
+          expand_left_recursive_rule(name, body)
+        end
+      end
+
+      def left_recursive_body?(name, body)
+        branches = body.kind == :alt ? body.a : [body]
+        branches.any? { |branch| leftmost_refs(branch).include?(name) }
+      end
+
+      def expand_left_recursive_rule(name, body)
+        branches = body.kind == :alt ? body.a : [body]
+        left, primary = branches.partition { |branch| leftmost_refs(branch).include?(name) }
+        if primary.empty?
+          raise CompileError,
+                "rule #{name.inspect} is left-recursive and has no " \
+                "non-recursive alternative to anchor the rewrite"
+        end
+
+        rules = @document.rules
+        prev = "#{LEFT_RECURSION_PREFIX}#{name}_primary"
+        rules[prev] = primary.length == 1 ? primary.first : Node.new(:alt, primary)
+        left.each_with_index do |branch, index|
+          tier = "#{LEFT_RECURSION_PREFIX}#{name}_#{index + 1}"
+          suffix = left_recursive_suffix(name, branch)
+          suffix = substitute_refs(suffix, name, prev)
+          rules[tier] = Node.new(:seq, [Node.new(:ref, prev), Node.new(:rep, suffix, 0, nil)])
+          prev = tier
+        end
+        rules[name] = Node.new(:ref, prev)
+      end
+
+      # A left-recursive alternative must BEGIN with a bare reference to the
+      # rule itself; everything after that reference is the per-iteration
+      # suffix, which must consume input (a nullable suffix would loop
+      # forever at the fold).
+      def left_recursive_suffix(name, branch)
+        if branch.kind == :ref
+          raise CompileError,
+                "left-recursive alternative in rule #{name.inspect} consists only of the " \
+                "recursive reference and would loop forever"
+        end
+        unless branch.kind == :seq && (head = branch.a.first)&.kind == :ref && head.a == name
+          raise CompileError,
+                "left-recursive alternative in rule #{name.inspect} must begin with a " \
+                "bare reference to #{name.inspect} (write `#{name} <rest>`; captures and " \
+                "predicates around the leading reference are not supported)"
+        end
+
+        rest = branch.a[1..]
+        rest_node = rest.length == 1 ? rest.first : Node.new(:seq, rest)
+        if nullable?(rest_node)
+          raise CompileError,
+                "left-recursive alternative in rule #{name.inspect} can match empty after " \
+                "the leading reference and would loop forever at the fold"
+        end
+        rest_node
+      end
+
+      def substitute_refs(node, from, to)
+        if node.kind == :ref
+          return Node.new(:ref, to) if node.a == from
+
+          return node
+        end
+        case node.kind
+        when :seq then Node.new(:seq, node.a.map { |child| substitute_refs(child, from, to) })
+        when :alt then Node.new(:alt, node.a.map { |child| substitute_refs(child, from, to) })
+        when :rep then Node.new(:rep, substitute_refs(node.a, from, to), node.b, node.c)
+        when :opt then Node.new(:opt, substitute_refs(node.a, from, to))
+        when :pred then Node.new(:pred, node.a, substitute_refs(node.b, from, to), node.c)
+        when :cap then Node.new(:cap, node.a, substitute_refs(node.b, from, to))
+        else node
+        end
+      end
+
       def run_tests
         return [] if @document.tests.empty?
 

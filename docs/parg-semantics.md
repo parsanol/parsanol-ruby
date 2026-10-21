@@ -114,15 +114,15 @@ A₁ ⊕ A₂ = A₁ ++ A₂           arrays concatenate
 
 An empty sequence flattens to the empty text `""`.
 
-*Pins: `atoms_lexical`; duplicate-key and array-merge shapes are gap G11.*
+*Pins: `atoms_lexical`, `merge_laws`, `merge_array`.*
 
 ### V2 — Flattening: optional
 
 `[ x ]` flattens to `flatten(x)` when it matched. When it did not match:
 `ε` if the optional is inside a capture, empty text `""` otherwise.
 
-*Pins: `repetition` (`dashed` on `"ab"` omits `dash`); the captured-absent
-case is gap G4.*
+*Pins: `repetition` (`dashed` on `"ab"` omits `dash`), `optional_capture`
+(`dash: null` when absent).*
 
 ### V3 — Flattening: repetition
 
@@ -139,7 +139,7 @@ This is parslet's `CanFlatten` behavior, including its data loss; it is a
 compatibility contract, not a recommendation (parsanol-ruby#231). The stable
 idiom is to capture every structural iteration so rule 1 applies uniformly.
 
-*Pins: `repetition`, `short_rep`; mixed-iteration laws are gap G5.*
+*Pins: `repetition`, `short_rep`, `repeat_flatten` (mixed iterations).*
 
 ### V4 — Named captures
 
@@ -164,10 +164,10 @@ compile time (X4) except as the zero-width marker (T6).
 Matches iff the next code units compare case-insensitively to `s`; consumed
 text is the **input spelling**, not the pattern spelling. The value is the
 consumed text. Engines implement this with their regex engine's Unicode-aware
-`(?i:)` semantics; the corpus pins ASCII behavior only (non-ASCII folding
-parity is gap G12).
+`(?i:)` semantics; non-ASCII folding parity is pinned by
+`casefold_nonascii`.
 
-*Pins: `casefold`.*
+*Pins: `casefold`, `casefold_nonascii`.*
 
 ### T3 — Character class `%xNN`, `%xNN-MM`
 
@@ -182,7 +182,7 @@ than one character; `ANY` is the full range `U+0000–U+10FFFF`.
 Consumes the sequence of specified code points, one per element, yielding the
 consumed text. It is a fixed-length terminal, not a repetition.
 
-*Pins: gap G3.*
+*Pins: `byte_sequence`.*
 
 ### T5 — `ANY`
 
@@ -288,20 +288,49 @@ The guard is capture-neutral (M3/C5).
 A reference to rule `R` matches as `R`'s body does at the same position, with
 the same value. Reference results are transparent for captures (V4) and
 flattening: a reference does not add a tree level. Recursion is permitted when
-it consumes input before recurring; left recursion is rejected at compile time
-(X1). Memoization, program compilation, and caching are unobservable
-optimizations (E1).
+it consumes input before recurring; left recursion is rewritten at compile
+time (L1–L3) or rejected (X1). Memoization, program compilation, and caching
+are unobservable optimizations (E1).
 
-*Pins: `nesting`, `skip_trivia`, `lookahead`.*
+*Pins: `nesting`, `skip_trivia`, `lookahead`, `leftrec_arith`.*
 
 ### C8 — Atomic rules
-
 `atomic R` builds `R` without trivia injection: it matches contiguously, sees
 raw input, and — if it is an entry — receives no leading/trailing skip wrapper.
 Apart from trivia interaction, atomic rules follow C1–C7 exactly.
 
 *Pins: covered indirectly (atomic rules appear in the wider suites; a corpus
 case exercising atomic-vs-skip is not yet present — see G8).*
+
+### C9 — Direct left recursion (compile-time rewrite)
+
+A rule whose ordered-choice branches include alternatives that begin with a
+bare self-reference is **directly left-recursive**. The compiler rewrites it
+at compile time into a chain of ordinary left-folding tier rules — the ANTLR 4
+model — so the artifact contains plain atoms and every engine inherits the
+semantics unchanged:
+
+- Branches in source order are precedence tiers: **earlier alternatives bind
+  tighter**. The non-recursive alternatives are the primary and act as the
+  loosest operand.
+- Tier `i` (for the `i`-th left-recursive branch, `suffix_i` being the branch
+  without its leading self-reference, with every remaining self-reference
+  rewritten to the previous tier) is:
+  `T_i = T_{i-1} ( suffix_i )*`, with `T_0` = primary and the rule itself
+  equal to the last tier. The fold is left-associative by construction.
+- **L2 — branch restrictions.** A left-recursive alternative must begin with
+  a *bare* self-reference (captures or predicates around it are rejected);
+  its suffix must consume input (nullable suffixes are rejected); a rule with
+  no non-recursive alternative, or consisting only of the self-reference, is
+  rejected.
+- **L3 — fold value.** The rule's value is exactly the flattened value of the
+  rewritten loop grammar under V1/V3: a captured left-recursive rule flattens
+  to `[primary_step, step₁, step₂, …]` in fold order (arrays hoist per V1);
+  per-fold-step capture maps are not synthesized.
+- **Indirect** left recursion (a cycle through other rules, including through
+  the primary) is a compile error (X1).
+
+*Pins: `leftrec_arith` (tiered precedence, left associativity, fold shape).*
 
 ---
 
@@ -573,11 +602,12 @@ expectations.
 These are part of the language: a compiler MUST reject the grammar, not defer
 to runtime.
 
-### X1 — Left recursion
+### X1 — Left recursion (indirect)
 
-Direct or indirect left recursion (a rule that can reach itself at the same
-input position through leftmost references, scanning sequences only through
-nullable prefixes) is a compile error. Unguarded left recursion loops in a PEG.
+Direct left recursion is rewritten at compile time (C9). **Indirect** left
+recursion — a cycle that reaches the rule through other rules, including
+through the rewritten rule's primary — is a compile error. Unguarded left
+recursion loops in a PEG.
 
 ### X2 — Branch shadowing
 
@@ -702,6 +732,7 @@ Gaps in the other direction (rules without cases) are in §14.
 | `repeat_flatten` | V3, C3, K1, A1, A2, A4, M0 | hash-only retention; text concatenation |
 | `merge_laws` | V1, C1, K1, A1, A4, M0 | right-biased duplicate keys; text dropped beside maps |
 | `merge_array` | V1, V3, C1, C3, K1, A1, A4, M0 | array hoisting in sequence merge |
+| `leftrec_arith` | C9, C2, C3, C7, K1, A1, A4, M0 | tiered precedence, left associativity, fold shape |
 | `stages.yaml`/`overlap.yaml` | D2 | table rows embedded in the artifact |
 | all in-file tests | A1, A2, A3, A4, B6 | canonical equality across engines |
 

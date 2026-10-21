@@ -1,11 +1,14 @@
 # 5 — Left recursion in PARG (owner gate: deliberate parslet extension)
 
-Status: open — owner gate. Decision request filed as
-[parsanol-ruby#251](https://github.com/parsanol/parsanol-ruby/issues/251)
-with the recommended design (ANTLR-style compile-time rewrite for direct
-left recursion; indirect stays rejected; fold-capture semantics
-specified before implementation). Awaiting the owner decision; no
-implementation has started.
+Status: done — owner approved the ANTLR-style rewrite (2026-10-21).
+Direct left recursion is rewritten at compile time into left-folding
+tier rules (C9 in docs/parg-semantics.md): branches in source order are
+precedence tiers, earlier binding tighter; the non-recursive
+alternatives are the primary; indirect recursion stays a compile error.
+The artifact carries ordinary atoms, so every engine inherits the
+semantics with no engine work; the fold value is the flattening of the
+equivalent loop grammar (V1/V3). Corpus case `leftrec_arith` pins
+tiered precedence, associativity, and fold shape.
 
 **Gate: this is a deliberate extension of the
 parslet contract (parslet cannot do left recursion), so it needs an
