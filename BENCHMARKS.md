@@ -19,6 +19,14 @@ reproducible from the committed harnesses.
   20k-element array, a 4k-key object, whitespace-heavy pretty-printing,
   and number-grammar edges. Every harness takes this file as its corpus
   argument, so the same protocol applies.
+- **pubid corpus** (`corpora/pubid_iso_inputs.json`): 175 ISO-family
+  identifier documents (generated across publisher/stage/number/part/year
+  shapes plus four real contract cases, each verified against the
+  vendored `pubid/iso.artifact.json`; provenance in
+  `pubid/BUILT_FROM`). These measure per-parse overhead on short
+  real-world-shaped inputs rather than throughput. Only the parsanol
+  artifact harness can run it today — competitor grammars for pubid do
+  not exist, so no cross-tool ratio is published.
 - **Grammar**: acceptance-only JSON (RFC 8259 with escapes), one
   equivalent grammar per tool:
   - parsanol: `json.parg` → compiled artifact → `PargArtifact::parse_shape`
@@ -88,14 +96,14 @@ to quiet ones would misrepresent the field.
   by the canonical `char = { !("\"" | "\\") ~ ANY | "\\" ~ escape }`
   shape; the harness now accepts every corpus document, including the
   non-ASCII large one.
-- Corpora beyond JSON (pubid identifiers, asciichem, EXPRESS giants)
-  remain — each needs an equivalent-grammar port per tool. The
-  backtracking/pathological set is now committed as
-  `corpora/traps_inputs.json`.
-- **Deep nesting ceiling:** the portable engine's governor counts atom
-  frames, so JSON arrays fail near ~198 nesting levels, surfacing as a
-  misleading `expected ]` rather than a recursion-limit diagnostic. The
-  trap corpus stays at 150 and the ceiling is tracked in parsanol-rs#260.
+- The pubid corpus is committed (parsanol-only rows pending a quiet-host
+  run); asciichem and EXPRESS giants remain — each needs an
+  equivalent-grammar port per tool.
+- **Deep nesting ceiling:** the portable engine's governor counts
+  rule-reference frames, so JSON arrays reach the default 1000-frame
+  limit near ~198 nesting levels. This is now reported as
+  `Recursion limit exceeded` (parsanol-rs#261), not a phantom syntax
+  error; the trap corpus stays at 150.
 - The Ruby API path adds artifact-atom registration, result decoding,
   and flattening on top of the engine; the first (contended) readings
   suggest this layer dominates the large-document cost. That is a
@@ -107,7 +115,8 @@ to quiet ones would misrepresent the field.
 
     benchmark/sota/corpora/gen_json_corpus.rb              # corpus
     benchmark/sota/corpora/gen_trap_corpus.rb              # pathological corpus
-    benchmark/sota/parsanol-harness <corpus> <artifact> N  # cargo run --release -- …
+    benchmark/sota/corpora/gen_pubid_corpus.rb              # pubid corpus
+    benchmark/sota/parsanol-harness <corpus> <artifact> N [entry]
     benchmark/sota/pest-harness <corpus> N                 # cargo run --release -- …
     benchmark/sota/lark-harness/run_lark.py <corpus> N     # pip: lark
     benchmark/sota/ts-harness/run_ts.py <corpus> N         # pip: tree-sitter tree-sitter-json

@@ -5,9 +5,13 @@ genuine harnesses for tree-sitter/Lark/parsanol-artifact, methodology
 and honest results in the root `BENCHMARKS.md`. All five harnesses
 now exist: pest fixed (#247 was the grammar's missing-escape bug, not
 unicode), parslet legacy baseline added, parsanol Ruby API in both
-modes (:native and :ruby). Remaining: one quiet-host rerun to fill the
-pending rows (the current host stays at load >80), and the four other
-corpora.
+modes (:native and :ruby). Corpora: JSON, a nine-document pathological
+set, and the pubid ISO suite (vendored contract artifact with
+provenance, 175 verified identifiers, harness `entry` argument;
+parsanol-only because competitor grammars do not exist). Remaining:
+one quiet-host rerun to fill the pending rows (the host has stayed at
+load >80 all session, spiking past 280), and the asciichem/EXPRESS
+corpora with their competitor grammar ports.
 
 ## Goal
 
