@@ -98,12 +98,16 @@ module Parsanol
       # @return [Array<Integer, Parsanol::Cause>] [depth, deepest_leaf]
       #
       def find_deepest_leaf(node, rank = 0)
+        return [rank, node] if node.nil?
+
         best_node = node
         best_rank = rank
 
         kids = node.children
         if kids && !kids.empty?
           kids.each do |kid|
+            next if kid.nil?
+
             kid_rank, kid_node = find_deepest_leaf(kid, rank + 1)
 
             if kid_rank > best_rank
