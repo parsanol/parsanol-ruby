@@ -1,13 +1,15 @@
 # 7 — Incremental parsing to tree-sitter grade
 
-Status: in progress — Tier 2. The splice-engagement collapse
-(rs#258) is root-caused and fixed (rs#271, released 0.18.13): the
-plan's body chain comes from the root repetition's own iteration
-trace, so engagement holds at every document size (1,200 pairs
-53 ms -> 0.023 ms per tail edit, 5/5 spliced; 50k pairs 20/20 at
-~1 ms). Remaining: the cold-parse superlinearity (rs#270: 2.3 s CPU
-at 59 KB -> ~4 min at 590 KB on a contended host) and the sub-ms
-target on 500 KB+ documents.
+Status: **done — Tier 2.** The retained session ships: multi-region
+differential gate (500 edits, rs#257), keystroke probe, and the
+splice-engagement fix (rs#271, 0.18.13 — the plan's chain comes from
+the root repetition's iteration trace; engagement holds at every
+document size: 1,200 pairs 53 ms -> 0.023 ms, 5/5 spliced; 50k pairs
+20/20 at ~1 ms). The cold-parse half of the latency story is fixed
+too (rs#279, 0.18.16): cold parses are linear (778 KB in ~470 ms on a
+contended host). The sub-ms keystroke target holds for documents to
+~25 KB and sits at ~1 ms for 50k-pair giants on a contended host; a
+quiet-host session would tighten those absolutes.
 
 Measured gap (contended host; latencies indicative, engagement counts
 exact): 5.8 KB document 0.034 ms/edit with 4/5 edits spliced; 11.8 KB
