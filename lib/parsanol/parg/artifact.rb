@@ -302,12 +302,14 @@ module Parsanol
       # a repetition spine (root = rep of a single rule reference).
       # Conservative: anything but rep/opt/cap wrapping a bare ref
       # returns nil and resync is skipped.
+      SPINE_UNWRAP_KINDS = %i[rep opt cap].freeze
+
       def spine_body_rule(entry_name)
         root_rule = entry(entry_name)["root"]
         node = compiler.document.rules[root_rule.to_sym] ||
-               compiler.document.rules[root_rule]
+          compiler.document.rules[root_rule]
         while node.is_a?(Parsanol::PARG::Node) &&
-              %i[rep opt cap].include?(node.kind)
+            SPINE_UNWRAP_KINDS.include?(node.kind)
           node = node.a
         end
         node.is_a?(Parsanol::PARG::Node) && node.kind == :ref ? node.a : nil
