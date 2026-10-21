@@ -252,9 +252,15 @@ laws, trivia rewrite, bindings obligations, diagnostics, and the corpus
 coverage matrix — live in [parg-semantics.md](parg-semantics.md). This guide is
 the friendly edition; the semantics document wins where they disagree.
 
-**Left recursion is rejected at compile time** (direct and indirect,
-leftmost-position analysis). An unguarded left-recursive PEG loops forever
-in every engine; PARG refuses to emit such an artifact.
+**Direct left recursion is rewritten at compile time** (the ANTLR 4 model):
+`expr = expr "*" expr / expr "+" expr / INT` becomes a chain of left-folding
+tier rules, with alternatives in source order binding tightest-first and the
+non-recursive alternatives as the primary. The artifact carries ordinary
+atoms, so every engine runs the fold identically; the fold value is the
+flattening of the equivalent loop grammar. Branch restrictions (bare leading
+reference, consuming suffix) and **indirect left recursion** (still rejected)
+are compile errors — see the normative rules (C9, X1) in
+[parg-semantics.md](parg-semantics.md).
 
 ### Recovery (best-effort partial parses)
 
