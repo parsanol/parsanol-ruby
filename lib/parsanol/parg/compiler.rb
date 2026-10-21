@@ -385,12 +385,13 @@ module Parsanol
 
       def left_recursive_body?(name, body)
         branches = body.kind == :alt ? body.a : [body]
-        branches.any? { |branch| leftmost_refs(branch).include?(name) }
+        branches.any? { |branch| leftmost_refs(branch, foldable: true).include?(name) }
       end
 
       def expand_left_recursive_rule(name, body)
         branches = body.kind == :alt ? body.a : [body]
-        left, primary = branches.partition { |branch| leftmost_refs(branch).include?(name) }
+        left, primary =
+          branches.partition { |branch| leftmost_refs(branch, foldable: true).include?(name) }
         if primary.empty?
           raise CompileError,
                 "rule #{name.inspect} is left-recursive and has no " \
@@ -817,19 +818,24 @@ module Parsanol
         nil
       end
 
-      def leftmost_refs(node)
+      # A self-reference under a predicate cannot anchor a fold (and the
+      # lookbehind validation rejects rule bodies outright), so the
+      # rewrite's scan stops there; cycle detection still walks through.
+      def leftmost_refs(node, foldable: false)
         case node.kind
         when :ref then [node.a]
         when :seq
           refs = []
           node.a.each do |item|
-            refs.concat(leftmost_refs(item))
+            refs.concat(leftmost_refs(item, foldable: foldable))
             break unless nullable?(item)
           end
           refs.uniq
-        when :alt then node.a.flat_map { |branch| leftmost_refs(branch) }.uniq
-        when :rep, :opt then leftmost_refs(node.a)
-        when :pred, :cap then leftmost_refs(node.b)
+        when :alt then node.a.flat_map { |branch| leftmost_refs(branch, foldable: foldable) }.uniq
+        when :rep, :opt then leftmost_refs(node.a, foldable: foldable)
+        when :pred
+          foldable ? [] : leftmost_refs(node.b)
+        when :cap then leftmost_refs(node.b, foldable: foldable)
         else []
         end
       end
