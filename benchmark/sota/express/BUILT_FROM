@@ -1,0 +1,13 @@
+provenance: real ISO 10303 EXPRESS schemas from lutaml/expressir
+repo: https://github.com/lutaml/expressir
+commit: 7e35c07 (branch feat/sota-07-reference; files unchanged since main)
+files:
+  - spec/syntax/mathematical_functions_schema/mathematical_functions_schema.exp
+  - spec/fixtures/eeng/oracle/description-assignment-mim-concatenated.exp
+grammar: Expressir::Express::Grammar::Parser (parsanol DSL, ~250 rules,
+  ISO 10303-11 concrete syntax) — DSL-built, so there is no PARG source
+  and no artifact envelope; the harness parses through the DSL parser's
+  two engines (mode: :native and mode: :ruby).
+note: competitors do not ship EXPRESS grammars; this corpus measures the
+  parsanol engines on real giant inputs (600 KB and 4 MB), the
+  large-input case the JSON corpus's seeded documents only approximate.
