@@ -217,14 +217,51 @@ module Parsanol
         shape = parse(entry_name, input, mode: mode)
         { "ok" => true, "shape" => shape }
       rescue Parsanol::ParseFailed => e
+        # The journaling re-parse fails at the same point with the
+        # interpreter's deepest cause — report ITS error, not the
+        # initial parse's (the native FFI's coarse failure position
+        # loses the deepest offset).
+        captures, reparse_error = recovery_journal(entry_name, input, mode)
         { "ok" => false,
-          "error" => recovery_error(e),
-          "captures" => recovery_journal(entry_name, input, mode) }
+          "error" => reparse_error || recovery_error(e),
+          "captures" => captures,
+          "partial" => recovery_partial(entry_name) }
+      end
+
+      # R1.5 (TODO.sota/1): the deepest repetition prefix the failed
+      # journaling pass matched, shaped like the root (the item array
+      # under the root rule's name). Nil when nothing matched.
+      def recovery_partial(entry_name)
+        stash = Parsanol::Recovery.take_partial
+        return nil if stash.nil?
+
+        _end_pos, items, _tag = stash
+        # The stash holds raw per-iteration results; the root atom's
+        # flatten (the same laws the success shape goes through) turns
+        # sequence-tagged iterations into their shaped values.
+        flattened = items.map { |item| root_atom(entry_name).flatten(item) }
+        root_name = entry(entry_name)["root"].to_sym
+        { root_name => flattened }
       end
 
       def recovery_error(err)
-        pos = err.parse_failure_cause&.position
-        { "offset" => pos, "message" => err.message }
+        cause = err.parse_failure_cause
+        # The raised cause can sit shallower than the real failure (a
+        # consume-all leftover reported at the partial run's end);
+        # recovery annotations carry the DEEPEST position in the cause
+        # tree — the same semantics as the rs engine's failure wire.
+        { "offset" => cause && deepest_position(cause),
+          "message" => err.message }
+      end
+
+      def deepest_position(cause)
+        max = cause.position
+        Array(cause.children).each do |child|
+          next if child.nil?
+
+          max = [max, deepest_position(child)].max
+        end
+        max
       end
 
       # Journaling re-parse — always on the Ruby engine (journaling
@@ -233,18 +270,21 @@ module Parsanol
       # by the differential specs, so the observed captures agree.
       def recovery_journal(entry_name, input, _mode)
         Parsanol::Recovery.start_journal
+        reparse_error = nil
         begin
           parse(entry_name, input, mode: :ruby)
-        rescue Parsanol::ParseFailed
+        rescue Parsanol::ParseFailed => e
           # expected: the journaling pass fails at the same point
+          reparse_error = recovery_error(e)
         end
-        Parsanol::Recovery.stop_journal.each_with_object({}) do |(name, value), out|
+        captures = Parsanol::Recovery.stop_journal.each_with_object({}) do |(name, value), out|
           # Both the initial attempt and the diagnostic re-parse journal
           # into the shared thread-local; identical observations dedupe.
           wire = value.is_a?(Slice) ? slice_wire(value) : value
           (out[name.to_s] ||= []) << wire
           out[name.to_s].uniq!
         end
+        [captures, reparse_error]
       end
 
       def slice_wire(slice)

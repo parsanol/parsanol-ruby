@@ -211,6 +211,7 @@ module Parsanol
 
         # Check minimum bound
         if occurrence < @min
+          Recovery.stash_partial(source.bytepos, result[1, occurrence], @result_tag)
           source.bytepos = start_pos
           return context.err_at(self, source, min_error, start_pos,
                                 failure_children(last_failure))
@@ -218,6 +219,9 @@ module Parsanol
 
         # Check complete consumption
         if consume_all && source.chars_left.positive?
+          # R1.5: the partial run IS the best partial root — stash it
+          # before reporting the leftover-input failure.
+          Recovery.stash_partial(source.bytepos, result[1, occurrence], @result_tag)
           return context.err(self, source, @extra_error,
                              failure_children(last_failure))
         end
