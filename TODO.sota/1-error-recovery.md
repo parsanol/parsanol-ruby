@@ -1,8 +1,13 @@
 # 1 — Error recovery: partial trees with annotated failures
 
-Status: **R1 shipped** (rs#249, ruby#241, ts#11, rs#253 wasm binding;
-releases ruby 1.3.96 / rs 0.18.9 / ts 0.10.5) — R1.5 (partial trees)
-and R2 (resync) deferred, see the findings below.
+Status: **R1 + R1.5 shipped** (R1: rs#249, ruby#241, ts#11, rs#253 wasm
+binding; R1.5 partial trees: rs#274 + ruby#272 — the recovery envelope
+carries the deepest repetition prefix shaped like the root, both
+engines, zero success-path cost; the ruby side also fixed the two
+recovery-offset expectations by reporting the deepest cause-tree
+position, the rs failure-wire semantics). Remaining: R2 (resync — a
+grammar addition, owner gate) and the wasm/ts propagation of the
+`partial` key with the cross-engine canonical-equality differential.
 
 ## Findings that shaped the shipped scope (2026-10-20)
 
