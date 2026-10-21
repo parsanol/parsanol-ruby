@@ -113,7 +113,7 @@ the within-session methodology holds.
 | pubid ISO suite | 175 | `:native` / `:vm` | 1.254 / 1.216 ms |
 | asciichem fixtures | 145 | `:native` / `:vm` | 0.310 / 0.313 ms |
 | asciichem fixtures | 145 | native (Rust artifact path) | 0.242 ms |
-| EXPRESS giants | 2 | both engines | see the express CSV (measuring) |
+| EXPRESS giants | 2 | both engines | session 2b, load 10–20, N=10: `:native` 4,104 ms (637 KB) / 13,646 ms (4.2 MB); `:vm` 33,579 ms / 151,272 ms — VM ≈ 8–11x native on these |
 
 ## Honest reading (session 2 — all rows, one session)
 

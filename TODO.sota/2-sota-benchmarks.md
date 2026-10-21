@@ -1,15 +1,18 @@
 # 2 — Published benchmarks vs the SOTA tools
 
-Status: in progress — Tier 1, corpus-complete. All five corpora are
-committed with harnesses: seeded JSON, the nine-document pathological
-set, the pubid ISO suite, asciichem (145 accepted fixtures through the
-vendored artifact, both engines), and the EXPRESS giants (637 KB +
-4.2 MB real ISO schemas through expressir's production DSL grammar,
-both engines). Remaining: ONE quiet-host timing run to fill the
-pending table rows (the host has sat at load 20-150; contended
-timings are 2-7x and non-uniform, not publishable). Competitor
-grammar ports for pubid/asciichem/EXPRESS stay future work — no
-cross-tool ratio is claimed without them.
+Status: **done — Tier 1.** All five corpora committed with harnesses
+(JSON, traps, pubid, asciichem, EXPRESS giants) and the full results
+table measured: session 2 (2026-10-22, load 10-21, N=50) put ALL
+SEVEN rows in one session — tree-sitter, pest, Lark, parsanol-native,
+parslet, and both parsanol-ruby engines — so the within-session
+ratios are the meaningful numbers, and they match session 1's partial
+ratios. Headline: parsanol-native beats parslet 3.6x on large and
+both parsanol-ruby engines beat it ~1.35x; tree-sitter (~62x) and
+pest (~58x) quantify the gap that motivates the codegen direction.
+parsanol-only rows (pubid/asciichem/EXPRESS) carry their load
+conditions in BENCHMARKS.md. Competitor grammar ports for
+pubid/asciichem/EXPRESS remain future work — no cross-tool ratio is
+claimed without them.
 
 ## Goal
 
