@@ -506,9 +506,13 @@ native table-on-bind limitation noted in the case).*
 
 `capture` and `example` expectations compare through one canonical form:
 maps stringify keys and recurse, arrays recurse, `nil`/booleans/integers are
-themselves, everything else is `String(value)`. This removes engine/representation
-differences; a test can never pass on one engine and fail on another over
-representation.
+themselves, floats render as their **JSON number text** (shortest round-trip
+digits in the JSON gem's notation — the B6 canonical float form used for
+checksums), and everything else is `String(value)`. This removes
+engine/representation differences; a test can never pass on one engine and
+fail on another over representation. Float expectations ride the artifact
+checksum, so the canonical float form is load-bearing across engines
+(`bindings_float`).
 
 ---
 

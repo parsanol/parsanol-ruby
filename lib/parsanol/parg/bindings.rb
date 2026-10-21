@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "json"
+
 module Parsanol
   module PARG
     # Applies an entry's artifact bindings to a parsanol-shape parse tree,
@@ -32,6 +34,7 @@ module Parsanol
         when Hash then value.to_h { |key, item| [key.to_s, canonical(item)] }
         when Array then value.map { |item| canonical(item) }
         when nil, true, false, Integer then value
+        when Float then JSON.generate(value) # B6: the JSON number text
         else String(value)
         end
       end
