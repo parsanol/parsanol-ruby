@@ -19,6 +19,13 @@ Conformance is enforced by the corpus in `parsanol-rs/corpus/conformance`
 Every rule below cites the case that pins it, or is listed as a corpus gap in
 [Coverage gaps](#coverage-gaps) (parsanol-rs#254).
 
+A material change to the match relation — a new combinator, a changed
+flattening law, a new terminal form — re-triggers the archived one-shot
+validator (`parsanol-rs/tools/spec-validator`, TODO.sota/8 B2): an
+independent implementation of this document, run once against the corpus
+and a fuzz-fixture batch, with every divergence triaged as an engine bug or
+a spec bug.
+
 ---
 
 ## 1. Notation and foundations
@@ -107,8 +114,8 @@ With `⊕` the pointwise merge:
 H₁ ⊕ H₂ = H₁ ⊎ H₂            maps merge; the right value wins on a duplicate key
 T₁ ⊕ T₂ = T₁·T₂              text concatenates
 T ⊕ X = X ⊕ T = X            text next to a non-text value is dropped
-H ⊕ X = [H, X]               X is neither map nor text: array in source order
-X ⊕ H = [X, H]
+H ⊕ A = [H] ++ A             a map beside an array appends FLAT (no nesting)
+A ⊕ H = A ++ [H]
 A₁ ⊕ A₂ = A₁ ++ A₂           arrays concatenate
 ```
 
@@ -119,7 +126,9 @@ An empty sequence flattens to the empty text `""`.
 ### V2 — Flattening: optional
 
 `[ x ]` flattens to `flatten(x)` when it matched. When it did not match:
-`ε` if the optional is inside a capture, empty text `""` otherwise.
+`ε` if the optional is inside a capture, empty text `""` otherwise. "Inside
+a capture" means the capture's **direct** value (V4); a sequence never
+carries the named context to its children.
 
 *Pins: `repetition` (`dashed` on `"ab"` omits `dash`), `optional_capture`
 (`dash: null` when absent).*
@@ -132,7 +141,8 @@ Flatten each iteration, then:
    every non-map iteration;
 2. otherwise, if any iteration is an **array**, concatenate all array
    iterations and drop every non-array iteration;
-3. otherwise, if the repetition is inside a capture and is empty, yield `[]`;
+3. otherwise, if the repetition is *directly* inside a capture (V4) and is
+   empty, yield `[]`;
 4. otherwise concatenate the text iterations (`ε` skipped; all-`ε` → `""`).
 
 This is parslet's `CanFlatten` behavior, including its data loss; it is a
@@ -144,8 +154,12 @@ idiom is to capture every structural iteration so rule 1 applies uniformly.
 ### V4 — Named captures
 
 `x as name` (K1) yields the map `{name: flatten(x)}` — note the capture's
-inner flattening uses the *named* variant of V2/V3. Rule references are
-transparent: capturing a rule captures what the rule produced.
+inner flattening uses the *named* variant of V2/V3. The named variant
+applies to the capture's **direct value only**: a sequence below the
+capture flattens its children in the unnamed context, so an optional or
+repetition nested inside a sequence never sees the named arm (the parslet
+`CanFlatten` contract). Rule references are transparent: capturing a rule
+captures what the rule produced.
 
 ---
 
