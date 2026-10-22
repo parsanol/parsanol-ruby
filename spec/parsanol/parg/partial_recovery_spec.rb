@@ -66,6 +66,26 @@ RSpec.describe "PARG partial-tree recovery (R1.5)" do
     end
   end
 
+  it "carries the F7 error wire structure on both engines" do
+    art = artifact
+    %i[native ruby].each do |mode|
+      got = art.parse_recovering("main", "a=1;b=2;c=3", mode: mode)
+      wire = got["error"]
+      f7_keys = %w[offset line column expected ranked message].freeze
+      f7_keys.each do |key|
+        expect(wire).to have_key(key), "#{mode}: error wire missing #{key}"
+      end
+      expect(wire["offset"]).to eq(11), "#{mode}: deepest offset"
+      expect(wire["expected"]).to be_an(Array)
+      expect(wire["expected"]).not_to be_empty, "#{mode}: expected-set empty"
+      expect(wire["ranked"]).to be_an(Array)
+      expect(wire["ranked"]).not_to be_empty, "#{mode}: ranked empty"
+      positions = wire["ranked"].map(&:first)
+      expect(positions).to eq(positions.sort.reverse), "#{mode}: ranked not deepest-first"
+      expect(positions.first).to eq(11), "#{mode}: ranked deepest entry"
+    end
+  end
+
   it "adds no resyncs on plain truncation (both engines)" do
     art = artifact
     %i[native ruby].each do |mode|

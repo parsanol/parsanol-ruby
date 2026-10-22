@@ -331,14 +331,33 @@ module Parsanol
         { root_name => flattened }
       end
 
+      # Recovery error wire — the rs engine's F7 shape (offset, line,
+      # column, expected at the deepest position, ranked distinct
+      # positions deepest-first), computed from the interpreter's cause
+      # tree. `message` rides along for consumers that surface the
+      # rendered text (lutaml-lml digs line/column from it).
+      # Parity with parsanol::portable::parser::MAX_RANKED_FAILURES.
+      MAX_RANKED_FAILURES = 8
+
       def recovery_error(err)
         cause = err.parse_failure_cause
-        # The raised cause can sit shallower than the real failure (a
-        # consume-all leftover reported at the partial run's end);
-        # recovery annotations carry the DEEPEST position in the cause
-        # tree — the same semantics as the rs engine's failure wire.
-        { "offset" => cause && deepest_position(cause),
-          "message" => err.message }
+        return { "offset" => nil, "message" => err.message } unless cause
+
+        ranks = collect_ranks(cause)
+        offset = ranks.keys.max
+        line, column = cause.source&.line_and_column(offset)
+        {
+          "offset" => offset,
+          "line" => line,
+          "column" => column,
+          # The deepest entry mirrors ranked's head — same as the rs
+          # wire, where failure_wire and ranked[0] agree.
+          "expected" => ranks[offset] || [],
+          "ranked" => ranks.sort_by { |pos, _| -pos }
+            .first(MAX_RANKED_FAILURES)
+            .map { |pos, labels| [pos, labels] },
+          "message" => err.message,
+        }
       end
 
       def deepest_position(cause)
@@ -349,6 +368,22 @@ module Parsanol
           max = [max, deepest_position(child)].max
         end
         max
+      end
+
+      # Distinct failure positions with the labels expected at each —
+      # every cause node contributes its position and message; deeper
+      # duplicates of the same position merge. Capped like the rs wire
+      # (MAX_RANKED_FAILURES) at the reader, deepest first.
+      def collect_ranks(cause, into = {})
+        labels = into[cause.position] ||= []
+        text = cause.message.to_s
+        labels << text unless labels.include?(text)
+        Array(cause.children).each do |child|
+          next if child.nil?
+
+          collect_ranks(child, into)
+        end
+        into
       end
 
       # Journaling re-parse — always on the Ruby engine (journaling
