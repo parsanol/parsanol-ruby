@@ -130,6 +130,17 @@ module Parsanol
               "(bind the class before compiling, or fix the custom declaration)"
       end
 
+      # The declared resync skip pattern for a rule, built as a raw
+      # atom (no trivia injection). Nil when the rule declares none.
+      def resync_atom_for(rule)
+        pattern = @document.resyncs[rule.to_sym] || @document.resyncs[rule.to_s]
+        return nil unless pattern
+
+        expand_left_recursion! unless @expanded
+        @resync_cache ||= {}
+        @resync_cache[rule.to_sym] ||= build_atom(pattern)
+      end
+
       def atom_for(name)
         expand_left_recursion! unless @expanded
         @atom_cache[name] ||= begin
@@ -925,6 +936,12 @@ module Parsanol
       end
 
       def build_envelope
+        @document.resyncs.each_key do |target|
+          unless @document.rules.key?(target.to_sym) ||
+              @document.rules.key?(target.to_s)
+            raise CompileError, "resync declared for unknown rule #{target.inspect}"
+          end
+        end
         entries = @document.entries.to_h do |name, rule|
           [name, entry_envelope(rule)]
         end
@@ -980,11 +997,20 @@ module Parsanol
       end
 
       def entry_envelope(rule)
-        {
+        envelope = {
           "root" => rule,
           "grammar" => JSON.parse(portable_json(rule)),
           "bindings" => binding_list(rule),
         }
+        # R2 declared resync: the skip pattern bakes as its own
+        # mini-grammar (same portable atoms shape) so every engine
+        # matches identical error spans. Raw match — no trivia
+        # injection: the pattern delimits junk, it is not syntax.
+        if (pattern = @document.resyncs[rule.to_sym] || @document.resyncs[rule.to_s])
+          envelope["resync"] =
+            JSON.parse(Parsanol::Native::Parser.serialize_grammar(build_atom(pattern)))
+        end
+        envelope
       end
 
       def portable_json(rule)
