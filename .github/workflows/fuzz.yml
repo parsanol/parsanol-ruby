@@ -50,7 +50,7 @@ jobs:
           node-version: '22'
       - name: Wasm engine
         run: |
-          npm install --prefix "$RUNNER_TEMP/wasm" parsanol@0.10.5 --no-fund --no-audit
+          npm install --prefix "$RUNNER_TEMP/wasm" parsanol@0.10.13 --no-fund --no-audit
           cp script/fuzz_wasm.mjs "$RUNNER_TEMP/wasm/"
           node "$RUNNER_TEMP/wasm/fuzz_wasm.mjs" "$FUZZ_EXPORT_DIR" | tee wasm-fuzz.log
           {
