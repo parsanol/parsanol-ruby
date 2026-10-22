@@ -265,6 +265,7 @@ module Parsanol
             if document.resyncs.key?(target.to_sym)
               raise ParseError, "duplicate resync declaration for #{target.inspect}"
             end
+
             # The target rule may be declared later in the block
             # (forward reference, like entry roots); the compiler
             # rejects unknown targets at compile time.

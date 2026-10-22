@@ -254,7 +254,7 @@ module Parsanol
         # spans (author-deterministic — no trial scanning). Falls back
         # to the inferred trial scan when the rule declares none.
         pattern_atom = compiler.resync_atom_for(body_rule) ||
-                       compiler.resync_atom_for(entry(entry_name)["root"])
+          compiler.resync_atom_for(entry(entry_name)["root"])
         max = input.length
         resyncs = []
         items = []
@@ -285,8 +285,6 @@ module Parsanol
               "skipped" => input[cursor...resume],
               "resumed_at" => resume,
             }
-            cursor = resume
-            rounds += 1
           else
             # Inferred: scan for the next viable iteration start.
             found = nil
@@ -308,9 +306,9 @@ module Parsanol
               "resumed_at" => skip_start,
             }
             items << root_atom(entry_name).flatten(value)
-            cursor = resume
-            rounds += 1
           end
+          cursor = resume
+          rounds += 1
         end
         [items, resyncs]
       end

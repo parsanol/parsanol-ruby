@@ -938,7 +938,7 @@ module Parsanol
       def build_envelope
         @document.resyncs.each_key do |target|
           unless @document.rules.key?(target.to_sym) ||
-                 @document.rules.key?(target.to_s)
+              @document.rules.key?(target.to_s)
             raise CompileError, "resync declared for unknown rule #{target.inspect}"
           end
         end
