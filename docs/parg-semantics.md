@@ -429,6 +429,21 @@ full-consumption check (M0), so leading whitespace and trailing comments parse.
 
 *Pins: `skip_trivia` (`"  abc = 42"`); trailing trivia is gap G10.*
 
+### S7 — Declared resync (recovery, R2)
+
+A `resync <rule> = <pattern>` declaration is a **recovery policy**, not part
+of the match relation: at a failure point inside (or under) `<rule>`, the
+recovery pass consumes each match of `<pattern>` — from the failure cursor to
+the pattern match's end — as one annotated error span (`{offset, skipped,
+resumed_at}`), bounded at 8 rounds, and resumes iterations after the span.
+Declared patterns own the spans deterministically; rules without a declaration
+use the engine's inferred scan (next viable iteration start). The pattern
+bakes into the artifact (`entry.resync`), so every engine recovers with
+identical spans. Captures inside a declared pattern are a parse error.
+
+*Pins: `recovery_resync_declared` (differential, both engines); offsets and
+spans asserted by the recovery specs.*
+
 ### S6 — Lookahead exemption
 
 A lookahead's body is never injection-rewritten: its contract is the raw text
