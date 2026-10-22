@@ -1,6 +1,7 @@
 # 8 — Cross-engine differential fuzzing; verified core research
 
-Status: **Track A done; Track B revised and open (B1/B2 build items).**
+Status: **Track A done; B1 shipped; B2 run once and archived; B3
+deferred.**
 Track A: seeded random-grammar four-path differential (native / VM /
 interpreter / wasm) with a wasm replay leg, nightly on schedule; first
 runs green. Track B: the original Isabelle-first plan was superseded by
@@ -53,6 +54,21 @@ second implementation to maintain.
   reference mode; the differential fuzz gains a fifth path; the gate
   costs nothing when off (a config check at construction).
 
+**Shipped 2026-10-22** (parsanol-rs#286; Ruby half in the ext-lock
+release):
+
+- `PortableParser::new_reference` — dense cache, capture-keyed dyn
+  cache, dispatch-outcome cache, host dispatch-fragment cache, fused
+  repetition scans, SIMD bulk repetition and terminal fast paths all
+  bypassed; fragment parses inherit the mode. One predictable branch
+  when off.
+- `parsanol/tests/reference_mode.rs` replays every conformance case in
+  both modes: **117 cases, 32 artifacts, zero divergence**.
+- `Native._parse_handle_reference` / `Artifact#parse(mode: :reference)`;
+  the differential fuzz runs it as the fifth path and asserts it ran
+  every input. Old extensions report the path unavailable instead of
+  failing.
+
 ### B2 — One-shot corpus validator (build-then-archive item)
 
 A throwaway implementation of the match relation written *from the
@@ -70,6 +86,15 @@ bug — both closed. Then ARCHIVE it: it is deliberately NOT maintained.
   `tools/` (or is attached to the report issue) and never in `lib/`.
 - Re-trigger: the match relation in `docs/parg-semantics.md` changes
   materially (a new combinator, a changed flatten law).
+
+**Run and archived 2026-10-22** (parsanol-rs#287,
+`tools/spec-validator/`): **304/304** (125 corpus cases + 179 fuzz
+cases from seed 20261022), zero divergence, zero skips. Run 1 (the
+document taken literally) diverged 8 times and triaged to two spec
+bugs, both fixed in parsanol-ruby#293 — V1's map-beside-array merge is
+a FLAT append (the original table nested), and V2/V3's named context
+applies to a capture's direct value only (a sequence resets it). The
+triage table is in `tools/spec-validator/REPORT.md`.
 
 ### B3 — Generated proofs (deferred, conditions stated)
 

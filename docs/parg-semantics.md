@@ -682,6 +682,15 @@ skip/trivia shapes and still produces the corpus result); not directly
 corpus-expressible for the native interpreter abort, which the differential
 gate covers.*
 
+Memoization, program compilation and caching are **unobservable
+optimizations** (C7): an engine may skip any of them and MUST still produce
+the same result. The Rust walker makes this executable — `new_reference`
+disables every memo table, fused scan and terminal fast path, running the
+plain recursive relation this document states. The whole conformance corpus
+replays identically in reference mode
+(`parsanol/tests/reference_mode.rs`), and `Native._parse_handle_reference`
+exposes it to the cross-engine fuzz as an independent fifth path.
+
 ### E2 — Recovery extension (R1)
 
 `parse_recovering(entry, w)` never raises:

@@ -29,6 +29,16 @@ module Parsanol
         Parser.available?
       end
 
+      # Whether the reference walker is available (TODO.sota/8 B1): the
+      # `_parse_handle_reference` export ships with parsanol >= 0.18.18.
+      # Probed rather than assumed so a checkout whose extension predates
+      # the export can report the missing fifth fuzz path instead of
+      # raising NoMethodError mid-run.
+      def reference_available?
+        available? && Parser.extension_loaded? &&
+          respond_to?(:_parse_handle_reference)
+      end
+
       # Parse input with a Ruby grammar, returning clean AST with lazy line/column.
       #
       # Uses batch FFI format for maximum performance (3-5x faster than object-by-object).
@@ -346,6 +356,40 @@ module Parsanol
           begin
             BatchDecoder.decode_and_flatten(
               _parse_handle(Parser.grammar_handle(grammar), input),
+              input, Parsanol::Slice
+            )
+          rescue RuntimeError => e
+            raise_native_parse_error(e, grammar, input)
+          end
+        rescue RuntimeError => e
+          raise_native_parse_error(e, grammar, input)
+        end
+      end
+
+      # Reference-walker path (TODO.sota/8 B1): the plain recursive
+      # relation — no VM, no memo tables, no fused scans, no terminal
+      # fast paths. Deliberately slow; the cross-engine differential
+      # fuzz runs it as an independent path, so a native failure here is
+      # a real disagreement and must not be rescued into a different
+      # engine's answer.
+      def parse_reference(grammar, input)
+        unless reference_available?
+          raise NotImplementedError,
+                "reference mode requires the native extension with " \
+                "parsanol >= 0.18.18"
+        end
+
+        handle = Parser.grammar_handle(grammar)
+
+        begin
+          BatchDecoder.decode_and_flatten(_parse_handle_reference(handle, input),
+                                          input, Parsanol::Slice)
+        rescue ArgumentError
+          # Handle dropped Rust-side (e.g. cache cleared): re-register once.
+          Parser.invalidate_handle(handle)
+          begin
+            BatchDecoder.decode_and_flatten(
+              _parse_handle_reference(Parser.grammar_handle(grammar), input),
               input, Parsanol::Slice
             )
           rescue RuntimeError => e

@@ -108,13 +108,24 @@ module Parsanol
           end
 
           root_atom(entry_name).parse(input)
+        when :reference
+          # The plain recursive relation (TODO.sota/8 B1): same shaping
+          # pipeline, no VM, no memo tables, no fused scans. Never falls
+          # back to :ruby — a reference result produced by another
+          # engine would defeat the differential. Deliberately slow.
+          unless Native.reference_available?
+            raise NotImplementedError, "reference mode requires the native " \
+                                       "extension with parsanol >= 0.18.18"
+          end
+
+          Native.parse_reference(root_atom(entry_name), input)
         when :ruby
           # Deepest-failure reporting parity with the native engine: the
           # default Tree reporter keeps the most recent (root) failure,
           # which reports position 1:1 for grammars with entry wrappers.
           root_atom(entry_name).parse(input, reporter: ErrorReporter::Deepest.new)
         else
-          raise ArgumentError, "unknown mode #{mode.inspect} (use :native or :ruby)"
+          raise ArgumentError, "unknown mode #{mode.inspect} (use :native, :reference or :ruby)"
         end
       end
 

@@ -36,7 +36,7 @@ jobs:
           if [ -z "$FUZZ_SEED" ]; then
             echo "FUZZ_SEED=$(date +%Y%m%d)" >> "$GITHUB_ENV"
           fi
-      - name: Ruby engines (native / artifact / VM / interpreter)
+      - name: Ruby engines (native / artifact / VM / interpreter / reference)
         run: |
           bundle exec rspec spec/parsanol/parg/differential_fuzz_spec.rb 2>&1 | tee fuzz.log
           {
