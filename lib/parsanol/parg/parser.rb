@@ -257,6 +257,21 @@ module Parsanol
             skip_newlines
             next
           end
+          if peek&.type == :ident && peek.value == "resync"
+            advance
+            target = rule_name
+            punct("=")
+            node = parse_choice
+            if document.resyncs.key?(target.to_sym)
+              raise ParseError, "duplicate resync declaration for #{target.inspect}"
+            end
+            # The target rule may be declared later in the block
+            # (forward reference, like entry roots); the compiler
+            # rejects unknown targets at compile time.
+            document.resyncs[target.to_sym] = validate_resync_node(node)
+            skip_newlines
+            next
+          end
           if peek&.type == :ident && STATE_KEYWORDS.include?(peek.value)
             keyword = advance.value
             slot = ident.value
@@ -297,6 +312,30 @@ module Parsanol
         case node.kind
         when :ref then node.a
         when :alt then node.a.map { |b| skip_source_string(b) }.join(" / ")
+        end
+      end
+
+      # A resync pattern may be any expression EXCEPT captures and
+      # state operations: the span it matches is reported as skipped
+      # error text, so bindings and slots have no meaning inside it,
+      # and a capture would silently drop its data.
+      def validate_resync_node(node)
+        case node.kind
+        when :cap
+          raise ParseError,
+                "resync pattern may not contain captures (the matched " \
+                "span is annotated error text), got :cap"
+        when :seq, :alt
+          node.a.each { |child| validate_resync_node(child) }
+          node
+        when :rep, :opt
+          validate_resync_node(node.a)
+          node
+        when :pred
+          validate_resync_node(node.b)
+          node
+        else
+          node
         end
       end
 

@@ -250,42 +250,82 @@ module Parsanol
         return [[], []] unless body_rule
 
         body_atom = compiler.atom_for(body_rule)
+        # R2 declared form: the baked resync pattern owns the skip
+        # spans (author-deterministic — no trial scanning). Falls back
+        # to the inferred trial scan when the rule declares none.
+        pattern_atom = compiler.resync_atom_for(body_rule) ||
+                       compiler.resync_atom_for(entry(entry_name)["root"])
         max = input.length
         resyncs = []
         items = []
         rounds = 0
         while rounds < 8
-          found = nil
-          scan = cursor
-          while scan < max
-            attempt = try_iteration(body_atom, input, scan)
-            if attempt && attempt[1] > scan
-              found = [scan, attempt[1], attempt[0]]
-              break
-            end
-            scan += 1
-          end
-          break unless found
-
-          skip_start, resume, value = found
-          resyncs << {
-            "offset" => cursor,
-            "skipped" => input[cursor...skip_start],
-            "resumed_at" => skip_start,
-          }
-          items << root_atom(entry_name).flatten(value)
-          cursor = resume
-          rounds += 1
-          until cursor >= max
-            attempt = try_iteration(body_atom, input, cursor)
-            break unless attempt && attempt[1] > cursor
-
+          attempt = try_iteration(body_atom, input, cursor)
+          if attempt
             items << root_atom(entry_name).flatten(attempt[0])
             cursor = attempt[1]
+            until cursor >= max
+              attempt = try_iteration(body_atom, input, cursor)
+              break unless attempt
+
+              items << root_atom(entry_name).flatten(attempt[0])
+              cursor = attempt[1]
+            end
+            break if cursor >= max
           end
-          break if cursor >= max
+          if pattern_atom
+            # Declared: the pattern match (gap + delimiter) is the
+            # annotated error span.
+            span = scan_pattern(pattern_atom, input, cursor)
+            break unless span
+
+            resume = span[1]
+            resyncs << {
+              "offset" => cursor,
+              "skipped" => input[cursor...resume],
+              "resumed_at" => resume,
+            }
+            cursor = resume
+            rounds += 1
+          else
+            # Inferred: scan for the next viable iteration start.
+            found = nil
+            scan = cursor
+            while scan < max
+              attempt = try_iteration(body_atom, input, scan)
+              if attempt && attempt[1] > scan
+                found = [scan, attempt[1], attempt[0]]
+                break
+              end
+              scan += 1
+            end
+            break unless found
+
+            skip_start, resume, value = found
+            resyncs << {
+              "offset" => cursor,
+              "skipped" => input[cursor...skip_start],
+              "resumed_at" => skip_start,
+            }
+            items << root_atom(entry_name).flatten(value)
+            cursor = resume
+            rounds += 1
+          end
         end
         [items, resyncs]
+      end
+
+      # Scan forward from `from` for the first position where the
+      # declared pattern matches with progress: [match_start, match_end].
+      def scan_pattern(pattern_atom, input, from)
+        scan = from
+        while scan < input.length
+          attempt = try_iteration(pattern_atom, input, scan)
+          return [scan, attempt[1]] if attempt
+
+          scan += 1
+        end
+        nil
       end
 
       # Apply the body atom at one position: [value, end_pos] on a

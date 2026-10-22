@@ -19,6 +19,9 @@ module Parsanol
 
       attr_accessor :grammar_name, :version, :source, :uses, :skip_declaration, :skip_source,
                     :atomic_rules, :skip_capture_key
+      # R2 declared resync: rule name -> skip pattern (the span matched
+      # at a recovery point is consumed as annotated error text).
+      attr_reader :resyncs
       attr_reader :rules, :bindings, :preprocess, :entries, :docs, :tests, :render, :derive,
                   :customs, :states
       # Entries authored in this file (pre-import); nil-entry tests resolve
@@ -45,6 +48,10 @@ module Parsanol
         # suppressed inside their bodies (token-shaped rules match
         # contiguously).
         @atomic_rules = []
+        # R2 declared resync: rule -> skip pattern. Recovery consumes
+        # each pattern match at a failure point as annotated error text
+        # and resumes the iteration after it.
+        @resyncs = {}
       end
 
       def validate!
