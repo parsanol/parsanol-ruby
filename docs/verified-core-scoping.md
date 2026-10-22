@@ -3,6 +3,17 @@
 *TODO.sota/8, Track B. This is a scoping document, not a proof. No proof work
 starts until the scope below is accepted.*
 
+> **Superseded in part (2026-10-22, owner-directed).** The debugging value of
+> an independent reference is wanted, but a *maintained* second interpreter is
+> rejected outright (every language change would need a second update site,
+> and a buggy maintained oracle cannot arbitrate disagreements). The accepted
+> plan in TODO.sota/8 now runs as B1 — a reference mode on the existing Rust
+> walker (memoization and optimizations off) as a fifth differential path —
+> and B2 — a one-shot validator written from this document's relation, run
+> against the corpus once, reported, and archived, never maintained. The
+> Isabelle milestones below (M1–M5) remain the basis for B3, deferred with
+> re-trigger conditions in TODO.sota/8.
+
 ## Goal
 
 Turn the normative rules in [parg-semantics.md](parg-semantics.md) into a
