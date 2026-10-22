@@ -76,11 +76,11 @@ this roadmap specifically:
 
 | File | Status |
 |---|---|
-| 1-error-recovery | open — R1 shipped |
-| 2-sota-benchmarks | in progress — v1 shipped (#246) |
+| 1-error-recovery | done — R1, R1.5 partial trees, R2 inferred + declared resync on all runtimes; shipped |
+| 2-sota-benchmarks | done — seven-tool table measured in one session (ruby#280/#281) |
 | 3-parg-formal-spec | done — docs/parg-semantics.md |
 | 4-lsp-playground | done — LSP #250; playground live |
-| 5-left-recursion | open — owner gate (parsanol-ruby#251) |
+| 5-left-recursion | done — owner approved the C9 compile-time rewrite (ruby#262) |
 | 6-compact-packrat | done (bound + pins; spill not shipped, measured) |
-| 7-incremental-treesitter-grade | in progress — multi-region gate; keystroke probe |
-| 8-fuzzing-and-verified-core | done — nightly four-path fuzz + wasm; Track B scoped |
+| 7-incremental-treesitter-grade | done — splice chain from the spine trace; both gaps fixed and released |
+| 8-fuzzing-and-verified-core | done — nightly four-path fuzz + wasm; B1 reference mode shipped; B2 run once and archived; B3 deferred |
