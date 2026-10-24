@@ -66,6 +66,10 @@ module Parsanol
 
       # QoL shorthands (ABNF core rules): materialized on reference when
       # the grammar does not define its own rule of that name.
+      # Character-class core rules (TODO.sota/9 T1, ruby#303): the RFC
+      # 5234 prelude that is expressible as a class. A grammar's own
+      # rule of the same name shadows these — fetch_rule checks the
+      # document first. ALNUM/WORD/ANY predate the RFC set.
       BUILTIN_CLASSES = {
         "DIGIT" => [[0x30, 0x39]],
         "ALPHA" => [[0x41, 0x5A], [0x61, 0x7A]],
@@ -73,9 +77,21 @@ module Parsanol
         "WORD" => [[0x30, 0x39], [0x41, 0x5A], [0x5F, 0x5F], [0x61, 0x7A]],
         "HEXDIG" => [[0x30, 0x39], [0x41, 0x46], [0x61, 0x66]],
         "ANY" => [[0x00, 0x10FFFF]],
+        "BIT" => [[0x30, 0x31]],
+        "CHAR" => [[0x01, 0x7F]],
+        "CR" => [[0x0D, 0x0D]],
+        "CTL" => [[0x00, 0x1F], [0x7F, 0x7F]],
+        "DQUOTE" => [[0x22, 0x22]],
+        "HTAB" => [[0x09, 0x09]],
+        "LF" => [[0x0A, 0x0A]],
+        "OCTET" => [[0x00, 0xFF]],
+        "SP" => [[0x20, 0x20]],
+        "VCHAR" => [[0x21, 0x7E]],
+        "WSP" => [[0x20, 0x20], [0x09, 0x09]],
       }.freeze
 
       def compile
+        inject_core_rules!
         expand_left_recursion!
         @document.rules.each_key { |name| atom_for(name) }
         errors = Lints.errors(@document, self)
@@ -120,6 +136,62 @@ module Parsanol
         end.flatten
       end
 
+      # The structured core rules (TODO.sota/9 T1, ruby#303): CRLF and
+      # LWSP are not character classes, so BUILTIN_CLASSES cannot serve
+      # them — they inject as real rules when referenced and missing,
+      # transitively (LWSP needs CRLF). Class-expressible members of
+      # the RFC 5234 set ride BUILTIN_CLASSES above; a grammar's own
+      # rule of the same name shadows either mechanism. Injected at the
+      # front so definitions precede references for the order lint.
+      STRUCTURED_CORE_RULES_SOURCE = <<~PARG
+        grammar CoreRules version "1.0.0" {
+          CRLF = %x0D.0A
+          LWSP = *( WSP / CRLF WSP )
+        }
+      PARG
+
+      STRUCTURED_CORE_RULE_NAMES = %w[CRLF LWSP].freeze
+
+      def inject_core_rules!
+        return if @core_rules_injected
+
+        @core_rules_injected = true
+        missing = STRUCTURED_CORE_RULE_NAMES.select do |name|
+          !@document.rules.key?(name) &&
+            @document.rules.each_value.any? { |node| references_atom?(node, name) }
+        end
+        return if missing.empty?
+
+        prelude = Parser.new(STRUCTURED_CORE_RULES_SOURCE).parse
+        injected = {}
+        until missing.empty?
+          name = missing.pop
+          next if injected.key?(name) || @document.rules.key?(name)
+
+          node = prelude.rules.fetch(name)
+          injected[name] = node
+          STRUCTURED_CORE_RULE_NAMES.each do |dep|
+            missing << dep if !injected.key?(dep) && !@document.rules.key?(dep) &&
+              references_atom?(node, dep)
+          end
+        end
+        # rules is deliberately read-only on the document: prepend in place.
+        @document.rules.replace(injected.merge(@document.rules))
+      end
+
+      def references_atom?(node, name)
+        walk = lambda do |n|
+          case n.kind
+          when :ref then return true if n.a == name
+          when :alt, :seq then n.a.each { |b| return true if references_atom?(b, name) }
+          when :cap, :pred then return true if references_atom?(n.b, name)
+          when :rep, :opt then return true if references_atom?(n.a, name)
+          end
+          false
+        end
+        walk.call(node) == true
+      end
+
       def resolve_custom(name)
         class_name = @document.customs.fetch(name)
         klass = Object.const_get(class_name)
@@ -142,6 +214,7 @@ module Parsanol
       end
 
       def atom_for(name)
+        inject_core_rules!
         expand_left_recursion! unless @expanded
         @atom_cache[name] ||= begin
           atom = build_atom(fetch_rule(name))

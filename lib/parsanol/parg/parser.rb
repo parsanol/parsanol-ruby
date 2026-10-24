@@ -27,6 +27,7 @@ module Parsanol
         @tokens = Lexer.new(text).tokens
         @pos = 0
         @source_text = text
+        @brace_depth = 0
       end
 
       def parse
@@ -63,6 +64,20 @@ module Parsanol
 
       def skip_newlines
         advance while peek&.type == :newline
+      end
+
+      # Whitespace inside a brace body: newlines and comments (the `##`
+      # doc token included — inside a body it is a comment, not a doc
+      # attachment). No-op outside braces, so line-mode parsing is
+      # unchanged.
+      def skip_body_ws
+        return unless @brace_depth.positive?
+
+        skip_newlines
+        while peek&.type == :doc
+          advance
+          skip_newlines
+        end
       end
 
       # Doc comments (##) accumulate and attach to the next rule.
@@ -294,7 +309,34 @@ module Parsanol
           name = rule_name
           document.docs[name] = docs.join("\n") unless docs.empty?
           punct("=")
+          # Brace bodies (TODO.sota/9 T2, ruby#302): `name = { ... }`
+          # is self-delimiting — newlines and comments are whitespace
+          # inside, the body extends to the matching `}`. Additive: `{`
+          # never appeared at the rule head before.
+          brace = peek&.type == :punct && peek.value == "{"
+          if !brace
+            # The brace may also sit on the next line: `name =` NL `{`.
+            # Peek past the newline; restore when it is not a brace so
+            # line-mode error behavior is untouched.
+            saved = @pos
+            skip_newlines
+            if peek&.type == :punct && peek.value == "{"
+              brace = true
+            else
+              @pos = saved
+            end
+          end
+          if brace
+            advance
+            @brace_depth += 1
+            skip_body_ws
+          end
           node = parse_choice
+          if brace
+            skip_body_ws
+            punct("}")
+            @brace_depth -= 1
+          end
           if document.rules.key?(name)
             raise ParseError, "duplicate rule #{name.inspect}"
           end
@@ -365,7 +407,10 @@ module Parsanol
 
       def parse_choice
         branches = [parse_seq]
-        while peek&.type == :punct && peek.value == "/"
+        loop do
+          skip_body_ws
+          break unless peek&.type == :punct && peek.value == "/"
+
           advance
           branches << parse_seq
         end
@@ -373,15 +418,22 @@ module Parsanol
       end
 
       def parse_seq
+        skip_body_ws
         items = [parse_element]
         until stop_element?
+          skip_body_ws
+          # After skipped body whitespace the terminator (`}`, `)`, `/`)
+          # may only now be visible: re-check before parsing an element.
+          break if stop_element?
+          break if @brace_depth.positive? && peek&.type == :punct && peek.value == "/"
+
           items << parse_element
         end
         items.length == 1 ? items.first : Node.new(:seq, items)
       end
 
       def stop_element?
-        peek.nil? || peek.type == :newline ||
+        peek.nil? || (peek.type == :newline && @brace_depth.zero?) ||
           (peek.type == :punct && ["/", ")", "]", "}"].include?(peek.value)) ||
           # `capture:` suffix terminates the skip declaration's RHS
           # (parsanol-ruby#152); everywhere else parse_element's guard
@@ -452,6 +504,7 @@ module Parsanol
       end
 
       def capture_postfix(node)
+        skip_body_ws
         if peek&.type == :ident && peek.value == "as"
           advance
           node = Node.new(:cap, ident.value, node)
