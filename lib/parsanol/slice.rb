@@ -143,12 +143,21 @@ module Parsanol
     # Unified line/column computation:
     # - String input: compute from input string
     # - Source / LineCache: delegate
+    def prefix_bytes(pos)
+      (@input.byteslice(0, pos) || "").b
+    end
+
     def line_and_column_at(pos)
       if @input.is_a?(String)
-        prefix = @input.byteslice(0, pos) || ""
-        line = 1 + prefix.count("\n")
-        last_nl = prefix.rindex("\n")
-        column = last_nl ? pos - last_nl : pos + 1
+        # All index math in BINARY (rindex returns a character index on
+        # a text string — mixing it with byteslice was the off-by-one);
+        # the column is a CHARACTER count (the guide's wire contract;
+        # rs walks chars()). Offsets stay bytes.
+        raw = prefix_bytes(pos)
+        line = 1 + raw.count("\n".b)
+        last_nl = raw.rindex("\n".b)
+        tail = last_nl ? raw.byteslice(last_nl + 1, pos - last_nl - 1) : raw
+        column = tail.force_encoding(Encoding::UTF_8).length + 1
         [line, column]
       else
         @input.line_and_column(pos)
