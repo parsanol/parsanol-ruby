@@ -116,8 +116,18 @@ is done until its gate is green and merged.
 - **B4** ANTLR corpus growth (SQL/JSON/config + rejection matrix) —
   gate: same harness, green.
 - **B5** lint completion (entry-placement, case-ambiguity, single-use,
-  `--suggest-upgrades`) — gate: each fires on a fixture, silent on the
-  corpus.
+  `--suggest-upgrades`) — PARTIAL (2026-10-24, this branch): single-use
+  + dead-rule lint shipped (advisory; entry roots, injected core rules,
+  and resync-tier rules exempt); case-ambiguity shipped (a
+  case-insensitive earlier literal shadows a case-equal later literal
+  — build failure, the prefix-shadow class); --suggest-upgrades
+  shipped (`parg lint` command: errors exit 1, all warnings printed;
+  the flag adds CoreRuleDuplicates suggestions — bare-class rules
+  duplicating a core rule, and the hand-rolled CRLF sequence —
+  unregistered, suggestion surface only). REMAINING: entry-placement
+  (needs the parser to track WHERE entry appeared — and its
+  canonical-placement rule needs an owner decision). Gate: each fires
+  on a fixture, silent on the corpus.
 
 **C — unicode native**
 - **C1** U1 char-based columns — after: OWNER GO (wire-coordinated

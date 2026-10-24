@@ -121,11 +121,17 @@ module Parsanol
         def compare_branches(name, earlier, earlier_n, later, later_n, compiler)
           earlier_lit = literal_string(earlier)
           later_lit = literal_string(later)
+          earlier_fold = literal_fold(earlier)
           if earlier_lit && later_lit
             if earlier_lit == later_lit
               return { errors: ["rule #{name}: branches #{earlier_n} and #{later_n} are identical"], warnings: [] }
             elsif later_lit.start_with?(earlier_lit)
               return { errors: [shadow_error(name, earlier_n, earlier_lit, later_n, later_lit)], warnings: [] }
+            elsif earlier_fold && earlier_lit.casecmp(later_lit).zero?
+              # A case-insensitive earlier literal matches every casing
+              # the later literal could: the later branch is dead (same
+              # class as the prefix shadow above).
+              return { errors: [case_shadow_error(name, earlier_n, earlier_lit, later_n, later_lit)], warnings: [] }
             end
           end
           first_earlier = compiler.first_set(earlier) - [Compiler::EPS]
@@ -147,6 +153,16 @@ module Parsanol
 
         def order_warning(name, earlier_n, later_n, reason)
           "rule #{name}: branches #{earlier_n} and #{later_n} are order-dependent (#{reason})"
+        end
+
+        def literal_fold(node)
+          node.kind == :lit ? node.b : nil
+        end
+
+        def case_shadow_error(name, earlier_n, earlier_lit, later_n, later_lit)
+          "rule #{name}: branch #{later_n} (#{later_lit.inspect}) can never match -- " \
+            "branch #{earlier_n} is case-insensitive and already matches " \
+            "#{earlier_lit.inspect} in every casing"
         end
 
         def literal_string(node)
@@ -391,6 +407,108 @@ module Parsanol
         end
       end
       register :repetitions, Repetitions.new
+
+      # ruby#307 lint completion: a rule no other rule references is
+      # dead weight (unless it carries an entry); a rule referenced
+      # exactly once is an inline candidate. Both advisory -- the
+      # grammar is correct either way. Entry roots, the injected core
+      # rules, and the left-recursion tier rules are exempt.
+      class RuleUsage
+        def advisory? = true
+
+        def warnings(document, _compiler)
+          counts = Hash.new(0)
+          document.rules.each do |name, node|
+            collect_refs(node, document, { name => true }, counts)
+          end
+
+          injected = Compiler::BUILTIN_CLASSES.keys +
+            Compiler::STRUCTURED_CORE_RULE_NAMES
+          resync_prefix = Compiler::LEFT_RECURSION_PREFIX
+          document.rules.filter_map do |name, _node|
+            next if injected.include?(name)
+            next if name.to_s.start_with?(resync_prefix)
+            next if document.entries.value?(name)
+
+            case counts[name]
+            when 0
+              "rule #{name.inspect} is referenced by no rule -- dead " \
+              "unless it is a future entry; drop it or wire it in"
+            when 1
+              "rule #{name.inspect} has exactly one reference -- inline " \
+              "candidate (keep it if the name carries the domain)"
+            end
+          end
+        end
+
+        def errors(_document, _compiler) = []
+
+        private
+
+        def collect_refs(node, document, seen, counts)
+          case node.kind
+          when :ref
+            rule = node.a
+            counts[rule] += 1
+            return if seen[rule]
+
+            seen[rule] = true
+            target = document.rules[rule]
+            collect_refs(target, document, seen, counts) if target
+          when :alt, :seq
+            node.a.each { |child| collect_refs(child, document, seen, counts) }
+          when :cap, :pred
+            collect_refs(node.b, document, seen, counts)
+          when :rep, :opt
+            collect_refs(node.a, document, seen, counts)
+          end
+        end
+      end
+      register :rule_usage, RuleUsage.new
+
+      # ruby#307 B5 --suggest-upgrades: machine-applicable authoring
+      # upgrades. NOT registered -- its output is a suggestion surface
+      # (parg lint --suggest-upgrades), never a compile diagnostic and
+      # never part of the envelope.
+      class CoreRuleDuplicates
+        def warnings(document, _compiler)
+          document.rules.filter_map do |name, node|
+            next if Compiler::BUILTIN_CLASSES.key?(name)
+
+            core = core_rule_for(node)
+            next if core.nil?
+
+            "rule #{name.inspect} duplicates the core rule #{core} -- " \
+              "reference #{core} instead (or keep the local spelling deliberate)"
+          end
+        end
+
+        def errors(_document, _compiler) = []
+        def advisory? = true
+
+        private
+
+        def core_rule_for(node)
+          case node.kind
+          when :class
+            Compiler::BUILTIN_CLASSES.find { |_, ranges| normalized(ranges) == normalized(node.a) }&.first
+          when :seq
+            crlf?(node) ? "CRLF" : nil
+          end
+        end
+
+        def crlf?(node)
+          parts = node.a
+          parts.length == 2 &&
+            parts.all? { |part| part.kind == :class } &&
+            normalized(parts[0].a) == [[0x0D, 0x0D]] &&
+            normalized(parts[1].a) == [[0x0A, 0x0A]]
+        end
+
+        def normalized(ranges)
+          ranges.map(&:sort).sort
+        end
+      end
     end
   end
 end
