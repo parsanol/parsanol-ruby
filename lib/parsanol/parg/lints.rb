@@ -94,7 +94,8 @@ module Parsanol
                            # code, but acceptance is identical. Imported grammars
                            # legitimately produce this (unordered ABNF choice), so
                            # it is a warning, not the shadowing hazard.
-                           { errors: [], warnings: [dead_nullable_warning(name, index + 1)] }
+                           { errors: [],
+                             warnings: [Advisory.new(dead_nullable_warning(name, index + 1))] }
                          else
                            { errors: [empty_shadow_error(name, index + 1)], warnings: [] }
                          end
