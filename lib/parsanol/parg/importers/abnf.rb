@@ -12,14 +12,17 @@ module Parsanol
       #   first-set lint flags order-dependent branches after import.
       # - rule names are case-insensitive in ABNF -> normalized to snake_case
       # - prose-vals (<...>) are rejected: they are not machine-parseable
+      # - quoted strings have NO escape mechanism (RFC 5234 3.4): a bare
+      #   backslash is an ordinary character; a literal DQUOTE needs the
+      #   DQUOTE core rule, not a backslash
       class Abnf
         TOKEN = /
           (?<ws>[ \t]+)
         | (?<comment>;[^\n]*)
         | (?<crlf>\r?\n)
-        | (?<sstr>%s"(?:[^"\\]|\\.)*")
-        | (?<istr>%i"(?:[^"\\]|\\.)*")
-        | (?<cistr>"(?:[^"\\]|\\.)*")
+        | (?<sstr>%s"[^"]*")
+        | (?<istr>%i"[^"]*")
+        | (?<cistr>"[^"]*")
         | (?<numval>%[xbdo][0-9A-Za-z]+(?:-[0-9A-Za-z]+|(?:\.[0-9A-Za-z]+)+)?)
         | (?<prose><[^>\n]*>)
         | (?<definedas>=\/|=)
@@ -271,7 +274,10 @@ module Parsanol
         end
 
         def emit_string(body, fold:)
-          escaped = body.gsub("\\", "\\\\").gsub('"', '\\"')
+          # Block form: a String replacement treats backslash escapes
+          # specially, so "\\\\" would emit ONE backslash (the silent
+          # no-op this bug was).
+          escaped = body.gsub("\\") { "\\\\" }.gsub('"') { '\\"' }
           fold ? "%i\"#{escaped}\"" : "\"#{escaped}\""
         end
 

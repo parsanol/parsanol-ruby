@@ -1,0 +1,30 @@
+; RFC 9110 (HTTP Semantics), Sections 5.5 and 5.6 — field lines and
+; their lexical tokens, modern forms only (obs-fold and BWS/RWS alias
+; productions excluded by scope). IETF Trust text reproduced for
+; interoperability testing.
+;
+; Adaptation (documented divergence, same acceptance language): the
+; RFC's field-content = field-vchar [1*(SP/HTAB/field-vchar)
+; field-vchar] relies on ABNF's backtracking to leave the final VCHAR;
+; an ordered-choice engine's possessive run eats it. The form below
+; accepts exactly the same strings (first and last are field-vchar,
+; the middle is SP/HTAB/field-vchar).
+
+field-line    =  field-name ":" OWS field-value OWS
+field-name    =  token
+field-value   =  *field-content
+field-content =  field-vchar *( *( SP / HTAB ) field-vchar )
+field-vchar   =  VCHAR / obs-text
+
+obs-text      =  %x80-FF
+
+OWS           =  *( SP / HTAB )
+
+token         =  1*tchar
+tchar         =  "!" / "#" / "$" / "%" / "&" / "'" / "*" / "+" /
+                 "-" / "." / "^" / "_" / "`" / "|" / "~" / DIGIT /
+                 ALPHA
+
+quoted-string =  DQUOTE *( qdtext / quoted-pair ) DQUOTE
+qdtext        =  HTAB / SP / "!" / %x23-5B / %x5D-7E / obs-text
+quoted-pair   =  "\" ( HTAB / SP / VCHAR / obs-text )
