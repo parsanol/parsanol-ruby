@@ -276,33 +276,20 @@ module Parsanol
         def warnings(document, _compiler)
           all_captures = produced_captures(document)
           bound = []
-          orphan_warnings = []
-          document.bindings.each do |rule, bindings|
-            # Per-rule scope (ruby#308): a binding on rule R names a
-            # capture R's own subtree produces -- not any capture anywhere.
-            # Rules without local captures (pure dispatchers) fall back to
-            # the grammar-wide set.
-            rule_captures = reachable_captures(document, rule)
-            scope = rule_captures.empty? ? all_captures : rule_captures
-            Array(bindings).each do |binding|
-              bound << binding.capture
-              unless scope.include?(binding.capture)
-                orphan_warnings << "binding on #{rule.inspect} references capture " \
-                                   "#{binding.capture.inspect}, which that rule's subtree does " \
-                                   "not produce"
-              end
-            end
+          document.bindings.each_value do |list|
+            Array(list).each { |binding| bound << binding.capture }
           end
 
           # No bindings section = the author opted out of binding (a
           # parse-only grammar): uncovered captures are not oversights.
+          # The orphan half moved to BindingPaths, whose resolution
+          # failures fail the build (ruby#308 v2) -- a warning could
+          # never fire past that error.
           dead = document.bindings.empty? ? [] : all_captures - bound.uniq
-          dead_warnings = dead.map do |capture|
+          dead.map do |capture|
             "capture #{capture.inspect} is bound by no bindings section -- " \
               "ship the binding beside the capture, or drop the capture"
           end
-
-          orphan_warnings + dead_warnings
         end
 
         def errors(_document, _compiler) = []
@@ -315,16 +302,6 @@ module Parsanol
           document.rules.each_value do |node|
             collect_captures(node, document, captures, seen)
           end
-          captures.uniq
-        end
-
-        # Captures reachable from rule +name+ through its own body and
-        # the bodies of the rules it references.
-        def reachable_captures(document, name)
-          captures = []
-          seen = { name => true }
-          node = document.rules[name]
-          collect_captures(node, document, captures, seen) if node
           captures.uniq
         end
 
@@ -352,6 +329,105 @@ module Parsanol
 
       register :alternatives, Alternatives.new
       register :binding_coverage, BindingCoverage.new
+
+      # ruby#308 v2: compile-time binding resolution. The CAPTURE a
+      # binding reads must exist in its rule's capture subtree (the
+      # orphan check, now with teeth); a `x[]...` path needs that
+      # capture to sit under a repetition (the flattening presumes
+      # iteration). The path's names are output naming -- free -- but
+      # its SHAPE is a contract: one `[]` level, one dotted-free leaf,
+      # and a nested path always carries the marker. Anything the
+      # runtime would silently bind as nothing fails the build instead,
+      # naming the rule, the path, and the offending segment.
+      class BindingPaths
+        def errors(document, _compiler)
+          document.bindings.flat_map do |rule, bindings|
+            tree = CaptureTree.new(document, rule)
+            Array(bindings).flat_map { |binding| resolve(rule, binding, tree) }
+          end
+        end
+
+        def warnings(_document, _compiler) = []
+        def advisory? = false
+
+        private
+
+        # The validated language is what the runtime honors today:
+        # `capture` and `capture[].leaf` -- one repetition level, one
+        # leaf. Anything else fails the build instead of silently
+        # binding nothing (the runtime's leaf lookup would miss).
+        def resolve(rule, binding, tree)
+          capture = binding.capture.to_s
+          path = binding.path.to_s
+          return [unresolvable(rule, path, path)] if path.include?(".") && !path.include?("[]")
+
+          scope = tree.scope
+          return [unresolvable(rule, capture, capture)] unless scope.key?(capture)
+          return [] unless path.include?("[]")
+
+          levels = path.split("[]", -1)
+          return [unresolvable(rule, path, "[]")] if levels.size > 2
+
+          leaf = levels[1].to_s.delete_prefix(".")
+          return [unresolvable(rule, path, "[]")] unless scope[capture][0]
+          return [unresolvable(rule, path, leaf)] if leaf.empty? || leaf.include?(".")
+
+          []
+        end
+
+        def unresolvable(rule, path, segment)
+          "binding on #{rule.inspect}: path #{path.inspect} does not resolve -- " \
+            "segment #{segment.inspect} names no capture at that position " \
+            "(supported: capture, capture[].leaf)"
+        end
+      end
+
+      # The capture TREE a binding path resolves against: per capture,
+      # whether it sits under a repetition and which captures its
+      # subtree contains (transitively -- the runtime's capture lookup
+      # is subtree-wide too).
+      class CaptureTree
+        def initialize(document, rule)
+          @document = document
+          @scope = Hash.new { |hash, name| hash[name] = [false, []] }
+          walk(document.rules[rule], { rule => true }) if document.rules.key?(rule)
+        end
+
+        def scope
+          @scope
+        end
+
+        def walk(node, seen, under_rep: false, inside: [])
+          case node.kind
+          when :cap
+            entry = @scope[node.a]
+            # `1*x as n` compiles to cap(n, rep): the capture WRAPS its
+            # repetition, so a repetition in either position makes the
+            # capture repeated.
+            repeated = under_rep || node.b&.kind == :rep
+            entry[0] ||= repeated
+            inside.each { |parent| entry[1] |= [parent] unless entry[1].include?(parent) }
+            walk(node.b, seen, under_rep: repeated, inside: inside + [node.a])
+          when :ref
+            rule = node.a
+            return if seen[rule]
+
+            seen[rule] = true
+            target = @document.rules[rule]
+            walk(target, seen, under_rep: under_rep, inside: inside) if target
+          when :alt, :seq
+            node.a.each { |child| walk(child, seen, under_rep: under_rep, inside: inside) }
+          when :pred
+            walk(node.b, seen, under_rep: under_rep, inside: inside)
+          when :rep
+            walk(node.a, seen, under_rep: true, inside: inside)
+          when :opt
+            walk(node.a, seen, under_rep: under_rep, inside: inside)
+          end
+        end
+      end
+
+      register :binding_paths, BindingPaths.new
 
       # An unbounded repetition whose body can match empty input is an
       # INVALID GRAMMAR: the parse can never terminate, and any VM that

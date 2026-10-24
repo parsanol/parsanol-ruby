@@ -113,8 +113,13 @@ is done until its gate is green and merged.
   name. Gate: dual-mode corpus byte-identical across engines;
   `parg lint --captures` matches the rewrite corpus-wide.
 - **B2** bindings v2 (ruby#308) — after: none (spec #319 merged; lints
-  shipped). Gate: path resolution fails the build naming the segment;
-  ruby/ts/rs bound trees agree on the parity grammar.
+  shipped). PARTIAL (2026-10-24, this PR): compile-time path
+  resolution fails the build naming the segment (capture exists in its
+  rule's subtree; a `[]` path needs the capture under a repetition —
+  its own body's repetition counts; malformed shapes rejected). The
+  orphan half of the coverage lint is subsumed (a warning could never
+  fire past the error). REMAINING: ruby/ts/rs bound trees agree on the
+  parity grammar.
 - **B3** ABNF corpus tail (5322/9110/JOSE) — gate: each imports,
   compiles, replays.
 - **B4** ANTLR corpus growth (SQL/JSON/config + rejection matrix) —
