@@ -542,6 +542,34 @@ module Parsanol
       end
       register :rule_usage, RuleUsage.new
 
+      # ruby#307: canonical entry placement. Every corpus grammar and
+      # the guide's canonical demo declare entries at the FOOT of the
+      # grammar block, after the rules they root; an entry above its
+      # rule reads as a forward table-of-contents and breaks the
+      # reading order. Advisory — placement is style, resolution is
+      # order-independent.
+      class EntryPlacement
+        def advisory? = true
+
+        def warnings(document, _compiler)
+          index = {}
+          document.declaration_order.each_with_index do |(kind, name), i|
+            index[[kind, name]] = i
+          end
+          document.entries.filter_map do |name, rule|
+            entry_at = index[[:entry, name]]
+            rule_at = index[[:rule, rule]]
+            next if entry_at.nil? || rule_at.nil? || entry_at > rule_at
+
+            "entry #{name.inspect} is declared before the rule #{rule.inspect} it " \
+              "roots -- canonical placement: entries at the foot of the grammar block"
+          end
+        end
+
+        def errors(_document, _compiler) = []
+      end
+      register :entry_placement, EntryPlacement.new
+
       # ruby#307 B5 --suggest-upgrades: machine-applicable authoring
       # upgrades. NOT registered -- its output is a suggestion surface
       # (parg lint --suggest-upgrades), never a compile diagnostic and

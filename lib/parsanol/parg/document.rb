@@ -23,6 +23,7 @@ module Parsanol
       # at a recovery point is consumed as annotated error text).
       attr_reader :resyncs
       attr_reader :rules, :bindings, :preprocess, :entries, :docs, :tests, :render, :derive,
+                  :declaration_order,
                   :customs, :states
       # Entries authored in this file (pre-import); nil-entry tests resolve
       # against these first.
@@ -42,6 +43,7 @@ module Parsanol
         @bindings = {}
         @preprocess = {}
         @entries = {}
+        @declaration_order = []
         @docs = {}
         @tests = []
         @uses = []

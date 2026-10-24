@@ -342,6 +342,7 @@ module Parsanol
           end
 
           document.rules[name] = node
+          document.declaration_order << [:rule, name]
           document.brace_rules << name if brace
           document.atomic_rules << name if atomic
           skip_newlines
@@ -635,6 +636,7 @@ module Parsanol
         name = ident.value
         punct(":")
         document.entries[name] = rule_name
+        document.declaration_order << [:entry, name]
       end
 
       def parse_bindings(document)
