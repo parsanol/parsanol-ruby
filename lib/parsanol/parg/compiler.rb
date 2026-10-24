@@ -97,7 +97,10 @@ module Parsanol
         errors = Lints.errors(@document, self)
         raise CompileError, errors.join("\n") unless errors.empty?
 
-        @warnings = Lints.warnings(@document, self)
+        # The author sees every finding; the envelope carries only the
+        # semantic subset (see Lints::Advisory).
+        @warnings = Lints.warnings(@document, self).map(&:to_s)
+        @envelope_warnings = Lints.envelope_warnings(@document, self)
         failures = run_tests
         raise CompileError, failures.join("\n") unless failures.empty?
 
@@ -1030,7 +1033,7 @@ module Parsanol
           "entries" => entries,
           "preprocess" => @document.preprocess,
           "tables" => table_manifest,
-          "lint" => { "order_warnings" => @warnings.uniq },
+          "lint" => { "order_warnings" => @envelope_warnings.uniq },
           "default_entry" => begin
             resolve_default_entry
           rescue StandardError

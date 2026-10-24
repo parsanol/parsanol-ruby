@@ -9,6 +9,15 @@ module Parsanol
     # Lints use the compiler only as an analysis facade (find_left_cycle,
     # first_set, nullable?).
     module Lints
+      # Advisory warnings are author guidance — they never ride the
+      # envelope. The envelope's lint.order_warnings is a wire contract:
+      # recompiling an unchanged grammar must reproduce it byte-for-byte,
+      # so style/authoring findings (which fire on perfectly valid
+      # grammars) stay out of it.
+      Advisory = Struct.new(:message) do
+        def to_s = message
+      end
+
       class << self
         def register(name, strategy)
           strategies[name.to_sym] = strategy
@@ -20,6 +29,14 @@ module Parsanol
 
         def warnings(document, compiler)
           strategies.values.flat_map { |strategy| strategy.warnings(document, compiler) }
+        end
+
+        # The envelope-carried subset: strategies that are not advisory.
+        def envelope_warnings(document, compiler)
+          strategies.values
+                    .reject { |strategy| strategy.respond_to?(:advisory) && strategy.advisory }
+                    .flat_map { |strategy| strategy.warnings(document, compiler) }
+                    .grep_v(Advisory)
         end
 
         def strategies
@@ -130,6 +147,8 @@ module Parsanol
       # the suggestion. Core-rule shadows are deliberate-compatibility
       # (a local rule wins), so they are warnings, never errors.
       class CoreRuleStyle
+        def advisory = true
+
         CORE_NAMES = (
           Compiler::BUILTIN_CLASSES.keys + Compiler::STRUCTURED_CORE_RULE_NAMES
         ).freeze
@@ -167,6 +186,8 @@ module Parsanol
       # docs, or a canonical entry placement. All warnings — the
       # constructs are legal; the omissions are the hazard.
       class AuthoringContracts
+        def advisory = true
+
         def warnings(document, compiler)
           unpinned(document) + undocumented(document, compiler)
         end
