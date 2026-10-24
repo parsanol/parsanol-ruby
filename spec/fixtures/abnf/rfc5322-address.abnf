@@ -1,0 +1,50 @@
+; RFC 5322 (Internet Message Format), Sections 3.2.4 and 3.4 —
+; the Address grammar with its lexical dependencies, modern forms only
+; (obs- productions excluded by scope). IETF Trust text reproduced for
+; interoperability testing.
+;
+; Transcription adaptation: the RFC's `X / [CFWS]` alternative idiom
+; lowers to `X / CFWS` — the empty option rides the enclosing [opt], so
+; no alternative branch is empty-matchable (ordered-choice law).
+;
+; Import boundary: ABNF string literals are case-insensitive per
+; RFC 5234; the importer emits exact-case literals, so this fixture
+; pins the exact-case forms and the day/month names live in the
+; date-time fixture domain, not here.
+
+address        =  mailbox / group
+
+mailbox        =  name-addr / addr-spec
+name-addr      =  [display-name] angle-addr
+angle-addr     =  [CFWS] "<" addr-spec ">" [CFWS]
+group          =  display-name ":" [group-list] ";" [CFWS]
+display-name   =  phrase
+
+mailbox-list   =  (mailbox *("," mailbox)) / CFWS
+address-list   =  (address *("," address)) / CFWS
+group-list     =  mailbox-list / CFWS
+
+ CFWS          =  (1*([FWS] comment) [FWS]) / FWS
+FWS            =  ([*WSP CRLF] 1*WSP)
+comment        =  "(" *([FWS] ctext) [FWS] ")"
+ctext          =  %d33-39 / %d42-126
+
+phrase         =  1*word
+word           =  atom / quoted-string
+atom           =  [CFWS] 1*atext [CFWS]
+dot-atom       =  [CFWS] dot-atom-text [CFWS]
+dot-atom-text  =  1*atext *("." 1*atext)
+atext          =  ALPHA / DIGIT / "!" / "#" / "$" / "%" / "&" /
+                  "'" / "*" / "+" / "-" / "/" / "=" / "?" / "^" /
+                  "_" / "`" / "{" / "|" / "}" / "~" / "."
+
+quoted-string  =  [CFWS] DQUOTE *([FWS] qcontent) [FWS] DQUOTE [CFWS]
+qcontent       =  qtext / quoted-pair
+qtext          =  %d33 / %d35-91 / %d93-126
+quoted-pair    =  ("\" (VCHAR / WSP))
+
+addr-spec      =  local-part "@" domain
+local-part     =  dot-atom / quoted-string
+domain         =  dot-atom / domain-literal
+domain-literal =  [CFWS] "[" *([FWS] dtext) [FWS] "]" [CFWS]
+dtext          =  %d33-90 / %d94-126

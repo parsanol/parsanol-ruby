@@ -24,6 +24,9 @@ RSpec.describe "ABNF importer corpus" do
       "rfc3339-date-time.abnf" => "date_time",
       "rfc3986-uri.abnf" => "uri",
       "rfc8259-json.abnf" => "json_text",
+      "rfc5322-address.abnf" => "address",
+      "rfc9110-field.abnf" => "field_line",
+      "jose-compact.abnf" => "jose_compact",
     }.fetch(fixture)
   end
 
@@ -62,6 +65,23 @@ RSpec.describe "ABNF importer corpus" do
     it_behaves_like "an importable RFC grammar", "rfc5234-core.abnf",
                     ["a4F 2024\r\n", "fff 0000\r\n"],
                     ["g4F 2024\r\n", "a4F 202\r\n", "000 1234\n"]
+  end
+
+  describe "RFC 5322 address" do
+    it_behaves_like "an importable RFC grammar", "rfc5322-address.abnf",
+                    ["joe@example.com",
+                     "Joe Q. Public <joe@example.com>",
+                     "\"John \\\"Jimmy\\\" Smith\" <js@example.com>",
+                     "group name: a@b.example, c@d.example;",
+                     "pete@[10.0.0.1]",
+                     "\"quoted local\"@example.com"],
+                    # "a..dot@example.com" is legal SYNTACTICALLY: atext
+                    # itself contains ".", so "a..dot" is one 1*atext run —
+                    # consecutive-dot checks live above the grammar.
+                    ["joe@",
+                     "@example.com",
+                     "Joe Public <joe@@example.com>",
+                     "<joe@example.com"]
   end
 
   describe "RFC 3339 date-time" do
@@ -159,5 +179,28 @@ RSpec.describe "ABNF importer corpus" do
       two = Parsanol::PARG::Compiler.compile(Parsanol::PARG::Parser.new(first).parse)
       expect(JSON.generate(one.envelope)).to eq(JSON.generate(two.envelope))
     end
+  end
+
+  describe "RFC 9110 field line" do
+    it_behaves_like "an importable RFC grammar", "rfc9110-field.abnf",
+                    ["Host: www.example.com",
+                     "X-Empty:",
+                     "Cache-Control: max-age=\"60\"",
+                     "X-A:  spaced  value ",
+                     "X-Raw: caf\xC3\xA9"],
+                    ["Bad Header: x",
+                     "no-colon-line",
+                     "Bad Name: v"]
+  end
+
+  describe "JOSE compact" do
+    it_behaves_like "an importable RFC grammar", "jose-compact.abnf",
+                    ["eyJhbGciOiJub25lIn0.eyJpc3MiOiJqb2UifQ.",
+                     "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJqb2UifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+                     "A.b-C.d_E3"],
+                    ["only.two",
+                     "a.b.c!",
+                     "a.b+c.d",
+                     ".a.b"]
   end
 end
