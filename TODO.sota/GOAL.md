@@ -4,12 +4,12 @@ MISSION: finish TODO.sota/9's completion map -- PARG replaces ABNF for specifica
 
 Critical-path order (each node's Gate is the Definition of Done):
 1. A1-A3: rs#305 consume-all at the ffi program layer (vm_path_spec is the red pin); CI cache-version bump + parity-failure diff; selfhost brace refresh.
-2. B parallel C: modern capture (owner picks the mode name), bindings v2 (paths, validation, typed emission, 3-runtime parity), ABNF/ANTLR corpus tails, lint completion; U2+U3; C1 char columns only after the owner approves the wire re-bake.
+2. B parallel C: modern capture (owner picks the mode name), bindings v2 (paths, validation, typed emission, 3-runtime parity), corpus tails, lint completion; U2+U3; C1 char columns only after the owner approves the wire re-bake.
 3. E1 the PARG frontend in Rust (rs#298) -- the keystone: lexer, parser, compiler, byte-parity with the Ruby compiler on the source corpus. Then E2 wasm live compilation; E3/E4 after owner unblocks.
 4. D: quiet-host benchmarks; codegen in-process bench; incremental research.
 5. F: #321 constrained-decoding export; rs#304 recovery metrics; verified core.
 
-LAWS: PRs only -- never push main or tags; stage explicit paths; never delete sources; worktrees, verify the branch before every commit; envelope state is a wire contract (advisory lints stay out); versions via trains only; PR/issue text via body files; no AI attribution; corpus + guide land with behavior changes; cargo test under the RSS watchdog; numbers only from a quiet host; blocked on an owner decision -> file it with a recommendation, move on, keep going.
+LAWS: PRs only -- never push main or tags; stage explicit paths; never delete sources; worktrees, verify the branch before every commit; envelope state is a wire contract (advisory lints stay out); versions via trains only; PR text via body files; no AI attribution; corpus + guide land with behavior changes; cargo test under the RSS watchdog; numbers only from a quiet host; blocked on an owner decision -> file it with a recommendation, move on.
 
 PROOF per node: tests + differential corpus green on every engine, the named Gate green, the honest gap stated, TODO.sota + docs updated in the same PR.
 
