@@ -34,7 +34,7 @@ module Parsanol
         # The envelope-carried subset: strategies that are not advisory.
         def envelope_warnings(document, compiler)
           strategies.values
-            .reject { |strategy| strategy.respond_to?(:advisory) && strategy.advisory }
+            .reject { |strategy| strategy.respond_to?(:advisory?) && strategy.advisory? }
             .flat_map { |strategy| strategy.warnings(document, compiler) }
             .grep_v(Advisory)
         end
@@ -147,7 +147,7 @@ module Parsanol
       # the suggestion. Core-rule shadows are deliberate-compatibility
       # (a local rule wins), so they are warnings, never errors.
       class CoreRuleStyle
-        def advisory = true
+        def advisory? = true
 
         CORE_NAMES = (
           Compiler::BUILTIN_CLASSES.keys + Compiler::STRUCTURED_CORE_RULE_NAMES
@@ -186,7 +186,7 @@ module Parsanol
       # docs, or a canonical entry placement. All warnings — the
       # constructs are legal; the omissions are the hazard.
       class AuthoringContracts
-        def advisory = true
+        def advisory? = true
 
         def warnings(document, compiler)
           unpinned(document) + undocumented(document, compiler)
