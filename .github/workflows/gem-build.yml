@@ -207,7 +207,7 @@ jobs:
           ruby-version: "3.4"
           bundler-cache: true
           cargo-cache: true
-          cache-version: v1
+          cache-version: v2 # rs#305: stale ext caches masked real failures
 
       - name: Build source gem
         run: bundle exec rake gem:native:any
