@@ -391,6 +391,64 @@ module Parsanol
         end
       end
       register :repetitions, Repetitions.new
+
+      # ruby#307 lint completion: a rule no other rule references is
+      # dead weight (unless it carries an entry); a rule referenced
+      # exactly once is an inline candidate. Both advisory -- the
+      # grammar is correct either way. Entry roots, the injected core
+      # rules, and the left-recursion tier rules are exempt.
+      class RuleUsage
+        def advisory? = true
+
+        def warnings(document, _compiler)
+          counts = Hash.new(0)
+          document.rules.each do |name, node|
+            collect_refs(node, document, { name => true }, counts)
+          end
+
+          injected = Compiler::BUILTIN_CLASSES.keys +
+            Compiler::STRUCTURED_CORE_RULE_NAMES
+          resync_prefix = Compiler::LEFT_RECURSION_PREFIX
+          document.rules.filter_map do |name, _node|
+            next if injected.include?(name)
+            next if name.to_s.start_with?(resync_prefix)
+            next if document.entries.value?(name)
+
+            case counts[name]
+            when 0
+              "rule #{name.inspect} is referenced by no rule -- dead " \
+              "unless it is a future entry; drop it or wire it in"
+            when 1
+              "rule #{name.inspect} has exactly one reference -- inline " \
+              "candidate (keep it if the name carries the domain)"
+            end
+          end
+        end
+
+        def errors(_document, _compiler) = []
+
+        private
+
+        def collect_refs(node, document, seen, counts)
+          case node.kind
+          when :ref
+            rule = node.a
+            counts[rule] += 1
+            return if seen[rule]
+
+            seen[rule] = true
+            target = document.rules[rule]
+            collect_refs(target, document, seen, counts) if target
+          when :alt, :seq
+            node.a.each { |child| collect_refs(child, document, seen, counts) }
+          when :cap, :pred
+            collect_refs(node.b, document, seen, counts)
+          when :rep, :opt
+            collect_refs(node.a, document, seen, counts)
+          end
+        end
+      end
+      register :rule_usage, RuleUsage.new
     end
   end
 end
