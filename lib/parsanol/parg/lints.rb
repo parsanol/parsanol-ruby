@@ -34,9 +34,9 @@ module Parsanol
         # The envelope-carried subset: strategies that are not advisory.
         def envelope_warnings(document, compiler)
           strategies.values
-                    .reject { |strategy| strategy.respond_to?(:advisory) && strategy.advisory }
-                    .flat_map { |strategy| strategy.warnings(document, compiler) }
-                    .grep_v(Advisory)
+            .reject { |strategy| strategy.respond_to?(:advisory) && strategy.advisory }
+            .flat_map { |strategy| strategy.warnings(document, compiler) }
+            .grep_v(Advisory)
         end
 
         def strategies
