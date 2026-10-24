@@ -157,10 +157,10 @@ is done until its gate is green and merged.
   shipped (`parg lint` command: errors exit 1, all warnings printed;
   the flag adds CoreRuleDuplicates suggestions — bare-class rules
   duplicating a core rule, and the hand-rolled CRLF sequence —
-  unregistered, suggestion surface only). REMAINING: entry-placement
-  (needs the parser to track WHERE entry appeared — and its
-  canonical-placement rule needs an owner decision). Gate: each fires
-  on a fixture, silent on the corpus.
+  unregistered, suggestion surface only); entry-placement shipped
+  (declaration-order trace in the parser; canonical placement = the
+  foot of the grammar block, the corpus-wide precedent; advisory).
+  Gate: each fires on a fixture, silent on the corpus.
 
 **C — unicode native**
 - **C1** U1 char-based columns — after: OWNER GO (wire-coordinated
