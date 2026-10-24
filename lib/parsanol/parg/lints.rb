@@ -465,6 +465,50 @@ module Parsanol
         end
       end
       register :rule_usage, RuleUsage.new
+
+      # ruby#307 B5 --suggest-upgrades: machine-applicable authoring
+      # upgrades. NOT registered -- its output is a suggestion surface
+      # (parg lint --suggest-upgrades), never a compile diagnostic and
+      # never part of the envelope.
+      class CoreRuleDuplicates
+        def warnings(document, _compiler)
+          document.rules.filter_map do |name, node|
+            next if Compiler::BUILTIN_CLASSES.key?(name)
+
+            core = core_rule_for(node)
+            next if core.nil?
+
+            "rule #{name.inspect} duplicates the core rule #{core} -- " \
+              "reference #{core} instead (or keep the local spelling deliberate)"
+          end
+        end
+
+        def errors(_document, _compiler) = []
+        def advisory? = true
+
+        private
+
+        def core_rule_for(node)
+          case node.kind
+          when :class
+            Compiler::BUILTIN_CLASSES.find { |_, ranges| normalized(ranges) == normalized(node.a) }&.first
+          when :seq
+            crlf?(node) ? "CRLF" : nil
+          end
+        end
+
+        def crlf?(node)
+          parts = node.a
+          parts.length == 2 &&
+            parts.all? { |part| part.kind == :class } &&
+            normalized(parts[0].a) == [[0x0D, 0x0D]] &&
+            normalized(parts[1].a) == [[0x0A, 0x0A]]
+        end
+
+        def normalized(ranges)
+          ranges.map(&:sort).sort
+        end
+      end
     end
   end
 end
