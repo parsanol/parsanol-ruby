@@ -178,10 +178,13 @@ compile time (X4) except as the zero-width marker (T6).
 Matches iff the next code units compare case-insensitively to `s`; consumed
 text is the **input spelling**, not the pattern spelling. The value is the
 consumed text. Engines implement this with their regex engine's Unicode-aware
-`(?i:)` semantics; non-ASCII folding parity is pinned by
-`casefold_nonascii`.
+`(?i:)` semantics — Unicode **simple** case folding, where Onigmo and
+the regex crate agree on the folded match set. Folding parity is
+pinned by corpus: `casefold_nonascii`, and `unicode_fold` (Latin-1
+accents, the Greek sigma family — all four sigmas fold together —
+Cyrillic; plain-ASCII lookalikes stay rejects).
 
-*Pins: `casefold`, `casefold_nonascii`.*
+*Pins: `casefold`, `casefold_nonascii`, `unicode_fold`.*
 
 ### T3 — Character class `%xNN`, `%xNN-MM`
 
