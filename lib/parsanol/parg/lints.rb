@@ -121,11 +121,17 @@ module Parsanol
         def compare_branches(name, earlier, earlier_n, later, later_n, compiler)
           earlier_lit = literal_string(earlier)
           later_lit = literal_string(later)
+          earlier_fold = literal_fold(earlier)
           if earlier_lit && later_lit
             if earlier_lit == later_lit
               return { errors: ["rule #{name}: branches #{earlier_n} and #{later_n} are identical"], warnings: [] }
             elsif later_lit.start_with?(earlier_lit)
               return { errors: [shadow_error(name, earlier_n, earlier_lit, later_n, later_lit)], warnings: [] }
+            elsif earlier_fold && earlier_lit.casecmp(later_lit).zero?
+              # A case-insensitive earlier literal matches every casing
+              # the later literal could: the later branch is dead (same
+              # class as the prefix shadow above).
+              return { errors: [case_shadow_error(name, earlier_n, earlier_lit, later_n, later_lit)], warnings: [] }
             end
           end
           first_earlier = compiler.first_set(earlier) - [Compiler::EPS]
@@ -147,6 +153,16 @@ module Parsanol
 
         def order_warning(name, earlier_n, later_n, reason)
           "rule #{name}: branches #{earlier_n} and #{later_n} are order-dependent (#{reason})"
+        end
+
+        def literal_fold(node)
+          node.kind == :lit ? node.b : nil
+        end
+
+        def case_shadow_error(name, earlier_n, earlier_lit, later_n, later_lit)
+          "rule #{name}: branch #{later_n} (#{later_lit.inspect}) can never match -- " \
+            "branch #{earlier_n} is case-insensitive and already matches " \
+            "#{earlier_lit.inspect} in every casing"
         end
 
         def literal_string(node)
