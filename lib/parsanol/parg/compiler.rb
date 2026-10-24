@@ -70,6 +70,15 @@ module Parsanol
       # 5234 prelude that is expressible as a class. A grammar's own
       # rule of the same name shadows these — fetch_rule checks the
       # document first. ALNUM/WORD/ANY predate the RFC set.
+      # Unicode general categories (U3): one-letter groups plus the
+      # two-letter codes grammars actually reach for. Both regex
+      # engines carry the tables; this gate rejects misspellings at
+      # compile time instead of silently matching nothing.
+      GENERAL_CATEGORIES = %w[
+        L Lu Ll Lt Lm Lo M Mn Mc Me N Nd Nl No P Pc Pd Ps Pe Pi Pf Po
+        S Sm Sc Sk So Z Zs Zl Zp C Cc Cf Co Cn
+      ].freeze
+
       BUILTIN_CLASSES = {
         "DIGIT" => [[0x30, 0x39]],
         "ALPHA" => [[0x41, 0x5A], [0x61, 0x7A]],
@@ -679,6 +688,14 @@ module Parsanol
             Atoms::Str.new(node.a)
           end
         when :class then Atoms::Re.new(class_pattern(node.a))
+        when :category
+          code = node.a
+          unless GENERAL_CATEGORIES.include?(code)
+            raise CompileError,
+                  "unknown general category %p{#{code}} -- use one of " \
+                  "#{GENERAL_CATEGORIES.join(' ')}"
+          end
+          Atoms::Re.new("[\\p{#{code}}]")
         when :until
           # QoL: (*( !terminal any_char )) — consume everything up to
           # (and excluding) the delimiter.
