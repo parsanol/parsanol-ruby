@@ -116,6 +116,102 @@ A capture binds the primary it follows: `dash number as part` captures
 captures the whole repeated run (an `as` inside the body's own parens,
 `*( ( x ) as each )`, names each iteration's `x`).
 
+### Rule bodies: the brace form (self-delimiting rules)
+
+A rule body is normally **newline-terminated** — one line, one rule. The
+**brace form** makes the body self-delimiting:
+
+```
+## Publisher code: case-insensitive tag; raw input is captured.
+publisher = {
+  %i"iso" / %i"ieee"
+}
+
+## ISO-style identifier: publisher, one space, a number.
+iso_identifier = { publisher as publisher space number as number }
+```
+
+Inside braces, newlines and comments are whitespace and the body extends
+to the matching `}`. Normative rules:
+
+1. A brace body may open only at the **rule head** (immediately after
+   `=`). Brace groups are not expressions inside a body — composites
+   group with `( ... )` — so `{` stays unambiguous everywhere.
+2. The body ends at the first unmatched `}`. After it, the next
+   declaration begins; no continuation syntax exists.
+3. `##` doc comments attach to the following rule in either form; with
+   braces the attachment is structural (one block, one comment) rather
+   than line-positional.
+4. Both forms compile to the same atom stream — engines never see the
+   difference.
+
+**Compatibility:** `{` after `=` is new syntax. Verified 2026-10-24 over
+all 67 PARG sources in the ecosystem (conformance corpus, benchmarks,
+pubid-grammar): zero rule bodies contain `{` — the only brace at that
+level is the `preprocess` section header. The form is additive, needs no
+version bump, and changes no existing artifact byte.
+
+Style: prefer the brace form for anything that wraps, the line form for
+short bodies; `parg lint --style` flags a grammar that mixes them
+heavily.
+
+*Specified 2026-10-24; implementation tracked in parsanol-ruby (brace
+rule bodies), including the self-host gate and the pubid-grammar
+`parg.json` update.*
+
+### Core rules (RFC 5234 prelude)
+
+The RFC 5234 core rules are predeclared in every grammar — no
+`digit = %x30-39` boilerplate:
+
+| Rule | Definition |
+|---|---|
+| `ALPHA` | `%x41-5A / %x61-7A` |
+| `BIT` | `"0" / "1"` |
+| `CHAR` | `%x01-7F` |
+| `CR` | `%x0D` |
+| `CRLF` | `%x0D.0A` |
+| `CTL` | `%x00-1F / %x7F` |
+| `DIGIT` | `%x30-39` |
+| `DQUOTE` | `%x22` |
+| `HEXDIG` | `DIGIT / "A" / "B" / "C" / "D" / "E" / "F"` |
+| `HTAB` | `%x09` |
+| `LF` | `%x0A` |
+| `LWSP` | `*( WSP / CRLF WSP )` |
+| `OCTET` | `%x00-FF` |
+| `SP` | `%x20` |
+| `VCHAR` | `%x21-7E` |
+| `WSP` | `SP / HTAB` |
+
+A grammar's own rule of the same name **shadows** the prelude — existing
+grammars that define `digit` (any case) keep working unchanged.
+`parg lint` reports core-rule shadows (`core-rule-shadow`) and suggests
+dropping the local definition; the ABNF importer stops emitting core
+rules once the prelude ships.
+
+*Specified 2026-10-24; shadowing keeps every published grammar
+byte-identical — implementation tracked in parsanol-ruby (core rules).*
+
+### Unicode position
+
+Parsanol is **Unicode-native by destination, byte-exact by contract**:
+
+- The wire (PARSANOL-SHAPE-v2) fixes **byte offsets and byte lengths**;
+  rendered columns are character counts. Every engine agrees byte-for-byte.
+- String literals already match UTF-8 byte sequences exactly — multibyte
+  literals, CJK, emoji work today.
+- On the roadmap, in tiers, each gated by a unicode corpus (CJK, emoji
+  ZWJ sequences, combining marks, RTL, astral plane) replayed
+  byte-identically across Ruby, Rust, wasm and TypeScript:
+  - **U1 — correctness floor**: `.` and negated classes advance by
+    codepoint (never split one); columns become character-based.
+  - **U2 — folding**: `%i` uses Unicode simple case folding, the same
+    table in every engine.
+  - **U3 — classes**: `\w`, `\d` and general categories from shared
+    tables, feature-gated on wasm for payload size.
+
+*Tracked in parsanol-rs (unicode-native engines).*
+
 ### Behind-guards
 
 `!<x` / `&<x` inspect the text **behind** the current position and
