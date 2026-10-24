@@ -74,8 +74,12 @@ five runtimes keep working untouched.
       the RFC corpus (5234/3339/3986/8259 + edge matrix) with
       acceptance pins riding each import; five importer fixes
       (continuation lines, the %i token, the 0<prose> idiom, =/ dedupe,
-      nullable-last reorder with fixpoint nullability). Remaining:
-      RFC 5322/9110/JOSE fixtures (ruby#305 stays open for them).
+      nullable-last reorder with fixpoint nullability).
+- [x] **SHIPPED (2026-10-24, #328)**: ABNF corpus tails — RFC 5322
+      address, RFC 9110 field lines, JOSE compact; two importer fixes
+      the pins forced (RFC 5234 quoted strings carry no escape
+      mechanism; emit_string's String-replacement gsub silently
+      dropped backslash escaping).ruby#305 closed.
 - [x] **SHIPPED (2026-10-24, #320)**: ANTLR importer scoped v1 —
       parser/lexer rules, char sets → %x alternations, the ~[set]
       idiom, EOF dropped, everything out of scope rejected with
@@ -96,9 +100,12 @@ Node = work; "after" = dependencies; Gate = Definition of Done. No node
 is done until its gate is green and merged.
 
 **A — correctness debt (first; everything is judged by these)**
-- **A1** rs#305 registered-program consume-all — gate: `vm_path_spec`
-  green on a freshly compiled 0.18.21+ ext; the acceptance map folds to
-  three tiers (full / partial / full-by-contract).
+- **A1** rs#305 registered-program consume-all — **RESOLVED
+  (2026-10-24, closed)**: the acceptance was a stale pre-#300 local
+  bundle; current code's VM-short-to-walker gate rejects on every tier.
+  Gate met: `vm_path_spec` green on a freshly compiled 0.18.21+ ext;
+  the acceptance map folds to three tiers (full / partial /
+  full-by-contract).
 - **A2** CI cache-version bump (rake.yml) + parity-failure field diff —
   gate: no stale-ext runs; a forced drift prints its diff in CI.
 - **A3** selfhost + pubid-grammar refresh (braces + core rules in the
@@ -111,8 +118,8 @@ is done until its gate is green and merged.
 - **B2** bindings v2 (ruby#308) — after: none (spec #319 merged; lints
   shipped). Gate: path resolution fails the build naming the segment;
   ruby/ts/rs bound trees agree on the parity grammar.
-- **B3** ABNF corpus tail (5322/9110/JOSE) — gate: each imports,
-  compiles, replays.
+- **B3** ABNF corpus tail (5322/9110/JOSE) — **DONE (2026-10-24,
+  #328)**: each imports, compiles, replays; 14 corpus examples.
 - **B4** ANTLR corpus growth (SQL/JSON/config + rejection matrix) —
   gate: same harness, green.
 - **B5** lint completion (entry-placement, case-ambiguity, single-use,
