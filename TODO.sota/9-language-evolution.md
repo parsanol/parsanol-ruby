@@ -114,7 +114,12 @@ is done until its gate is green and merged.
 - **B3** ABNF corpus tail (5322/9110/JOSE) — gate: each imports,
   compiles, replays.
 - **B4** ANTLR corpus growth (SQL/JSON/config + rejection matrix) —
-  gate: same harness, green.
+  **DONE (2026-10-24, feat/antlr-corpus-growth)**: JSON / SELECT /
+  properties grammars replayed through acceptance pins; the corpus
+  forced two importer fixes (multi-line block comments never lexed;
+  plain charset chars ran through the escape table, so [Tt] meant
+  TAB) and the contract now enforced (non-greedy quantifiers
+  rejected, not read as greedy+optional).
 - **B5** lint completion (entry-placement, case-ambiguity, single-use,
   `--suggest-upgrades`) — gate: each fires on a fixture, silent on the
   corpus.
