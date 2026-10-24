@@ -12,8 +12,9 @@ module Parsanol
       autoload :Abnf, "parsanol/parg/importers/abnf"
       autoload :Ebnf, "parsanol/parg/importers/ebnf"
       autoload :Pest, "parsanol/parg/importers/pest"
+      autoload :Antlr, "parsanol/parg/importers/antlr"
 
-      KINDS = %i[abnf ebnf pest].freeze
+      KINDS = %i[abnf ebnf pest antlr].freeze
 
       module_function
 
@@ -22,6 +23,7 @@ module Parsanol
                  when :abnf then Abnf.call(text)
                  when :ebnf then Ebnf.call(text)
                  when :pest then Pest.call(text)
+                 when :antlr then Antlr.call(text)
                  else
                    raise Error,
                          "unknown import kind #{kind.inspect} (supported: #{KINDS.map(&:inspect).join(', ')})"
