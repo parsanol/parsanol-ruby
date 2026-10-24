@@ -1,0 +1,11 @@
+; JOSE compact serialization: RFC 4648 Section 5 (base64url alphabet),
+; RFC 7515 Section 2 (padding prohibited) and Section 7.1 (the compact
+; construction), RFC 7519 Section 6.1 (unsecured JWT = empty signature
+; segment). The segment contents are RFC 8259 JSON — already covered
+; by the rfc8259-json fixture.
+
+jose-compact    =  segment "." segment "." last-segment
+segment         =  1*base64url-char
+last-segment    =  *base64url-char
+
+base64url-char  =  ALPHA / DIGIT / "-" / "_"
