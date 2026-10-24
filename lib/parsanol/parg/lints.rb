@@ -274,23 +274,31 @@ module Parsanol
         def advisory? = true
 
         def warnings(document, _compiler)
-          captures = produced_captures(document)
+          all_captures = produced_captures(document)
           bound = []
-          document.bindings.each_value do |bindings|
-            Array(bindings).each { |binding| bound << binding.capture }
-          end
-
-          orphaned = bound.uniq - captures
-          orphan_warnings = orphaned.map do |capture|
-            "binding references capture #{capture.inspect}, which no rule " \
-              "produces — the binding binds nothing"
+          orphan_warnings = []
+          document.bindings.each do |rule, bindings|
+            # Per-rule scope (ruby#308): a binding on rule R names a
+            # capture R's own subtree produces -- not any capture anywhere.
+            # Rules without local captures (pure dispatchers) fall back to
+            # the grammar-wide set.
+            rule_captures = reachable_captures(document, rule)
+            scope = rule_captures.empty? ? all_captures : rule_captures
+            Array(bindings).each do |binding|
+              bound << binding.capture
+              unless scope.include?(binding.capture)
+                orphan_warnings << "binding on #{rule.inspect} references capture " \
+                                   "#{binding.capture.inspect}, which that rule's subtree does " \
+                                   "not produce"
+              end
+            end
           end
 
           # No bindings section = the author opted out of binding (a
           # parse-only grammar): uncovered captures are not oversights.
-          dead = document.bindings.empty? ? [] : captures - bound
+          dead = document.bindings.empty? ? [] : all_captures - bound.uniq
           dead_warnings = dead.map do |capture|
-            "capture #{capture.inspect} is bound by no bindings section — " \
+            "capture #{capture.inspect} is bound by no bindings section -- " \
               "ship the binding beside the capture, or drop the capture"
           end
 
@@ -303,22 +311,45 @@ module Parsanol
 
         def produced_captures(document)
           captures = []
-          walk = lambda do |node|
-            case node.kind
-            when :cap
-              captures << node.a
-              walk.call(node.b)
-            when :alt, :seq then node.a.each { |child| walk.call(child) }
-            when :pred then walk.call(node.b)
-            when :rep, :opt then walk.call(node.a)
-            end
+          seen = {}
+          document.rules.each_value do |node|
+            collect_captures(node, document, captures, seen)
           end
-          document.rules.each_value { |node| walk.call(node) }
           captures.uniq
+        end
+
+        # Captures reachable from rule +name+ through its own body and
+        # the bodies of the rules it references.
+        def reachable_captures(document, name)
+          captures = []
+          seen = { name => true }
+          node = document.rules[name]
+          collect_captures(node, document, captures, seen) if node
+          captures.uniq
+        end
+
+        def collect_captures(node, document, captures, seen)
+          case node.kind
+          when :cap
+            captures << node.a
+            collect_captures(node.b, document, captures, seen)
+          when :ref
+            rule = node.a
+            return if seen[rule]
+
+            seen[rule] = true
+            target = document.rules[rule]
+            collect_captures(target, document, captures, seen) if target
+          when :alt, :seq
+            node.a.each { |child| collect_captures(child, document, captures, seen) }
+          when :pred
+            collect_captures(node.b, document, captures, seen)
+          when :rep, :opt
+            collect_captures(node.a, document, captures, seen)
+          end
         end
       end
 
-      register :alternatives, Alternatives.new
       register :binding_coverage, BindingCoverage.new
 
       # An unbounded repetition whose body can match empty input is an

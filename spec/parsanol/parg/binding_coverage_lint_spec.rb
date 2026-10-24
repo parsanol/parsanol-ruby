@@ -24,7 +24,7 @@ RSpec.describe "PARG binding coverage lints" do
         entry document: pair
       }
     PARG
-    expect(warnings_for(source)).to include(/binding references capture "ghost"/)
+    expect(warnings_for(source)).to include(/references capture "ghost"/)
   end
 
   it "warns when a capture is bound by no bindings section" do
@@ -40,6 +40,39 @@ RSpec.describe "PARG binding coverage lints" do
       }
     PARG
     expect(warnings_for(source)).to include(/capture "num_capture" is bound by no bindings section/)
+  end
+
+  it "scopes orphan detection to the binding's own rule" do
+    source = <<~PARG
+      grammar Scoped version "1.0.0" {
+        pair = word as word_capture "=" num as num_capture
+        word = 1*( ALPHA )
+        num = 1*DIGIT
+        other = "x" as other_capture
+        bindings pair {
+          other_capture -> word (string)
+        }
+        entry document: pair
+      }
+    PARG
+    # other_capture EXISTS in the grammar but not in pair's subtree:
+    # the binding on pair is an orphan.
+    expect(warnings_for(source)).to include(/binding on "pair" references capture "other_capture"/)
+  end
+
+  it "follows rule references when scoping" do
+    source = <<~PARG
+      grammar Scoped version "1.0.0" {
+        pair = inner
+        inner = word as word_capture
+        word = 1*( ALPHA )
+        bindings pair {
+          word_capture -> word (string)
+        }
+        entry document: pair
+      }
+    PARG
+    expect(warnings_for(source)).not_to include(/references capture/)
   end
 
   it "stays silent when every capture is bound and every binding resolves" do
