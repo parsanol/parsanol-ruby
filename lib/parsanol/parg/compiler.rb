@@ -937,9 +937,10 @@ module Parsanol
       def compute_first(node)
         case node.kind
         when :lit
-          # The zero-width marker ("" as name) consumes nothing: its
-          # first set is empty, which also marks the node nullable.
-          return Set.new if node.a.empty?
+          # The zero-width marker ("" as name) consumes nothing: EPS in
+          # its first set marks the node nullable (the convention every
+          # nullable? check uses).
+          return Set.new([EPS]) if node.a.empty?
 
           set = Set.new(node.a[0].bytes)
           set += node.a[0].upcase.bytes + node.a[0].downcase.bytes if node.b

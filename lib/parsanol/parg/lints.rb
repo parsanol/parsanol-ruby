@@ -88,8 +88,19 @@ module Parsanol
           branches = node.a
           branches.each_with_index do |branch, index|
             if compiler.nullable?(branch) && index < branches.length - 1
-              results << { errors: [empty_shadow_error(name, index + 1)], warnings: [] }
+              later = branches[(index + 1)..]
+              results << if later.all? { |candidate| compiler.nullable?(candidate) }
+                           # Both sides always succeed: the later branches are dead
+                           # code, but acceptance is identical. Imported grammars
+                           # legitimately produce this (unordered ABNF choice), so
+                           # it is a warning, not the shadowing hazard.
+                           { errors: [],
+                             warnings: [Advisory.new(dead_nullable_warning(name, index + 1))] }
+                         else
+                           { errors: [empty_shadow_error(name, index + 1)], warnings: [] }
+                         end
             end
+
             branches[(index + 1)..].each_with_index do |later, j|
               results << compare_branches(name, branch, index + 1, later, index + j + 2, compiler)
             end
@@ -100,6 +111,11 @@ module Parsanol
         def empty_shadow_error(name, branch_number)
           "rule #{name}: branch #{branch_number} can match empty input and " \
             "shadows all later branches"
+        end
+
+        def dead_nullable_warning(name, branch_number)
+          "rule #{name}: branches after #{branch_number} are unreachable " \
+            "(that branch always succeeds) — dead code, acceptance unchanged"
         end
 
         def compare_branches(name, earlier, earlier_n, later, later_n, compiler)
