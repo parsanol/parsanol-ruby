@@ -4,10 +4,13 @@
 
 parsanol's purpose, synthesized from what the project actually is:
 
-1. **parslet semantics are the contract.** The Ruby DSL mirrors parslet;
-   flatten rules are byte-for-byte ports; compatibility specs come from
-   parslet's own suite; divergence claims are checked against the real
-   gem before acceptance.
+1. **parslet semantics are the migration contract — not the mission.**
+   The Ruby DSL mirrors parslet and the flatten rules are byte-for-byte
+   ports so existing users migrate without tree surprises; the mission
+   itself is beyond parslet: PARG replaces ABNF as the grammar language
+   of record and ANTLR as the parser generator (TODO.sota/9). The
+   contract is corpus-enforced, which is exactly what lets the language
+   evolve past its anchor safely.
 2. **Multi-engine execution is the implementation.** Ruby interpreter,
    Ruby bytecode VM, Rust packrat walker, Rust bytecode VM, wasm — one
    semantics, and the fast path must *beat* parslet, not match it.
@@ -24,6 +27,14 @@ parsanol's purpose, synthesized from what the project actually is:
 verified portable artifact; get byte-identical trees, rich diagnostics,
 and best-in-class performance on every runtime — parslet as the anchor,
 conformance as the law.
+
+## Tier 9 — the language evolution program
+
+The active program that takes PARG beyond the parslet anchor: brace
+bodies, core rules, opt-in modern capture, unicode-native engines, the
+ABNF/ANTLR replacement importers, grammar semver tooling, bindings v2,
+and the Rust frontend behind the wasm compiler. Scope and owner
+decisions: TODO.sota/9-language-evolution.md.
 
 ## What is already SOTA-equivalent (do not rebuild)
 
