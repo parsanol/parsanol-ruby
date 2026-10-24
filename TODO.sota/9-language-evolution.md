@@ -102,7 +102,11 @@ is done until its gate is green and merged.
 - **A2** CI cache-version bump (rake.yml) + parity-failure field diff —
   gate: no stale-ext runs; a forced drift prints its diff in CI.
 - **A3** selfhost + pubid-grammar refresh (braces + core rules in the
-  language grammar) — gate: self-host validates brace-form sources.
+  language grammar) — **DONE (2026-10-24, pubid-grammar#58 +
+  #329)**: PgMeta carries a bw-threaded brace-form expression tier,
+  brace_rule written in the brace form it recognizes, artifact rebake
+  on 1.3.108 (RUBY_REF bumped to a brace-capable compiler);
+  SelfHost.valid? accepts brace-form sources (spec #329).
 
 **B — language wholeness**
 - **B1** modern capture impl (ruby#304) — after: owner picks the mode
