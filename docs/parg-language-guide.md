@@ -192,6 +192,59 @@ rules once the prelude ships.
 *Specified 2026-10-24; shadowing keeps every published grammar
 byte-identical — implementation tracked in parsanol-ruby (core rules).*
 
+### Implicit capture: the `modern` mode (specified)
+
+Classic PARG builds its tree only from `as` captures — explicit, but
+boilerplate-heavy. The **modern mode** (opt-in per grammar) wraps every
+rule reference that produces no capture in `Named(rule_name)` at compile
+time, so a grammar's rule structure *is* its tree:
+
+```
+grammar Demo version "1.0.0" mode "modern" {
+  publisher = %i"iso" / %i"ieee"
+  number = 1*DIGIT
+  iso_identifier = publisher " " number
+  entry identifier: iso_identifier
+}
+```
+
+parses `"iso 12345"` to
+`{iso_identifier: {publisher: "iso", number: "12345"}}` — no `as`
+written.
+
+Normative rules (the spec table implementation must pin):
+
+| Construct | Modern-mode capture |
+|---|---|
+| rule reference (uncaptured) | `Named(rule_name)` around the reference's value |
+| explicitly captured (`as`) | unchanged — explicit wins, never double-wrapped |
+| repetition of a rule reference | the *repetition* is NOT wrapped; each iteration's reference is (iteration arrays stay arrays) |
+| a reference inside a repetition body | wrapped per iteration |
+| terminals (literals, classes) | never wrapped — terminals stay anonymous text |
+| the entry's root rule | wrapped like any rule reference |
+| `skip` trivia / trivia capture | never wrapped |
+| resync spans | never wrapped |
+
+Tower rules:
+
+1. **Compile-time only.** The wrap lowers to ordinary `Named` atoms —
+   engines, artifacts' atom stream, and the wire are unchanged. Nothing
+   new crosses the wire but ordinary named captures.
+2. **The envelope records the mode** (`mode` field), so consumers know
+   the tree contract before parsing. Artifacts without the field are
+   classic.
+3. **Tree shape changes are major.** A grammar switching modes changes
+   every uncaptured node's shape; with bindings present that is a major
+   artifact version (the binding paths re-validate against the new
+   tree). `parg lint --captures` reports, for a classic grammar,
+   exactly which nodes modern mode would wrap — the migration radar.
+4. **Engines never learn the mode.** Differential identity holds by the
+   existing corpus: modern-mode variants of the conformance grammars
+   must produce the wrapped trees byte-identically in every engine.
+
+The mode spelling (`mode "modern"`) is the open owner decision; the
+mechanism above is specified.
+
 ### Unicode position
 
 Parsanol is **Unicode-native by destination, byte-exact by contract**:
