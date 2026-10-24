@@ -1,0 +1,13 @@
+; The edge matrix (ruby#305): incremental definitions, %d/%b forms,
+; a semicolon INSIDE a quoted string (not a comment), rule-name case
+; collision (ABNF names are case-insensitive; the importer canonicalizes
+; to first-seen spelling), and a prose-val that must be rejected.
+mixed-forms  =  %d48-57 / %b0110001 / %x30
+grows        =  %s"FIX"
+grows        =/ %i"fix"
+grows        =/ "fix"
+; case collision: FIRST-SEEN spelling wins, later variants merge in
+seq-token    =  "go"
+SEQ-TOKEN    =/ "stop"
+; the semicolon inside the string is NOT a comment
+with-comment-chars = %s"a;b(c)"

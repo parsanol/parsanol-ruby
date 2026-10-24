@@ -18,6 +18,7 @@ module Parsanol
         | (?<comment>;[^\n]*)
         | (?<crlf>\r?\n)
         | (?<sstr>%s"(?:[^"\\]|\\.)*")
+        | (?<istr>%i"(?:[^"\\]|\\.)*")
         | (?<cistr>"(?:[^"\\]|\\.)*")
         | (?<numval>%[xbdo][0-9A-Za-z]+(?:-[0-9A-Za-z]+|(?:\.[0-9A-Za-z]+)+)?)
         | (?<prose><[^>\n]*>)
@@ -50,6 +51,12 @@ module Parsanol
           "WSP" => "%x20 / %x09",
         }.freeze
 
+        # RFC 3986's `0<pchar>` empty idiom lowers to a captured empty
+        # literal — the compiler's documented marker form (bare ""
+        # zero-width matches are rejected). The sentinel is replaced
+        # with the rule's own capture name in parse_rule.
+        EMPTY_IDIOM = ":empty0:"
+
         class << self
           def call(text)
             new(text).call
@@ -66,6 +73,7 @@ module Parsanol
 
         def call
           parse_rules
+          @nullable = nullable_rules
           emit
         end
 
@@ -100,6 +108,19 @@ module Parsanol
           advance while peek && INLINE_WS.include?(peek[0])
         end
 
+        # A CRLF followed by an indented line is a continuation: body
+        # whitespace, not the end of the rule (RFC 5234 section 3.4 —
+        # RFC 3986's IPv6address styles its alternations this way).
+        def skip_body_ws
+          loop do
+            skip_inline_ws
+            break unless peek&.[](0) == :crlf && peek(1)&.[](0) == :ws
+
+            advance
+            advance
+          end
+        end
+
         def parse_rules
           loop do
             skip_leading
@@ -132,8 +153,13 @@ module Parsanol
           end
 
           body = parse_alternation
+          body = body.gsub(EMPTY_IDIOM) { %(("" as #{name})) }
           if defined[1] == "=/"
-            @rules[name] = @rules[name] ? "#{@rules[name]} / #{body}" : body
+            merged = @rules[name] ? "#{@rules[name]} / #{body}" : body
+            # Incremental definitions may restate a branch; identical
+            # branches are one branch in ABNF's unordered semantics and
+            # a compile error in PARG's.
+            @rules[name] = split_top_level(merged, " / ").uniq.join(" / ")
           elsif @rules.key?(name)
             raise Error, "ABNF: duplicate rule #{name.inspect}"
           else
@@ -143,7 +169,10 @@ module Parsanol
 
         def parse_alternation
           parts = [parse_concatenation]
-          while peek&.[](0) == :punct && peek[1] == "/"
+          loop do
+            skip_body_ws
+            break unless peek&.[](0) == :punct && peek[1] == "/"
+
             advance
             parts << parse_concatenation
           end
@@ -152,27 +181,19 @@ module Parsanol
 
         def parse_concatenation
           parts = [parse_repetition]
-          while continuation?
-            parts << parse_repetition
+          loop do
+            save = @pos
+            skip_body_ws
+            if peek && element_start?(peek)
+              parts << parse_repetition
+            else
+              # A close paren, an alternation slash, or end of rule:
+              # not ours to consume.
+              @pos = save
+              break
+            end
           end
           parts.join(" ")
-        end
-
-        def continuation?
-          skip_inline_ws
-          token = peek
-          return false if token.nil?
-
-          if token[0] == :crlf
-            unless peek(1)&.[](0) == :ws
-              return false
-            end
-
-            advance
-            advance
-            return true
-          end
-          element_start?(token)
         end
 
         def element_start?(token)
@@ -181,7 +202,14 @@ module Parsanol
         end
 
         def parse_repetition
-          skip_inline_ws
+          skip_body_ws
+          # RFC 3986's empty idiom: `0<pchar>` — zero of an unparseable
+          # prose-val is exactly the empty match.
+          if peek&.[](0) == :num && peek[1] == "0" && peek(1)&.[](0) == :prose
+            advance
+            advance
+            return EMPTY_IDIOM
+          end
           if peek&.[](0) == :num
             prefix = advance[1]
             if peek&.[](0) == :punct && peek[1] == "*"
@@ -200,16 +228,19 @@ module Parsanol
         end
 
         def parse_element
-          skip_inline_ws
+          skip_body_ws
           token = advance
           raise Error, "ABNF: unexpected end of rule body" if token.nil?
 
           case token[0]
           when :cistr then emit_string(token[1][1..-2], fold: true)
+          when :istr then emit_string(token[1][3..-2], fold: true)
           when :sstr then emit_string(token[1][3..-2], fold: false)
           when :numval then emit_numval(token[1])
           when :name then normalize_name(token[1])
           when :prose
+            # RFC 3986's `0<pchar>` idiom: zero occurrences of anything
+            # is the empty match. A real prose-val stays unimportable.
             raise Error,
                   "ABNF: prose-val #{token[1].inspect} cannot be imported — " \
                   "replace it with a machine-parseable rule"
@@ -232,7 +263,7 @@ module Parsanol
         end
 
         def expect_punct(char)
-          skip_inline_ws
+          skip_body_ws
           token = advance
           unless token && token[0] == :punct && token[1] == char
             raise Error, "ABNF: expected #{char.inspect}"
@@ -267,6 +298,89 @@ module Parsanol
           end
         end
 
+        # ABNF alternation is unordered; PARG's is ordered. A branch
+        # that provably matches empty (repetitions of zero, optionals,
+        # the empty idiom) would shadow everything after it in ordered
+        # choice, so definitely-nullable branches move last — the same
+        # acceptance, no shadowing. Branches with rule references are
+        # never moved: their nullability is not provable textually.
+        def reorder_nullable_branches_last(body)
+          return body unless body.include?(" / ")
+
+          branches = split_top_level(body, " / ")
+          return body unless branches.size > 1
+
+          nullable, ordered = branches.partition { |branch| branch_nullable?(branch, @nullable) }
+          return body if nullable.empty?
+
+          (ordered + nullable).join(" / ")
+        end
+
+        # Fixpoint over the rule graph: a rule is nullable when any
+        # alternative's every item is nullable — repetitions of zero,
+        # optionals, the empty idiom, or references to nullable rules.
+        def nullable_rules
+          nullable = {}
+          changed = true
+          while changed
+            changed = false
+            @rules.each do |name, body|
+              next if nullable[name]
+
+              if split_top_level(body, " / ").any? { |branch| branch_nullable?(branch, nullable) }
+                nullable[name] = true
+                changed = true
+              end
+            end
+          end
+          nullable
+        end
+
+        def branch_nullable?(branch, nullable)
+          items = split_top_level(branch, " ").reject(&:empty?)
+          !items.empty? && items.all? { |item| item_nullable?(item, nullable) }
+        end
+
+        def item_nullable?(item, nullable)
+          return true if item.start_with?("*")
+          return true if item.start_with?("[") && item.end_with?("]")
+          return true if item.start_with?('("" as')
+
+          name = item[/\A[a-z0-9_]+\z/]
+          name ? nullable[name] == true : false
+        end
+
+        def split_top_level(text, separator)
+          out = []
+          depth = 0
+          current = +""
+          index = 0
+          while index < text.length
+            piece = text[index..]
+            if piece.start_with?(separator) && depth.zero?
+              out << current
+              current = +""
+              index += separator.length
+              next
+            end
+            case piece[0]
+            when "(" then depth += 1
+            when ")" then depth -= 1
+            end
+            current << piece[0]
+            index += 1
+          end
+          out << current
+          out
+        end
+
+        def provably_empty?(branch)
+          items = split_top_level(branch, " ").reject(&:empty?)
+          !items.empty? && items.all? do |item|
+            item.start_with?("*", "[", '("" as')
+          end
+        end
+
         def normalize_name(name)
           name.downcase.tr("-", "_")
         end
@@ -278,7 +392,7 @@ module Parsanol
 
             "  #{normalized} = #{body}"
           end
-          rules = @rules.map { |name, body| "  #{name} = #{body}" }
+          rules = @rules.map { |name, body| "  #{name} = #{reorder_nullable_branches_last(body)}" }
           lines = [
             "# Imported from ABNF (RFC 5234/7405).",
             "# Notes:",
