@@ -531,6 +531,7 @@ module Parsanol
         when :str, :sstr then Node.new(:lit, unquote(token.value), false)
         when :istr then Node.new(:lit, unquote(token.value), true)
         when :hex then parse_hex(token.value)
+        when :category then Node.new(:category, token.value[3..-2])
         when :punct then parse_punctuated(token)
         when :ident then parse_ident(token)
         else raise ParseError, "unexpected token #{token.type}:#{token.value}"
