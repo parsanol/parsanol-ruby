@@ -22,9 +22,15 @@ five runtimes keep working untouched.
 
 ### T0 — docs + lints (no semantics)
 
-- [ ] Tour/guide: example-pin syntax (`accept`/`reject`/`capture`/
-      `shape`/`example`), style guide section, `#` vs `##` documented.
-      (ruby#310, site#23)
+- [x] **SHIPPED (2026-10-24, #310-in-flight)**: guide — pin syntax was
+      already complete (all five forms); added the style guide, the
+      `#` vs `##` distinction, the `%i` raw-capture fact, and the
+      canonical brace-form quick start with tests + bindings. Site
+      tour mirror remains: site#23.
+- [ ] Lint suite: `unpinned-grammar`, `undocumented-rule`,
+      `capture-without-binding`, `entry-placement`, `case-ambiguity`,
+      `style-brace-mixing`, `single-use-rule`; `--suggest-upgrades`.
+      (ruby#307)
 - [ ] Lint suite: `unpinned-grammar`, `undocumented-rule`,
       `capture-without-binding`, `entry-placement`, `case-ambiguity`,
       `style-brace-mixing`, `single-use-rule`; `--suggest-upgrades`.
@@ -32,15 +38,19 @@ five runtimes keep working untouched.
 
 ### T1 — core rules (ruby#303)
 
-- [ ] RFC 5234 prelude (16 rules), shadowable; `core-rule-shadow` lint;
-      ABNF importer stops emitting them. Spec: guide "Core rules".
+- [x] **SHIPPED (2026-10-24, #311 merged)**: RFC 5234 prelude,
+      shadowable — class members via BUILTIN_CLASSES (+11), CRLF/LWSP
+      injected transitively in atom_for. Whole-corpus gate byte-stable.
+      `core-rule-shadow` lint remains (ruby#307); ABNF importer
+      emission update rides ruby#305.
 
 ### T2 — self-delimiting rules (ruby#302)
 
-- [ ] `name = { ... }`: newlines whitespace inside, extent = matching
-      `}`, doc-comment attachment structural. Spec: guide "Rule
-      bodies: the brace form" (PR #301). Selfhost + pubid-grammar
-      `parg.json` update; whole-corpus recompile diff = empty.
+- [x] **SHIPPED (2026-10-24, #311 merged)**: brace bodies — newlines
+      whitespace inside, extent = matching `}`, doc attachment
+      structural, `{` may sit on the line after `=`. Whole-corpus
+      recompile diff empty (67/67). Remaining: selfhost + pubid-grammar
+      `parg.json` refresh, the `style-brace-mixing` lint (ruby#307).
 
 ### T3 — implicit capture, opt-in dialect (ruby#304)
 

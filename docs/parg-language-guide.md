@@ -27,20 +27,34 @@ checksum and the conformance corpus.
 ```
 # demo.parg
 grammar Demo version "1.0.0" {
+
+  ## Publisher code: case-insensitive tag; the capture keeps
+  ## whichever spelling the input had.
+  publisher = {
+    %i"iso" / %i"ieee"
+  }
+
   digit = %x30-39
   number = 1*digit
-  space = " "
-  publisher = %i"iso" / %i"ieee"
 
-  iso_identifier = publisher as publisher space number as number
+  ## An ISO-style identifier: publisher, one space, a number.
+  iso_identifier = { publisher as publisher " " number as number }
+
+  bindings iso_identifier {
+    publisher -> publisher (string)
+    number -> number (integer)
+  }
+
+  entry identifier: iso_identifier
+
+  test identifier {
+    accept "iso 12345"
+    accept "IEEE 7"
+    reject "iso  12345"
+    capture "iso 12345" { publisher: "iso"
+      number: "12345" }
+  }
 }
-
-bindings iso_identifier {
-  publisher -> publisher (string)
-  number -> number (integer)
-}
-
-entry identifier: iso_identifier
 ```
 
 ```ruby
@@ -71,13 +85,21 @@ it like hand-written PARG.
 
 ### Lexical
 
-- `#` starts a comment, running to end of line.
+- `#` starts a **comment**, running to end of line.
+- `##` starts a **doc comment** — it attaches to the rule that follows it
+  and ships in the artifact (`docs`), not just the source file.
 - Identifiers: `[A-Za-z_][A-Za-z0-9_]*`. Rule names are case-sensitive.
-- **One rule per line.** Newlines are significant: a rule body ends at the
-  newline. Sections (`grammar`, `entry`, `bindings`, `preprocess`) are
+- **Rule bodies are self-delimiting or line-terminated**: `name = { ... }`
+  treats newlines and comments as whitespace inside the braces; a body
+  without braces ends at the newline. Mix freely; see
+  [Rule bodies](#rule-bodies-the-brace-form-self-delimiting-rules).
+- Sections (`grammar`, `entry`, `bindings`, `preprocess`) are
   line-oriented throughout.
 - Keywords: `grammar version as alt from_table column bindings preprocess
   entry table_lookup`. They cannot name or reference rules.
+- **Case-insensitive matching captures the raw input**: `%i"iso"` matches
+  `ISO`, `Iso` and `iso`, and the capture records whichever spelling the
+  input had — pin expectations accordingly.
 
 ### Terminals
 
@@ -328,6 +350,38 @@ arrays, and nested objects.
 
 Tests in a multi-entry grammar name their entry (`test main { ... }`);
 a single-entry grammar may omit it.
+
+## Style guide
+
+Grammar authors read these back; write for them.
+
+1. **Factor compound sequences into short named rules.** A rule should
+   say one thing; the name is the only documentation that reaches
+   diagnostics, bindings, and the next editor. `iso_identifier =
+   publisher " " number` reads; a twelve-terminal line does not.
+2. **Wrap with braces.** Bodies that exceed a line go in `{ ... }` —
+   newlines become whitespace and the `##` doc comment attaches to the
+   block, not to a line position. Dense one-liners are the classic
+   failure mode in a line-oriented grammar language.
+3. **Pin behavior with tests, in the file.** Every grammar ships a
+   `test` section: `accept`/`reject` for the shape of the language,
+   `capture` for what the grammar layer binds, `shape` when the tree
+   structure itself is the contract. An unpinned grammar is unpinned
+   behavior — the artifact carries the tests to every engine, so the
+   cost is paid once.
+4. **Ship bindings beside captures.** Every `as` capture that a
+   consumer uses has a `bindings` entry, in the same file — the
+   artifact then validates the mapping at bake time instead of at
+   runtime, three engines away.
+5. **`##` every entry-reachable rule.** Doc comments ship in the
+   artifact and surface in LSP hovers; an undocumented public rule is a
+   missing contract, not a style nit.
+6. **One space is a contract; say so.** A literal `" "` between tokens
+   means exactly one space — flexible whitespace is `skip = trivia`.
+   Choose deliberately and say which in the `##` comment.
+7. **Prefer the core rules.** `ALPHA`, `DIGIT`, `SP`, `HTAB`, `CRLF`,
+   `HEXDIG`, `WSP` (and friends) are predeclared; a local `digit =
+   %x30-39` is noise — and `parg lint` says so.
 
 ### Tables
 
