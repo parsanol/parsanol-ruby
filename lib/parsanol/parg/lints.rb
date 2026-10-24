@@ -350,6 +350,7 @@ module Parsanol
         end
       end
 
+      register :alternatives, Alternatives.new
       register :binding_coverage, BindingCoverage.new
 
       # An unbounded repetition whose body can match empty input is an
