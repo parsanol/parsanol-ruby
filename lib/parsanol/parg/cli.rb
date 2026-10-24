@@ -29,6 +29,10 @@ module Parsanol
           repl    <file> [--entry E]        interactive parse loop (blank
                                             line quits, :quit exits)
           doc     <file> [rule]             print rule documentation
+          lint    <file> [--suggest-upgrades]
+                                            print lint errors (exit 1) and
+                                            warnings; the flag adds
+                                            machine-applicable upgrades
 
         options:
           --tables DIR   directory for alt-from-table data (default:
@@ -51,6 +55,7 @@ module Parsanol
           @argv.delete_at(index)
         end
         @json = !!@argv.delete("--json")
+        @suggest_upgrades = !!@argv.delete("--suggest-upgrades")
         command = @argv.shift
         case command
         when "compile" then compile
@@ -60,6 +65,7 @@ module Parsanol
         when "check" then check
         when "repl" then repl
         when "doc" then doc
+        when "lint" then lint
         when "diff" then diff_artifacts
         when "lsp" then Lsp.new.run && 0
         else
@@ -83,6 +89,33 @@ module Parsanol
         when Parsanol::Slice then { "value" => node.to_s }
         else node
         end
+      end
+
+      # `parg lint FILE`: the lint suite on one grammar — errors
+      # first (exit 1), then every warning including the advisory
+      # strategies. --suggest-upgrades adds the machine-applicable
+      # upgrade suggestions on top.
+      def lint
+        source = @argv.shift
+        tables = @tables_dir || default_tables_dir(source)
+        document = Parsanol::PARG::Parser.new(PARG.read_utf8(source)).parse
+        Parsanol::PARG::Imports.merge!(document, [File.dirname(source)])
+        compiler = Parsanol::PARG::Compiler.new(document, tables)
+        document.rules.each_key { |rule| compiler.atom_for(rule) }
+
+        errors = Lints.errors(document, compiler)
+        errors.each { |error| puts "error: #{error}" }
+        return 1 unless errors.empty?
+
+        Lints.warnings(document, compiler).each { |warning| puts "warning: #{warning}" }
+        if @suggest_upgrades
+          Lints::CoreRuleDuplicates.new.warnings(document, compiler)
+            .each { |upgrade| puts "upgrade: #{upgrade}" }
+        end
+        0
+      rescue Parsanol::PARG::ParseError, Parsanol::PARG::Error => e
+        warn "#{e.class}: #{e.message}"
+        1
       end
 
       def compile
