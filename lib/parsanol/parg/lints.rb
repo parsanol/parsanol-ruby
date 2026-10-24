@@ -266,7 +266,60 @@ module Parsanol
       end
 
       register :authoring_contracts, AuthoringContracts.new
+      # ruby#308 first slice: the two halves of binding coverage.
+      # A binding that names a capture the grammar never produces binds
+      # nothing; a capture no binding consumes is dead weight. Both are
+      # advisory: the grammar compiles either way.
+      class BindingCoverage
+        def advisory? = true
+
+        def warnings(document, _compiler)
+          captures = produced_captures(document)
+          bound = []
+          document.bindings.each_value do |bindings|
+            Array(bindings).each { |binding| bound << binding.capture }
+          end
+
+          orphaned = bound.uniq - captures
+          orphan_warnings = orphaned.map do |capture|
+            "binding references capture #{capture.inspect}, which no rule " \
+              "produces — the binding binds nothing"
+          end
+
+          # No bindings section = the author opted out of binding (a
+          # parse-only grammar): uncovered captures are not oversights.
+          dead = document.bindings.empty? ? [] : captures - bound
+          dead_warnings = dead.map do |capture|
+            "capture #{capture.inspect} is bound by no bindings section — " \
+              "ship the binding beside the capture, or drop the capture"
+          end
+
+          orphan_warnings + dead_warnings
+        end
+
+        def errors(_document, _compiler) = []
+
+        private
+
+        def produced_captures(document)
+          captures = []
+          walk = lambda do |node|
+            case node.kind
+            when :cap
+              captures << node.a
+              walk.call(node.b)
+            when :alt, :seq then node.a.each { |child| walk.call(child) }
+            when :pred then walk.call(node.b)
+            when :rep, :opt then walk.call(node.a)
+            end
+          end
+          document.rules.each_value { |node| walk.call(node) }
+          captures.uniq
+        end
+      end
+
       register :alternatives, Alternatives.new
+      register :binding_coverage, BindingCoverage.new
 
       # An unbounded repetition whose body can match empty input is an
       # INVALID GRAMMAR: the parse can never terminate, and any VM that
