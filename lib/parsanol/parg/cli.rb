@@ -60,6 +60,7 @@ module Parsanol
         when "check" then check
         when "repl" then repl
         when "doc" then doc
+        when "diff" then diff_artifacts
         when "lsp" then Lsp.new.run && 0
         else
           warn USAGE
@@ -158,6 +159,50 @@ module Parsanol
           puts Parsanol::PARG::Schema.to_typescript(schema)
         else
           puts JSON.pretty_generate(schema)
+        end
+        0
+      end
+
+      # parg diff OLD.artifact.json NEW.artifact.json [--json] [--suggest-bump] [--check LEVEL]
+      # Semantic classification of a grammar change (ruby#306): majors
+      # break consumers, minors extend them, patches preserve behavior.
+      def diff_artifacts
+        old_path = @argv.shift
+        new_path = @argv.shift
+        unless old_path && new_path
+          warn "usage: parsanol parg diff OLD.artifact.json NEW.artifact.json [--json] [--suggest-bump] [--check minor]"
+          return 2
+        end
+        suggest = !!@argv.delete("--suggest-bump")
+        check = @argv.delete("--check")
+        check_level = check && check.split("=", 2).last&.to_sym
+
+        old_env = JSON.parse(File.read(old_path))
+        new_env = JSON.parse(File.read(new_path))
+        findings = Diff.diff(old_env, new_env)
+        level = Diff.level(findings)
+
+        if @json
+          payload = {
+            level: level.to_s,
+            findings: findings.map { |f| { level: f.level.to_s, kind: f.kind.to_s, detail: f.detail } },
+          }
+          payload[:suggested] = Diff.suggest_bump(findings) if suggest
+          puts JSON.generate(payload)
+        else
+          if findings.empty?
+            puts "no semantic changes (#{level})"
+          else
+            findings.each { |f| puts "#{f.level.upcase} #{f.kind}: #{f.detail}" }
+            puts "level: #{level}"
+          end
+          puts Diff.suggest_bump(findings) if suggest
+        end
+
+        if check_level
+          ok = Diff::SEVERITY[level] >= Diff::SEVERITY[check_level]
+          warn "check: #{level} is #{ok ? 'at least' : 'BELOW'} #{check_level}" unless @json
+          return ok ? 0 : 3
         end
         0
       end

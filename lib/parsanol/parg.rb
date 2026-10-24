@@ -33,6 +33,7 @@ module Parsanol
     autoload :CLI, "parsanol/parg/cli"
     autoload :Lsp, "parsanol/parg/lsp"
     autoload :Lints, "parsanol/parg/lints"
+    autoload :Diff, "parsanol/parg/diff"
     autoload :Preprocess, "parsanol/parg/preprocess"
     autoload :Visitor, "parsanol/parg/visitor"
     autoload :Imports, "parsanol/parg/imports"
