@@ -125,7 +125,41 @@ module Parsanol
         end
       end
 
+      # TODO.sota/9 T1/T2 lints (ruby#307): the core-rule prelude and
+      # the brace form both carry a migration path — the lint carries
+      # the suggestion. Core-rule shadows are deliberate-compatibility
+      # (a local rule wins), so they are warnings, never errors.
+      class CoreRuleStyle
+        CORE_NAMES = (
+          Compiler::BUILTIN_CLASSES.keys + Compiler::STRUCTURED_CORE_RULE_NAMES
+        ).freeze
+
+        def warnings(document, _compiler)
+          shadows = document.rules.keys.select { |name| CORE_NAMES.include?(name) }
+          shadow_warnings = shadows.map do |name|
+            "rule #{name}: shadows the RFC 5234 core rule — drop the local " \
+              "definition unless the narrowing is deliberate"
+          end
+          shadow_warnings + style_mixing_warning(document)
+        end
+
+        def errors(_document, _compiler) = []
+
+        private
+
+        def style_mixing_warning(document)
+          brace = document.brace_rules.size
+          line = document.rules.size - brace
+          return [] if brace.zero? || line.zero?
+          return [] if document.rules.size < 4
+
+          ["grammar mixes brace (#{brace}) and line (#{line}) rule bodies — " \
+           "pick one style per grammar"]
+        end
+      end
+
       register :left_recursion, LeftRecursion.new
+      register :core_rule_style, CoreRuleStyle.new
       register :alternatives, Alternatives.new
 
       # An unbounded repetition whose body can match empty input is an
