@@ -162,6 +162,9 @@ module Parsanol
         end
         return if missing.empty?
 
+        # Snapshot before the prelude merges: lints distinguish an
+        # authored shadow from an injected prelude rule.
+        @document.authored_rules ||= @document.rules.keys
         prelude = Parser.new(STRUCTURED_CORE_RULES_SOURCE).parse
         injected = {}
         until missing.empty?

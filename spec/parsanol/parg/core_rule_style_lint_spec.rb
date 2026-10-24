@@ -58,6 +58,64 @@ RSpec.describe "PARG core-rule style lints" do
     expect(warnings_for(source)).not_to include(/mixes brace/)
   end
 
+  it "warns when the grammar ships without a test section" do
+    source = <<~PARG
+      grammar Bare version "1.0.0" {
+        code = "ok"
+        entry main: code
+      }
+    PARG
+    expect(warnings_for(source)).to include(/ships without a test section/)
+  end
+
+  it "stays silent about pins when tests exist" do
+    source = <<~PARG
+      grammar Pinned version "1.0.0" {
+        code = "ok"
+        entry main: code
+        test main {
+          accept "ok"
+        }
+      }
+    PARG
+    expect(warnings_for(source)).not_to include(/ships without a test section/)
+  end
+
+  it "warns when an entry-reachable rule has no doc comment" do
+    source = <<~PARG
+      grammar Undoc version "1.0.0" {
+        ## The documented root.
+        root_rule = inner "!"
+        inner = "x"
+        entry main: root_rule
+      }
+    PARG
+    expect(warnings_for(source)).to include(/rule inner: entry-reachable without a ## doc comment/)
+    expect(warnings_for(source)).not_to include(/rule root_rule:/)
+  end
+
+  it "does not flag injected core rules or tier rules as undocumented" do
+    source = <<~PARG
+      grammar Prelude version "1.0.0" {
+        hex = 2HEXDIG
+        entry main: hex
+      }
+    PARG
+    # HEXDIG is served by the builtin classes (no rule node); a grammar
+    # whose reachable set includes an INJECTED rule (CRLF/LWSP) must
+    # not gain an undocumented warning for it.
+    source_lwsp = <<~PARG
+      grammar Lwsp version "1.0.0" {
+        ## The documented rule.
+        gap = "a" LWSP "b"
+        entry main: gap
+      }
+    PARG
+    expect(warnings_for(source)).not_to include(/undocumented/)
+    expect(warnings_for(source_lwsp)).not_to include(/rule CRLF:/)
+    expect(warnings_for(source_lwsp)).not_to include(/rule WSP:/)
+  end
+
   it "does not warn on small grammars that happen to mix" do
     source = <<~PARG
       grammar Tiny version "1.0.0" {

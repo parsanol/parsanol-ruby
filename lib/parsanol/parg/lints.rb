@@ -135,7 +135,8 @@ module Parsanol
         ).freeze
 
         def warnings(document, _compiler)
-          shadows = document.rules.keys.select { |name| CORE_NAMES.include?(name) }
+          authored = document.authored_rules || document.rules.keys
+          shadows = authored.select { |name| CORE_NAMES.include?(name) }
           shadow_warnings = shadows.map do |name|
             "rule #{name}: shadows the RFC 5234 core rule — drop the local " \
               "definition unless the narrowing is deliberate"
@@ -160,6 +161,74 @@ module Parsanol
 
       register :left_recursion, LeftRecursion.new
       register :core_rule_style, CoreRuleStyle.new
+
+      # ruby#307: authoring-contract lints. Each flags a grammar whose
+      # artifact ships without something its consumers will want: pins,
+      # docs, or a canonical entry placement. All warnings — the
+      # constructs are legal; the omissions are the hazard.
+      class AuthoringContracts
+        def warnings(document, compiler)
+          unpinned(document) + undocumented(document, compiler)
+        end
+
+        def errors(_document, _compiler) = []
+
+        private
+
+        def unpinned(document)
+          return [] unless document.tests.empty?
+
+          ["grammar ships without a test section — an unpinned grammar is " \
+           "unpinned behavior (accept/reject/capture tests ride the artifact " \
+           "to every engine)"]
+        end
+
+        def undocumented(document, _compiler)
+          # Injected core rules and left-recursion tier rules are
+          # compiler-generated: they are reachable and necessarily
+          # undocumented, and flagging them would be noise.
+          injected = Compiler::BUILTIN_CLASSES.keys +
+            Compiler::STRUCTURED_CORE_RULE_NAMES
+          authored = document.authored_rules
+          prefix = Compiler::LEFT_RECURSION_PREFIX
+          entry_reachable(document).filter_map do |name|
+            next if authored && !authored.include?(name)
+            next if document.docs.key?(name)
+            next if injected.include?(name)
+            next if name.to_s.start_with?(prefix)
+
+            "rule #{name}: entry-reachable without a ## doc comment — the " \
+              "artifact ships docs for LSP hovers; a public rule without one " \
+              "is a missing contract"
+          end
+        end
+
+        # Rules reachable from any entry root through rule references.
+        def entry_reachable(document)
+          reachable = []
+          seen = {}
+          walk = lambda do |node|
+            case node.kind
+            when :ref
+              name = node.a
+              next if seen[name]
+
+              seen[name] = true
+              reachable << name
+              walk.call(document.rules[name]) if document.rules.key?(name)
+            when :alt, :seq then node.a.each { |child| walk.call(child) }
+            when :cap, :pred then walk.call(node.b)
+            when :rep, :opt then walk.call(node.a)
+            end
+          end
+          document.entries.each_value do |root|
+            walk.call(document.rules[root]) if document.rules.key?(root)
+          end
+          reachable
+        end
+      end
+
+      register :authoring_contracts, AuthoringContracts.new
       register :alternatives, Alternatives.new
 
       # An unbounded repetition whose body can match empty input is an
