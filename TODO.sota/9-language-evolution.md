@@ -90,6 +90,73 @@ five runtimes keep working untouched.
       source corpus → wasm compiler (browser compiles live), Ruby-free
       native compilation for C/C++/Python/CLI. (rs#298, site#19)
 
+## The completion map (the full graph; nodes, dependencies, gates)
+
+Node = work; "after" = dependencies; Gate = Definition of Done. No node
+is done until its gate is green and merged.
+
+**A — correctness debt (first; everything is judged by these)**
+- **A1** rs#305 registered-program consume-all — gate: `vm_path_spec`
+  green on a freshly compiled 0.18.21+ ext; the acceptance map folds to
+  three tiers (full / partial / full-by-contract).
+- **A2** CI cache-version bump (rake.yml) + parity-failure field diff —
+  gate: no stale-ext runs; a forced drift prints its diff in CI.
+- **A3** selfhost + pubid-grammar refresh (braces + core rules in the
+  language grammar) — gate: self-host validates brace-form sources.
+
+**B — language wholeness**
+- **B1** modern capture impl (ruby#304) — after: owner picks the mode
+  name. Gate: dual-mode corpus byte-identical across engines;
+  `parg lint --captures` matches the rewrite corpus-wide.
+- **B2** bindings v2 (ruby#308) — after: none (spec #319 merged; lints
+  shipped). Gate: path resolution fails the build naming the segment;
+  ruby/ts/rs bound trees agree on the parity grammar.
+- **B3** ABNF corpus tail (5322/9110/JOSE) — gate: each imports,
+  compiles, replays.
+- **B4** ANTLR corpus growth (SQL/JSON/config + rejection matrix) —
+  gate: same harness, green.
+- **B5** lint completion (entry-placement, case-ambiguity, single-use,
+  `--suggest-upgrades`) — gate: each fires on a fixture, silent on the
+  corpus.
+
+**C — unicode native**
+- **C1** U1 char-based columns — after: OWNER GO (wire-coordinated
+  corpus re-bake). Gate: all engines byte-identical on the re-bake.
+- **C2** U2 simple case folding — gate: fold-equivalent fixtures
+  identical everywhere.
+- **C3** U3 category tables — gate: same; wasm payload within budget.
+
+**D — fast, published**
+- **D1** quiet-host benchmark publication — after: a quiet host.
+  Gate: honest table + closing-gap numbers published.
+- **D2** codegen in-process bench — gate: generated numbers without
+  pipe overhead.
+- **D3** incremental at tree-sitter grade (Task 7) — the research pole.
+  Gate: ≥4/5 edits spliced at 25 KB+; sub-ms keystrokes; == full-reparse
+  acceptance.
+
+**E — distribution (the keystone path)**
+- **E1** rs#298 PARG frontend in Rust — THE longest pole; start parallel
+  with B. Tiers: lexer → parser → compiler. Gate: source-corpus parity
+  (ruby-compiled == rust-compiled, byte-for-byte) green for N
+  consecutive releases.
+- **E2** wasm live compilation (site#19) — after: E1. Gate: the browser
+  compiles a typed grammar live.
+- **E3** site#23 tour mirror — after: owner merges site PR #20.
+- **E4** python packaging — after: owner picks name/floor +
+  trusted-publisher. Gate: wheels on PyPI, CI smoke green.
+
+**F — frontiers (beyond-SOTA proper)**
+- **F1** #321 constrained decoding — after: none. Gate:
+  acceptance-equivalence corpus; resync-driven partial-mask demo.
+- **F2** rs#304 recovery metrics — after: none. Gate: seeded harness,
+  engine-identical, published table, no-regression gate.
+- **F3** verified core (Task 8B) — after: A. Gate: per the scoping doc.
+
+**Critical path**: A → (B ∥ C ∥ E1) → E2/D1/D2 → F. F1/F2 start anytime.
+Owner unblocks: mode name (B1), U1-columns go (C1), python identity
+(E4), site PR #20 (E3), quiet host (D1).
+
 ## The beyond-SOTA frontier (owner directive 2026-10-24: "PARG must be
 ## beyond SOTA fully")
 
