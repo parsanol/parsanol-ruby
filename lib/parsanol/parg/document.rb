@@ -18,7 +18,7 @@ module Parsanol
       Test = Struct.new(:entry, :kind, :input, :expect)
 
       attr_accessor :grammar_name, :version, :source, :uses, :skip_declaration, :skip_source,
-                    :atomic_rules, :skip_capture_key
+                    :atomic_rules, :skip_capture_key, :brace_rules
       # R2 declared resync: rule name -> skip pattern (the span matched
       # at a recovery point is consumed as annotated error text).
       attr_reader :resyncs
@@ -27,6 +27,10 @@ module Parsanol
       # Entries authored in this file (pre-import); nil-entry tests resolve
       # against these first.
       attr_accessor :own_entries
+      # Rule names the grammar itself wrote, snapshotted before the
+      # compiler injects core rules — lints must not mistake an injected
+      # prelude rule for an authored shadow.
+      attr_accessor :authored_rules
 
       def initialize
         @grammar_name = nil
@@ -48,6 +52,8 @@ module Parsanol
         # suppressed inside their bodies (token-shaped rules match
         # contiguously).
         @atomic_rules = []
+        @brace_rules = []
+        @authored_rules = nil
         # R2 declared resync: rule -> skip pattern. Recovery consumes
         # each pattern match at a failure point as annotated error text
         # and resumes the iteration after it.

@@ -342,6 +342,7 @@ module Parsanol
           end
 
           document.rules[name] = node
+          document.brace_rules << name if brace
           document.atomic_rules << name if atomic
           skip_newlines
         end

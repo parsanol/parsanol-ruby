@@ -9,6 +9,15 @@ module Parsanol
     # Lints use the compiler only as an analysis facade (find_left_cycle,
     # first_set, nullable?).
     module Lints
+      # Advisory warnings are author guidance — they never ride the
+      # envelope. The envelope's lint.order_warnings is a wire contract:
+      # recompiling an unchanged grammar must reproduce it byte-for-byte,
+      # so style/authoring findings (which fire on perfectly valid
+      # grammars) stay out of it.
+      Advisory = Struct.new(:message) do
+        def to_s = message
+      end
+
       class << self
         def register(name, strategy)
           strategies[name.to_sym] = strategy
@@ -20,6 +29,14 @@ module Parsanol
 
         def warnings(document, compiler)
           strategies.values.flat_map { |strategy| strategy.warnings(document, compiler) }
+        end
+
+        # The envelope-carried subset: strategies that are not advisory.
+        def envelope_warnings(document, compiler)
+          strategies.values
+            .reject { |strategy| strategy.respond_to?(:advisory?) && strategy.advisory? }
+            .flat_map { |strategy| strategy.warnings(document, compiler) }
+            .grep_v(Advisory)
         end
 
         def strategies
@@ -125,7 +142,114 @@ module Parsanol
         end
       end
 
+      # TODO.sota/9 T1/T2 lints (ruby#307): the core-rule prelude and
+      # the brace form both carry a migration path — the lint carries
+      # the suggestion. Core-rule shadows are deliberate-compatibility
+      # (a local rule wins), so they are warnings, never errors.
+      class CoreRuleStyle
+        def advisory? = true
+
+        CORE_NAMES = (
+          Compiler::BUILTIN_CLASSES.keys + Compiler::STRUCTURED_CORE_RULE_NAMES
+        ).freeze
+
+        def warnings(document, _compiler)
+          authored = document.authored_rules || document.rules.keys
+          shadows = authored.select { |name| CORE_NAMES.include?(name) }
+          shadow_warnings = shadows.map do |name|
+            "rule #{name}: shadows the RFC 5234 core rule — drop the local " \
+              "definition unless the narrowing is deliberate"
+          end
+          shadow_warnings + style_mixing_warning(document)
+        end
+
+        def errors(_document, _compiler) = []
+
+        private
+
+        def style_mixing_warning(document)
+          brace = document.brace_rules.size
+          line = document.rules.size - brace
+          return [] if brace.zero? || line.zero?
+          return [] if document.rules.size < 4
+
+          ["grammar mixes brace (#{brace}) and line (#{line}) rule bodies — " \
+           "pick one style per grammar"]
+        end
+      end
+
       register :left_recursion, LeftRecursion.new
+      register :core_rule_style, CoreRuleStyle.new
+
+      # ruby#307: authoring-contract lints. Each flags a grammar whose
+      # artifact ships without something its consumers will want: pins,
+      # docs, or a canonical entry placement. All warnings — the
+      # constructs are legal; the omissions are the hazard.
+      class AuthoringContracts
+        def advisory? = true
+
+        def warnings(document, compiler)
+          unpinned(document) + undocumented(document, compiler)
+        end
+
+        def errors(_document, _compiler) = []
+
+        private
+
+        def unpinned(document)
+          return [] unless document.tests.empty?
+
+          ["grammar ships without a test section — an unpinned grammar is " \
+           "unpinned behavior (accept/reject/capture tests ride the artifact " \
+           "to every engine)"]
+        end
+
+        def undocumented(document, _compiler)
+          # Injected core rules and left-recursion tier rules are
+          # compiler-generated: they are reachable and necessarily
+          # undocumented, and flagging them would be noise.
+          injected = Compiler::BUILTIN_CLASSES.keys +
+            Compiler::STRUCTURED_CORE_RULE_NAMES
+          authored = document.authored_rules
+          prefix = Compiler::LEFT_RECURSION_PREFIX
+          entry_reachable(document).filter_map do |name|
+            next if authored && !authored.include?(name)
+            next if document.docs.key?(name)
+            next if injected.include?(name)
+            next if name.to_s.start_with?(prefix)
+
+            "rule #{name}: entry-reachable without a ## doc comment — the " \
+              "artifact ships docs for LSP hovers; a public rule without one " \
+              "is a missing contract"
+          end
+        end
+
+        # Rules reachable from any entry root through rule references.
+        def entry_reachable(document)
+          reachable = []
+          seen = {}
+          walk = lambda do |node|
+            case node.kind
+            when :ref
+              name = node.a
+              next if seen[name]
+
+              seen[name] = true
+              reachable << name
+              walk.call(document.rules[name]) if document.rules.key?(name)
+            when :alt, :seq then node.a.each { |child| walk.call(child) }
+            when :cap, :pred then walk.call(node.b)
+            when :rep, :opt then walk.call(node.a)
+            end
+          end
+          document.entries.each_value do |root|
+            walk.call(document.rules[root]) if document.rules.key?(root)
+          end
+          reachable
+        end
+      end
+
+      register :authoring_contracts, AuthoringContracts.new
       register :alternatives, Alternatives.new
 
       # An unbounded repetition whose body can match empty input is an
