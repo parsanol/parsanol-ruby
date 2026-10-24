@@ -3,28 +3,13 @@
 require "parsanol"
 require "json"
 
-# ruby#308 first slice: the two halves of binding coverage, as advisory
-# warnings. The grammar compiles either way — the lints carry the
-# migration.
+# ruby#308: the advisory half of binding coverage (dead captures).
+# The orphan half moved to binding_path_spec.rb, whose resolution
+# failures fail the build -- a warning could never fire past that.
 RSpec.describe "PARG binding coverage lints" do
   def warnings_for(source)
     document = Parsanol::PARG::Parser.new(source).parse
     Parsanol::PARG::Compiler.compile(document).warnings
-  end
-
-  it "warns when a binding references a capture no rule produces" do
-    source = <<~PARG
-      grammar Demo version "1.0.0" {
-        pair = word as word_capture "=" 1*DIGIT
-        word = 1*( ALPHA )
-        bindings pair {
-          word_capture -> word (string)
-          ghost -> other (string)
-        }
-        entry document: pair
-      }
-    PARG
-    expect(warnings_for(source)).to include(/references capture "ghost"/)
   end
 
   it "warns when a capture is bound by no bindings section" do
@@ -40,39 +25,6 @@ RSpec.describe "PARG binding coverage lints" do
       }
     PARG
     expect(warnings_for(source)).to include(/capture "num_capture" is bound by no bindings section/)
-  end
-
-  it "scopes orphan detection to the binding's own rule" do
-    source = <<~PARG
-      grammar Scoped version "1.0.0" {
-        pair = word as word_capture "=" num as num_capture
-        word = 1*( ALPHA )
-        num = 1*DIGIT
-        other = "x" as other_capture
-        bindings pair {
-          other_capture -> word (string)
-        }
-        entry document: pair
-      }
-    PARG
-    # other_capture EXISTS in the grammar but not in pair's subtree:
-    # the binding on pair is an orphan.
-    expect(warnings_for(source)).to include(/binding on "pair" references capture "other_capture"/)
-  end
-
-  it "follows rule references when scoping" do
-    source = <<~PARG
-      grammar Scoped version "1.0.0" {
-        pair = inner
-        inner = word as word_capture
-        word = 1*( ALPHA )
-        bindings pair {
-          word_capture -> word (string)
-        }
-        entry document: pair
-      }
-    PARG
-    expect(warnings_for(source)).not_to include(/references capture/)
   end
 
   it "stays silent when every capture is bound and every binding resolves" do
