@@ -120,7 +120,10 @@ jobs:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
           cargo-cache: ${{ matrix.cargo-cache }}
-          cache-version: v1
+          # v2: the ext's own resolved lockfile froze parsanol at older
+          # versions across lock rides, serving stale extensions that
+          # masked and manufactured failures (rs#305 triage).
+          cache-version: v2
 
       - name: Compile rust ext
         run: bundle exec rake compile
