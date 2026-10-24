@@ -78,6 +78,33 @@ five runtimes keep working untouched.
       source corpus → wasm compiler (browser compiles live), Ruby-free
       native compilation for C/C++/Python/CLI. (rs#298, site#19)
 
+## The beyond-SOTA frontier (owner directive 2026-10-24: "PARG must be
+## beyond SOTA fully")
+
+Beyond replacing ABNF and ANTLR, two frontiers are uncharted — no
+grammar toolkit occupies them:
+
+- **Constrained generation, first-class** (ruby#321): one artifact
+  feeds human tooling AND the decoder — `parg export` lowers to
+  XGrammar/llguidance token masks, with the property that target-engine
+  acceptance ≡ parsanol acceptance, pinned by the differential corpus.
+  Resync-enabled artifacts drive partial-mask semantics after a
+  violation — no grammar format has recovery-aware constrained
+  decoding.
+- **Recovery quality as a published metric** (rs#304): seeded
+  corruption models, a recoverable-fraction/precision/bytes-to-recovery
+  harness, engine-identical by the differential gate, published beside
+  the honest performance table, and a no-regression release gate.
+  Recovery today is folklore everywhere else; this makes parsanol's the
+  only measured one.
+
+Plus the existing differentiators to protect: PEG predictability by
+construction, compile-time left-recursion rewriting through the
+unchanged artifact format, checksummed provenance with embedded tests
+replayed differentially across five engines, declarative resync
+recovery, compile-time-validated typed bindings, and grammar semver
+tooling (`parg diff` — shipped).
+
 ## Replacement thesis (how this wins)
 
 - **ABNF**: importability + strict superset. An RFC grammar becomes a
