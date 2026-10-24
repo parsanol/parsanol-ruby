@@ -94,6 +94,16 @@ five runtimes keep working untouched.
       source corpus → wasm compiler (browser compiles live), Ruby-free
       native compilation for C/C++/Python/CLI. (rs#298, site#19)
 
+- [x] **FIRST SLICE (2026-10-24, this branch)**: constrained-decoding
+      export — `parsanol parg export FILE --target xgrammar` lowers
+      the compiled artifact to XGrammar's EBNF (one rule per entry;
+      literals, classes, suffixes; ASCII fold literals expand to
+      per-character classes). Lookaround, behind-guards, custom
+      atoms, and non-ASCII fold groups are rejected naming the
+      construct. REMAINING: round-trip acceptance corpus through the
+      target runtime, the acceptance-equivalence property gate, and
+      the resync partial-mask story.
+
 ## The completion map (the full graph; nodes, dependencies, gates)
 
 Node = work; "after" = dependencies; Gate = Definition of Done. No node

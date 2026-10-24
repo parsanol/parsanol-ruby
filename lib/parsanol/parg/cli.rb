@@ -29,6 +29,9 @@ module Parsanol
           repl    <file> [--entry E]        interactive parse loop (blank
                                             line quits, :quit exits)
           doc     <file> [rule]             print rule documentation
+          export  <file|artifact.json> --target xgrammar
+                                            lower the compiled artifact to a
+                                            decoder-facing grammar (ruby#321)
           lint    <file> [--suggest-upgrades]
                                             print lint errors (exit 1) and
                                             warnings; the flag adds
@@ -66,6 +69,7 @@ module Parsanol
         when "repl" then repl
         when "doc" then doc
         when "lint" then lint
+        when "export" then export_grammar
         when "diff" then diff_artifacts
         when "lsp" then Lsp.new.run && 0
         else
@@ -89,6 +93,21 @@ module Parsanol
         when Parsanol::Slice then { "value" => node.to_s }
         else node
         end
+      end
+
+      # `parg export FILE --target xgrammar`: the decoder-facing
+      # lowering (ruby#321). Reads a .parg (compiling it) or an
+      # artifact json, prints the target grammar on stdout.
+      def export_grammar
+        source = @argv.shift
+        target = (flag_value("--target") || "xgrammar").to_sym
+        json = if source.end_with?(".json")
+                 File.read(source)
+               else
+                 JSON.generate(compile_source(source).envelope)
+               end
+        print Export.call(json, target: target)
+        0
       end
 
       # `parg lint FILE`: the lint suite on one grammar — errors
