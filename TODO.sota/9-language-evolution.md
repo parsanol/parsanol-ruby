@@ -22,7 +22,7 @@ five runtimes keep working untouched.
 
 ### T0 — docs + lints (no semantics)
 
-- [x] **SHIPPED (2026-10-24, #310-in-flight)**: guide — pin syntax was
+- [x] **SHIPPED (2026-10-24, #312 merged)**: guide — pin syntax was
       already complete (all five forms); added the style guide, the
       `#` vs `##` distinction, the `%i` raw-capture fact, and the
       canonical brace-form quick start with tests + bindings. Site
@@ -54,9 +54,11 @@ five runtimes keep working untouched.
 
 ### T3 — implicit capture, opt-in dialect (ruby#304)
 
-- [ ] `mode "modern"`: compile-time `Named(rule_name)` wrap — engines
-      unchanged; envelope records the mode; `parg lint --captures`
-      reports legacy-grammar shape deltas.
+- [x] **SPEC SHIPPED (2026-10-24, #315 merged)**: the wrap table,
+      compile-time lowering tower, the envelope `mode` field, and
+      major-versioning for shape changes. Implementation awaits ONE
+      owner decision: the mode's spelling. `parg lint --captures` and
+      the modern-mode corpus ride the implementation.
 
 ### T4 — Unicode native (rs#297)
 
@@ -68,12 +70,22 @@ five runtimes keep working untouched.
 
 ### T5 — tooling
 
-- [ ] ABNF importer hardening: RFC corpus (5234/3339/3986/5322/8259/
-      9110/JOSE), reviewable order-dependence reports. (ruby#305)
-- [ ] ANTLR importer, scoped subset. (ruby#309)
-- [ ] `parg diff` grammar semver. (ruby#306)
+- [x] **SHIPPED (2026-10-24, #318 merged)**: ABNF importer hardening —
+      the RFC corpus (5234/3339/3986/8259 + edge matrix) with
+      acceptance pins riding each import; five importer fixes
+      (continuation lines, the %i token, the 0<prose> idiom, =/ dedupe,
+      nullable-last reorder with fixpoint nullability). Remaining:
+      RFC 5322/9110/JOSE fixtures (ruby#305 stays open for them).
+- [x] **SHIPPED (2026-10-24, #320)**: ANTLR importer scoped v1 —
+      parser/lexer rules, char sets → %x alternations, the ~[set]
+      idiom, EOF dropped, everything out of scope rejected with
+      position and guidance; corpus replayed through acceptance pins.
+- [x] **SHIPPED (2026-10-24, #317 merged)**: `parg diff` — grammar
+      semver classification (major/minor/patch), --json/--suggest-bump/
+      --check LEVEL.
 - [ ] Bindings v2: typed trees, compile-time path validation, per-
-      language emission parity. (ruby#308)
+      language emission parity. Spec shipped (#319); first slice = the
+      two binding lints. (ruby#308)
 - [ ] PARG frontend in Rust: byte-parity with the Ruby compiler on a
       source corpus → wasm compiler (browser compiles live), Ruby-free
       native compilation for C/C++/Python/CLI. (rs#298, site#19)
