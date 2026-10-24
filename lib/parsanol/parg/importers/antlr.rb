@@ -25,7 +25,7 @@ module Parsanol
         end
 
         TOKEN = /
-          (?<block_comment>\/\*.*?\*\/)
+          (?<block_comment>\/\*(?:[^*]|\*+[^*\/])*\*+\/)
         | (?<line_comment>\/\/[^\n]*)
         | (?<literal>'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")
         | (?<charset>\[(?:[^\]\\]|\\.)*\])
@@ -223,8 +223,16 @@ module Parsanol
 
             case token[1]
             when "?" then advance and element = "[#{element}]"
-            when "*" then advance and element = "*#{element}"
-            when "+" then advance and element = "1*#{element}"
+            when "*", "+"
+              advance
+              skip_fillers
+              if peek&.[](0) == :punct && peek[1] == "?"
+                raise Error,
+                      "ANTLR: non-greedy quantifier #{token[1]}? (line #{token[2]}) is out of " \
+                      "scope for v1 — ordered choice has no lazy repetition; " \
+                      "restructure the rule"
+              end
+              element = token[1] == "*" ? "*#{element}" : "1*#{element}"
             else break
             end
           end
@@ -313,19 +321,29 @@ module Parsanol
               ranges << [byte, byte]
               i += 2
             elsif body[i + 1] == "-" && body[i + 2] && body[i + 2] != "]"
-              lo = escape_byte(body[i], line)
-              hi = escape_byte(body[i + 2], line)
+              lo = literal_byte(body[i], line)
+              hi = literal_byte(body[i + 2], line)
               raise Error, "ANTLR: reversed range (line #{line})" if lo > hi
 
               ranges << [lo, hi]
               i += 3
             else
-              byte = escape_byte(body[i], line)
-              ranges << [byte, byte]
+              ranges << [literal_byte(body[i], line), literal_byte(body[i], line)]
               i += 1
             end
           end
           ranges
+        end
+
+        # A plain (unescaped) charset character is its own codepoint --
+        # running it through the escape table mapped lowercase r/t/n to
+        # CR/TAB/LF (the [Rr][Ee][Cc][Tt]-style keyword idiom broke).
+        def literal_byte(char, line)
+          byte = char.ord
+          return byte if byte <= 0x7F
+
+          raise Error, "ANTLR: non-ASCII #{char.inspect} in a character set (line #{line}) -- " \
+                       "write a %x range or a literal instead"
         end
 
         def escape_byte(char, line)

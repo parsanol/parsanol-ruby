@@ -46,6 +46,47 @@ RSpec.describe "ANTLR importer corpus" do
     end
   end
 
+  describe "the json grammar" do
+    it "imports, compiles, and replays its acceptance set" do
+      artifact, entry = compiled_artifact(
+        "json.g4",
+        root: "json",
+        accepts: ['{"a":1}', "[true,false,null]", '{"nested":{"x":[1,2]}}', '"bare"', "0", "-1.5e10"],
+        rejects: ['{"a":}', "{,}", "[1,]", "tru", '{"a" 1}'],
+      )
+      accepts = ["{\"a\":1}", "[true,false,null]", "{\"nested\":{\"x\":[1,2]}}", "\"bare\"", "0", "-1.5e10"]
+      rejects = ["{\"a\":}", "{,}", "[1,]", "tru", "{\"a\" 1}"]
+      accepts.each { |input| expect { artifact.parse(entry, input) }.not_to raise_error, input.inspect }
+      rejects.each { |input| expect { artifact.parse(entry, input) }.to raise_error(Parsanol::ParseFailed), input.inspect }
+    end
+  end
+
+  describe "the select grammar" do
+    it "imports, compiles, and replays its acceptance set" do
+      artifact, entry = compiled_artifact(
+        "select.g4",
+        root: "query",
+        accepts: ["select * from t;", "SELECT a,b FROM t2 WHERE c"],
+        rejects: ["select *", "update t set x=1", "select ;"],
+      )
+      accepts = ["select * from t;", "SELECT a,b FROM t2 WHERE c"]
+      accepts.each { |input| expect { artifact.parse(entry, input) }.not_to raise_error, input.inspect }
+    end
+  end
+
+  describe "the props grammar" do
+    it "imports, compiles, and replays its acceptance set" do
+      artifact, entry = compiled_artifact(
+        "props.g4",
+        root: "file",
+        accepts: ["a=1", "key:value", "# comment", "a=1#trailing"],
+        rejects: ["= novalue", "=:"],
+      )
+      accepts = ["a=1", "key:value", "# comment", "a=1#trailing"]
+      accepts.each { |input| expect { artifact.parse(entry, input) }.not_to raise_error, input.inspect }
+    end
+  end
+
   describe "the ini grammar" do
     it "imports, compiles, and replays its acceptance set" do
       artifact, entry = compiled_artifact(
@@ -81,6 +122,12 @@ RSpec.describe "ANTLR importer corpus" do
       source = "grammar A;\nWS: [ ] -> skip ;\nr: 'a' ;\n"
       expect { Parsanol::PARG::Import.import(:antlr, source) }
         .to raise_error(/-> "skip".*skip = <rule>/m)
+    end
+
+    it "rejects non-greedy quantifiers instead of reading them as greedy" do
+      source = "grammar A;\nr: SEMI? ;\nx: (\"a\"*? \"b\")? ;\nSEMI: \";\" ;\n"
+      expect { Parsanol::PARG::Import.import(:antlr, source) }
+        .to raise_error(/non-greedy quantifier \*\?/)
     end
 
     it "rejects options sections" do
