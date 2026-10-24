@@ -100,9 +100,11 @@ five runtimes keep working untouched.
       literals, classes, suffixes; ASCII fold literals expand to
       per-character classes). Lookaround, behind-guards, custom
       atoms, and non-ASCII fold groups are rejected naming the
-      construct. REMAINING: round-trip acceptance corpus through the
-      target runtime, the acceptance-equivalence property gate, and
-      the resync partial-mask story.
+      construct. SLICE 2: the acceptance-equivalence differential's
+      internal half — a strict EBNF matcher parses the exported text
+      back and replays the embedded accept/reject sets (language
+      equivalence pinned from our side; the external half — the real
+      XGrammar runtime — and the resync partial-mask story remain).
 
 ## The completion map (the full graph; nodes, dependencies, gates)
 
