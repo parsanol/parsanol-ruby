@@ -51,7 +51,11 @@ jobs:
         with:
           ruby-version: "3.4"
 
-      - uses: oxidize-rb/actions/cross-gem@v1
+      # Pinned to the exact release (ruby#337): the floating major tag
+      # moves its rake-compiler-dock image, and one runner/toolchain
+      # drift re-broke every consumer's windows leg at once in the
+      # 2026-10 window. Bump deliberately, not passively.
+      - uses: oxidize-rb/actions/cross-gem@v1.5.0
         id: cross-gem
         env:
           PARSANOL_VENDOR_CDYLIB: "1"
