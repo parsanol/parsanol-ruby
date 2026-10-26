@@ -769,6 +769,70 @@ model class and registers the format (with `error_types` ← parsanol parse
 errors) in `Lutaml::Model::FormatRegistry`. Render (`to_<format>`) arrives
 with artifact render specs.
 
+## Typed bindings (v2): generated materialization models
+
+The binding paths ARE a type declaration. `parg schema` derives the
+bound model's shape from them — dot segments nest objects, a `[]`
+segment is an array of objects (or of leaf values), the leaf carries
+the binding's type and cardinality (`0..1` = nullable) — and emits
+materialization types in three languages:
+
+```bash
+parsanol parg schema artifact.json --ts      # TypeScript interfaces
+parsanol parg schema artifact.json --ruby    # lutaml-model classes
+parsanol parg schema artifact.json --rust    # serde structs
+```
+
+For the array-of-objects binding above,
+
+```parg
+bindings main {
+  n -> items[].n (integer)
+}
+```
+
+the TypeScript emitter produces
+
+```typescript
+export interface Main {
+  items: MainItems[];
+}
+
+export interface MainItems {
+  n: number;
+}
+```
+
+and the Ruby emitter produces the equivalent lutaml-model classes
+(children before parents — Ruby resolves the constant at class-body
+time):
+
+```ruby
+require "lutaml/model"
+
+class MainItems < Lutaml::Model::Serializable
+  attribute :n, :integer
+end
+
+class Main < Lutaml::Model::Serializable
+  attribute :items, MainItems, collection: true
+end
+```
+
+The generated models materialize exactly what the engines bind: the
+bound output `{items: [{n: 1}, {n: 2}]}` loads as
+`Main.new(...)`, `items.map(&:n)  # => [1, 2]`. Compile-time
+validation is the other half of the contract — a binding path that
+the grammar's capture tree cannot produce fails the build naming the
+path and the segment (the binding-coverage lint and the path
+resolver), so the types can never point at nothing.
+
+The same artifact binds identically in every engine — the
+`bindings_array` conformance fixture is the standing differential
+(ruby/ts/rs bound outputs pinned by the corpus replay), and the
+typed-emission specs round-trip a bound hash through the generated
+lutaml-model class.
+
 ## SOTA positioning (2023–2026 literature)
 
 The recent research converges on exactly the primitives PARG ships:
