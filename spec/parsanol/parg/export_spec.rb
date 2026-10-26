@@ -56,6 +56,17 @@ RSpec.describe "PARG xgrammar export" do
       .to raise_error(Parsanol::PARG::Export::Error, /non-ASCII fold group/)
   end
 
+  it 'rejects unicode classes rather than emitting \\p/\\u escapes raw' do
+    source = <<~PARG
+      grammar Unicode version "1.0.0" {
+        entry main: main
+        main = ( 1*%p{L} ) as word
+      }
+    PARG
+    expect { export_source(source) }
+      .to raise_error(Parsanol::PARG::Export::Error, /unicode class/)
+  end
+
   it "rejects an unknown target" do
     expect { Parsanol::PARG::Export.call("{}", target: :elephant) }
       .to raise_error(/unknown export target/)
