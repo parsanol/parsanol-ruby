@@ -205,10 +205,16 @@ module Parsanol
 
       def schema
         ts = @argv.delete("--ts")
+        ruby = @argv.delete("--ruby")
+        rust = @argv.delete("--rust")
         artifact = artifact_for(@argv.shift)
         schema = Parsanol::PARG::Schema.from_artifact(artifact)
         if ts
           puts Parsanol::PARG::Schema.to_typescript(schema)
+        elsif ruby
+          puts Parsanol::PARG::Schema.to_ruby(schema)
+        elsif rust
+          puts Parsanol::PARG::Schema.to_rust(schema)
         else
           puts JSON.pretty_generate(schema)
         end
