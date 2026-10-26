@@ -231,6 +231,18 @@ module Parsanol
         document.grammar_name = ident.value
         ident("version")
         document.version = unquote(expect(:str).value)
+        # `mode "modern"` — the opt-in capture dialect (ruby#304). The
+        # spelling is the owner's pending decision; the mechanism is
+        # fully specified (#315) and keyed off this one token.
+        if peek&.type == :ident && peek.value == "mode"
+          advance
+          mode = unquote(expect(:str).value)
+          unless mode == "modern"
+            raise ParseError,
+                  "unknown mode #{mode.inspect} -- the supported mode is \"modern\""
+          end
+          document.mode = mode
+        end
         punct("{")
         skip_newlines
         until peek&.type == :punct && peek.value == "}"

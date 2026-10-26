@@ -116,6 +116,7 @@ module Parsanol
       # upgrade suggestions on top.
       def lint
         source = @argv.shift
+        @captures_radar = @argv.delete("--captures") ? true : false
         tables = @tables_dir || default_tables_dir(source)
         document = Parsanol::PARG::Parser.new(PARG.read_utf8(source)).parse
         Parsanol::PARG::Imports.merge!(document, [File.dirname(source)])
@@ -130,6 +131,10 @@ module Parsanol
         if @suggest_upgrades
           Lints::CoreRuleDuplicates.new.warnings(document, compiler)
             .each { |upgrade| puts "upgrade: #{upgrade}" }
+        end
+        if @captures_radar
+          # The migration radar (ruby#304): what modern mode would name.
+          compiler.modern_radar.each { |line| puts "captures: #{line}" }
         end
         0
       rescue Parsanol::PARG::ParseError, Parsanol::PARG::Error => e

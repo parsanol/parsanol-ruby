@@ -17,7 +17,7 @@ module Parsanol
 
       Test = Struct.new(:entry, :kind, :input, :expect)
 
-      attr_accessor :grammar_name, :version, :source, :uses, :skip_declaration, :skip_source,
+      attr_accessor :grammar_name, :version, :mode, :source, :uses, :skip_declaration, :skip_source,
                     :atomic_rules, :skip_capture_key, :brace_rules
       # R2 declared resync: rule name -> skip pattern (the span matched
       # at a recovery point is consumed as annotated error text).
@@ -35,6 +35,7 @@ module Parsanol
 
       def initialize
         @grammar_name = nil
+        @mode = nil
         @version = "0.0.0"
         @source = nil
         @rules = {}
