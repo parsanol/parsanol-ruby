@@ -233,13 +233,27 @@ module Parsanol
         # initial parse's (the native FFI's coarse failure position
         # loses the deepest offset).
         captures, reparse_error = recovery_journal(entry_name, input, mode)
-        partial = recovery_partial(entry_name)
+        # The spine boundary, not the failure offset, is where the
+        # resync scan starts (rs#304 convergence): junk frequently lies
+        # BEFORE the deepest failure (the failed iteration consumed its
+        # own prefix), and the scan from the failure offset can never
+        # match it. When no iteration matched, the boundary is 0 —
+        # recovery still runs (rs#304 Gap B: a declared pattern is
+        # usable from the start).
+        stash = Parsanol::Recovery.take_partial
+        partial = recovery_partial(entry_name, stash)
+        boundary = stash&.first || 0
         resyncs = []
-        if partial && reparse_error
-          items = partial.values.first
-          extended, resyncs = resync_extension(entry_name, input,
-                                               reparse_error["offset"])
-          items.concat(extended) if extended
+        if reparse_error
+          root_name = entry(entry_name)["root"].to_sym
+          items = partial&.values&.first
+          created_partial = items.nil?
+          items ||= []
+          extended, resyncs = resync_extension(entry_name, input, boundary)
+          items.concat(extended)
+          # Recovered iterations with no prior partial form the partial
+          # (the rs engine's stash exists from offset 0).
+          partial = { root_name => items } if created_partial && !items.empty?
         end
         { "ok" => false,
           "error" => reparse_error || recovery_error(e),
@@ -367,8 +381,7 @@ module Parsanol
       # R1.5 (TODO.sota/1): the deepest repetition prefix the failed
       # journaling pass matched, shaped like the root (the item array
       # under the root rule's name). Nil when nothing matched.
-      def recovery_partial(entry_name)
-        stash = Parsanol::Recovery.take_partial
+      def recovery_partial(entry_name, stash = Parsanol::Recovery.take_partial)
         return nil if stash.nil?
 
         _end_pos, items, _tag = stash

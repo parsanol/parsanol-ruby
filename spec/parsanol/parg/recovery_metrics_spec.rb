@@ -3,21 +3,23 @@
 require "parsanol"
 require "json"
 
-# rs#304 slice 2: the recovery-quality metrics, cross-engine. This
-# spec ports parsanol-rs's tests/recovery_metrics.rs harness exactly —
-# the same fixed-LCG corruption stream (verified identical against a
-# third-language implementation) — and pins the RUBY engine's outcome
-# counts. The Rust harness pins the rs side. KNOWN GAP, filed on
-# rs#304: the engines DISAGREE on breadth (declared resync: rs
-# recovers 56/64, ruby 26/64; kv: rs 31/64, ruby 15/64 on the same
-# seeds) — recovery parity was pinned on curated fixtures, and the
-# seeded breadth exposed the difference. Until the engines converge,
-# each side pins its OWN numbers as the regression gate; convergence
-# moves both pins in the same release train.
+# rs#304: the recovery-quality metrics, cross-engine. This spec ports
+# parsanol-rs's tests/recovery_metrics.rs harness exactly — the same
+# fixed-LCG corruption stream (verified identical against a
+# third-language implementation) — and pins the outcome counts. The
+# seeded breadth found the engines diverging (rs 56/64 vs ruby 26/64
+# declared, 31 vs 15 kv); the divergence classified into two resync
+# contract gaps and both engines converged in one train (rs#304 slice
+# 3). The pins below are the SHARED counts: any move here without the
+# matching move in the rs harness is engine drift.
 
+# Converged (rs#304): both engines resync from the spine boundary, so
+# the counts are engine-identical. The ruby-side gaps (resync gated on
+# a non-empty partial; scan anchored at the failure offset) were fixed
+# in the same train as the rs half.
 ARTIFACTS = {
-  "recovery_resync_declared" => 26, # ruby engine, 64 seeds (rs: 56)
-  "recovery_kv" => 15,              # ruby engine, 64 seeds (rs: 31)
+  "recovery_resync_declared" => 58, # both engines, 64 seeds
+  "recovery_kv" => 33,              # both engines, 64 seeds
 }.freeze
 
 # The u64 LCG from the Rust harness, verbatim.
