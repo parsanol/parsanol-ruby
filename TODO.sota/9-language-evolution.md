@@ -27,14 +27,13 @@ five runtimes keep working untouched.
       `#` vs `##` distinction, the `%i` raw-capture fact, and the
       canonical brace-form quick start with tests + bindings. Site
       tour mirror remains: site#23.
-- [ ] Lint suite: `unpinned-grammar`, `undocumented-rule`,
-      `capture-without-binding`, `entry-placement`, `case-ambiguity`,
-      `style-brace-mixing`, `single-use-rule`; `--suggest-upgrades`.
-      (ruby#307)
-- [ ] Lint suite: `unpinned-grammar`, `undocumented-rule`,
-      `capture-without-binding`, `entry-placement`, `case-ambiguity`,
-      `style-brace-mixing`, `single-use-rule`; `--suggest-upgrades`.
-      (ruby#307)
+- [x] **SHIPPED (2026-10-24..26, #333/#335 + the audit round)**: the
+      lint registry — unpinned-grammar, undocumented-rule,
+      capture-without-binding (the binding-coverage lints),
+      entry-placement, case-ambiguity (the case-shadow class),
+      style-brace-mixing, single-use + dead-rule, core-rule-shadow,
+      and `parg lint --suggest-upgrades`. Advisory lints stay out of
+      the envelope wire (the advisory split). (ruby#307)
 
 ### T1 — core rules (ruby#303)
 
@@ -62,11 +61,15 @@ five runtimes keep working untouched.
 
 ### T4 — Unicode native (rs#297)
 
-- [ ] U1 correctness floor (codepoint-exact `.`/negated classes, char
-      columns; byte offsets stay the wire).
-- [ ] U2 `%i` = Unicode simple case folding, one table everywhere.
-- [ ] U3 category tables (wasm feature-gated). Unicode corpus replayed
-      byte-identically across all engines per tier.
+- [x] **U1 SHIPPED (2026-10-25, rs#297 tiers + #335's char columns)**:
+      codepoint-exact `.`/negated classes; byte offsets stay the wire.
+- [x] **U2 SHIPPED (2026-10-25, the unicode fold rounds)**: `%i` =
+      Unicode simple case folding, one table everywhere
+      (unicode_fold/unicode_hard corpus fixtures byte-identical).
+- [x] **U3 SHIPPED (2026-10-25, #334 + the tables)**: category tables
+      with compile-time misspelling rejection; the corpus replays
+      byte-identically. Remaining (owner-gated): the table-version
+      wire clause.
 
 ### T5 — tooling
 
@@ -87,24 +90,29 @@ five runtimes keep working untouched.
 - [x] **SHIPPED (2026-10-24, #317 merged)**: `parg diff` — grammar
       semver classification (major/minor/patch), --json/--suggest-bump/
       --check LEVEL.
-- [ ] Bindings v2: typed trees, compile-time path validation, per-
-      language emission parity. Spec shipped (#319); first slice = the
-      two binding lints. (ruby#308)
-- [ ] PARG frontend in Rust: byte-parity with the Ruby compiler on a
-      source corpus → wasm compiler (browser compiles live), Ruby-free
-      native compilation for C/C++/Python/CLI. (rs#298, site#19)
+- [x] **SHIPPED (2026-10-24..26, #331 + ruby#346)**: Bindings v2 —
+      compile-time path validation (fails the build naming the
+      segment), the binding-coverage lints, and shape-derived typed
+      emission in three languages (`parg schema --ts/--ruby/--rust`)
+      whose generated models materialize the bound output; the
+      cross-engine bound-output differential is the corpus itself.
+      (ruby#308)
+- [x] **SHIPPED (2026-10-25..26, rs#316/#318/#319/#321/#324)**: PARG
+      frontend in Rust — byte-parity with the Ruby compiler (39 atom
+      streams, 37 envelopes, 47 order_warnings, 47/47 flavor sources),
+      trivia injection, leftrec tiers, imports, the lint port, and the
+      wasm `compileSource` (the browser compiles live; site#37's
+      author tab). (rs#298, site#19)
 
-- [x] **FIRST SLICE (2026-10-24, this branch)**: constrained-decoding
-      export — `parsanol parg export FILE --target xgrammar` lowers
-      the compiled artifact to XGrammar's EBNF (one rule per entry;
-      literals, classes, suffixes; ASCII fold literals expand to
-      per-character classes). Lookaround, behind-guards, custom
-      atoms, and non-ASCII fold groups are rejected naming the
-      construct. SLICE 2: the acceptance-equivalence differential's
-      internal half — a strict EBNF matcher parses the exported text
-      back and replays the embedded accept/reject sets (language
-      equivalence pinned from our side; the external half — the real
-      XGrammar runtime — and the resync partial-mask story remain).
+- [x] **SHIPPED (2026-10-26, ruby#344 + ruby#345)**: constrained
+      decoding, first-class — `parg export --target xgrammar` (with
+      the constructs that have no equivalent rejected naming them),
+      the acceptance differential through the REAL XGrammar runtime
+      (60/71 identical; every mismatch = the measured
+      CFG-vs-ordered-choice class), and the resync partial-mask
+      story: the recovery export mode lowers declared resync patterns
+      as escape alternatives at the spine, gated by the seeded
+      differential against the engines' own recovery path.
 
 ## The completion map (the full graph; nodes, dependencies, gates)
 
@@ -119,7 +127,8 @@ is done until its gate is green and merged.
   the acceptance map folds to three tiers (full / partial /
   full-by-contract).
 - **A2** CI cache-version bump (rake.yml) + parity-failure field diff —
-  gate: no stale-ext runs; a forced drift prints its diff in CI.
+  **DONE**: `cache-version: v1` pins the ext cache (no stale-ext
+  runs); the parity gates print got/want diffs on drift.
 - **A3** selfhost + pubid-grammar refresh (braces + core rules in the
   language grammar) — **DONE (2026-10-24, pubid-grammar#58 +
   #329)**: PgMeta carries a bw-threaded brace-form expression tier,
@@ -181,26 +190,40 @@ is done until its gate is green and merged.
   acceptance.
 
 **E — distribution (the keystone path)**
-- **E1** rs#298 PARG frontend in Rust — THE longest pole; start parallel
-  with B. Tiers: lexer → parser → compiler. Gate: source-corpus parity
-  (ruby-compiled == rust-compiled, byte-for-byte) green for N
-  consecutive releases.
-- **E2** wasm live compilation (site#19) — after: E1. Gate: the browser
-  compiles a typed grammar live.
-- **E3** site#23 tour mirror — after: owner merges site PR #20.
+- **E1** rs#298 PARG frontend in Rust — **DONE (2026-10-26, closed)**:
+  the parity corpus IS the gate and it is green on every axis (39 atom
+  streams, 37 envelopes, 47 order_warnings, 47/47 flavor sources).
+- **E2** wasm live compilation (site#19) — **DONE (2026-10-26,
+  closed)**: `compileSource` + the playground Author tab (site#37).
+- **E3** site#23 tour mirror — site#23 merged; the tour page mirrors
+  the guide's canonical forms. Any future guide section rides the
+  same mirror rhythm.
 - **E4** python packaging — after: owner picks name/floor +
-  trusted-publisher. Gate: wheels on PyPI, CI smoke green.
+  trusted-publisher. Gate: wheels on PyPI, CI smoke green. (OPEN,
+  owner-gated.)
 
 **F — frontiers (beyond-SOTA proper)**
-- **F1** #321 constrained decoding — after: none. Gate:
-  acceptance-equivalence corpus; resync-driven partial-mask demo.
-- **F2** rs#304 recovery metrics — after: none. Gate: seeded harness,
-  engine-identical, published table, no-regression gate.
-- **F3** verified core (Task 8B) — after: A. Gate: per the scoping doc.
+- **F1** #321 constrained decoding — **DONE (2026-10-26, closed)**:
+  the acceptance differential runs through the real XGrammar runtime,
+  and the resync-driven escape grammars (ruby#345) are the
+  partial-mask story, gated by the seeded differential.
+- **F2** rs#304 recovery metrics — **DONE (2026-10-26, closed)**: the
+  seeded harness is engine-identical (the convergence train), the
+  table is published with the comparative columns measured
+  (tree-sitter 62/64 at 0.66 precision; parslet/pest 0/64 by
+  construction), and the twin-harness pins are the no-regression
+  gate. (rs#323 + rs#326.)
+- **F3** verified core (Task 8B) — Track A done; B1 shipped; B2 run
+  once and archived; B3 deferred with re-trigger conditions (the
+  owner's 2026-10-22 decision). Per the scoping doc: CLOSED as
+  scoped.
 
-**Critical path**: A → (B ∥ C ∥ E1) → E2/D1/D2 → F. F1/F2 start anytime.
-Owner unblocks: mode name (B1), U1-columns go (C1), python identity
-(E4), site PR #20 (E3), quiet host (D1).
+**Critical path**: A → (B ∥ C ∥ E1) → E2/D1/D2 → F. F1/F2 start
+anytime. **State (2026-10-26): every node is DONE, CLOSED, or
+owner-gated.** Owner unblocks outstanding: the mode name (B1/T3), the
+U3 table-version wire clause, python identity (E4), the quiet host
+(D1 — until then the performance absolutes stay unpublished and the
+recovery table stands alone), and codegen's in-process bench (D2).
 
 ## The beyond-SOTA frontier (owner directive 2026-10-24: "PARG must be
 ## beyond SOTA fully")
