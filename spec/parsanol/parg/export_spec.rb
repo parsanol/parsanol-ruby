@@ -8,9 +8,10 @@ require "json"
 # is rejected naming the construct — the importer philosophy in
 # reverse.
 RSpec.describe "PARG xgrammar export" do
-  def export_source(source)
+  def export_source(source, recovery: false)
     document = Parsanol::PARG::Parser.new(source).parse
-    Parsanol::PARG::Export.call(JSON.generate(Parsanol::PARG::Compiler.compile(document).envelope))
+    envelope = JSON.generate(Parsanol::PARG::Compiler.compile(document).envelope)
+    Parsanol::PARG::Export.call(envelope, target: :xgrammar, recovery: recovery)
   end
 
   it "lowers literals, classes, sequences, and repetitions to EBNF" do
@@ -64,7 +65,44 @@ RSpec.describe "PARG xgrammar export" do
       }
     PARG
     expect { export_source(source) }
-      .to raise_error(Parsanol::PARG::Export::Error, /unicode class/)
+      .to raise_error(Parsanol::PARG::Export::Error, /unicode category/)
+  end
+
+  it "recovery mode wraps the spine with the declared resync as an escape" do
+    source = <<~PARG
+      grammar KV version "1.0.0" {
+        pair = ( 1*( %x61-7A / %x30-39 ) ) as k "=" ( 1*( %x30-39 ) ) as v ";"
+        document = 1*( pair )
+        resync document = 1*( %x00-3A / %x3C-FF ) ";"
+        entry main: document
+      }
+    PARG
+    plain_body = export_source(source).split("::=").last.strip
+    recovery = export_source(source, recovery: true)
+    expect(recovery).to include("|")
+    expect(recovery).to include("( #{plain_body} | ")
+  end
+
+  it "recovery mode refuses non-spine roots, naming the shape" do
+    source = <<~PARG
+      grammar One version "1.0.0" {
+        one = "x" ", " "y"
+        resync one = 1*( %x00-77 ) "x"
+        entry main: one
+      }
+    PARG
+    expect { export_source(source, recovery: true) }
+      .to raise_error(Parsanol::PARG::Export::Error, /not a repetition spine/)
+  end
+
+  it "recovery mode without a declared resync emits the plain grammar" do
+    source = <<~PARG
+      grammar Plain version "1.0.0" {
+        word = ( 1*( %x61-7A ) ) as w
+        entry main: word
+      }
+    PARG
+    expect(export_source(source, recovery: true)).to eq(export_source(source))
   end
 
   it "rejects an unknown target" do

@@ -19,9 +19,15 @@ module Parsanol
       TARGETS = %i[xgrammar].freeze
 
       class << self
-        def call(artifact_json, target: :xgrammar)
+        # `recovery: true` lowers each declared `resync <rule> = <pattern>`
+        # as an escape alternative at the repetition spine: the target's
+        # matcher then accepts exactly the strings the engines' recovery
+        # path accepts — clean parses, and violate-then-resync parses
+        # where the junk is emitted deliberately and the grammar closes
+        # back over the continuation (ruby#321's partial-mask story).
+        def call(artifact_json, target: :xgrammar, recovery: false)
           case target
-          when :xgrammar then Xgrammar.new(artifact_json).call
+          when :xgrammar then Xgrammar.new(artifact_json, recovery: recovery).call
           else raise Error, "unknown export target #{target.inspect} (supported: #{TARGETS.join(', ')})"
           end
         end
@@ -34,19 +40,63 @@ module Parsanol
       # equality. The artifact wire has no rule boundaries (all atoms
       # inline), so each entry lowers as one expression.
       class Xgrammar
-        def initialize(artifact_json)
+        def initialize(artifact_json, recovery: false)
           @envelope = JSON.parse(artifact_json)
+          @recovery = recovery
         end
 
         def call
           rules = @envelope["entries"].map do |entry, meta|
             grammar = meta.fetch("grammar")
-            "#{entry}_entry ::= #{lower(grammar.fetch('atoms'), grammar.fetch('root'))}"
+            "#{entry}_entry ::= #{lower_entry(entry, grammar)}"
           end
           "#{rules.join("\n")}\n"
         end
 
         private
+
+        # The recovery wrap mirrors the engines' resync contract: the
+        # root must be a repetition spine (the same shape resync
+        # recovery itself requires), and each declared resync pattern
+        # becomes an alternative of the spine body — junk between
+        # complete iterations is exactly what the recovery path
+        # consumes and resumes. Inferred (undeclared) policies are the
+        # trial scan and have no closed form here: the plain grammar
+        # ships, and the differential reports the gap honestly.
+        def lower_entry(entry, grammar)
+          atoms = grammar.fetch('atoms')
+          body = lower(atoms, grammar.fetch('root'))
+          return body unless @recovery
+
+          pattern = @envelope.dig('entries', entry, 'resync')
+          return body unless pattern
+
+          spine = repetition_spine(atoms, grammar.fetch('root'))
+          unless spine
+            unsupported('recovery export: the entry root is not a repetition spine')
+          end
+          junk = lower(pattern.fetch('atoms'), pattern.fetch('root'))
+          # A spine item is a body, optionally preceded by one junk
+          # span: the engines scan forward to the first pattern match,
+          # consume it as one annotated span, and resume with the next
+          # iteration — which may be absent (trailing junk ends the
+          # parse, recovered).
+          "( #{body} | ( #{junk} ) ( #{body} )? )*"
+        end
+
+        # The lowerable body of the spine's repetition: Named/Entity
+        # unwrapping down to the Repetition atom, unbounded (max nil).
+        # Nil when the root is not that shape.
+        def repetition_spine(atoms, index)
+          tag, fields = atoms.fetch(index).first
+          case tag
+          when 'Named', 'Entity' then repetition_spine(atoms, fields.fetch('atom'))
+          when 'Repetition'
+            return nil unless fields['max'].nil?
+
+            fields.fetch('atom')
+          end
+        end
 
         def lower(atoms, index)
           tag, fields = atoms.fetch(index).first
@@ -91,22 +141,31 @@ module Parsanol
         # which IS the simple-case-fold semantics for ASCII. A non-ASCII
         # fold group needs a fold table the target does not have.
         def re_class(pattern)
-          # Unicode escapes and categories have no EBNF-class spelling:
-          # \u{...} astral forms and \p{...} categories must be
+          # Categories have no EBNF-class spelling: they must be
           # rejected naming the construct, never emitted raw (the
           # target's lexer rejects them, which fails the round trip
           # obscurely instead of at export time).
-          if pattern.include?("\\p{") || pattern.include?("\\u")
-            unsupported("unicode class #{pattern.inspect}")
+          if pattern.include?("\\p{")
+            unsupported("unicode category #{pattern.inspect}")
           end
 
-          return pattern if pattern.start_with?("[") && pattern.end_with?("]")
+          return de_escape_class(pattern) if pattern.start_with?("[") && pattern.end_with?("]")
 
           if (folded = pattern[/\A\(\?i:(.*)\)\z/m, 1])
             return expand_fold(folded, pattern)
           end
 
           unsupported("regex pattern #{pattern.inspect}")
+        end
+
+        # Class endpoints \u00ff / \u{10ffff} spell as the literal
+        # characters — XGrammar's EBNF classes are UTF-8 text and
+        # accept them; emitting the escapes raw fails the target's
+        # lexer instead.
+        def de_escape_class(pattern)
+          pattern
+            .gsub(/\\u\{([0-9a-fA-F]+)\}/) { [$1.to_i(16)].pack('U') }
+            .gsub(/\\u([0-9a-fA-F]{4})/) { [$1.to_i(16)].pack('U') }
         end
 
         def expand_fold(text, pattern)
