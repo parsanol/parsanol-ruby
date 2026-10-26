@@ -833,6 +833,36 @@ The same artifact binds identically in every engine — the
 typed-emission specs round-trip a bound hash through the generated
 lutaml-model class.
 
+## Modern mode: implicit capture by rule name (opt-in)
+
+A grammar header declares `mode "modern"` (ruby#304, the #315 spec —
+the spelling is the owner's pending decision and the single flip
+point). The compiler then wraps every rule reference that produces no
+capture in `Named(rule_name)` at compile time: the tree every engine
+builds is fully named, the dominant SOTA shape (tree-sitter named
+nodes, Lezer, instaparse).
+
+The spec table (pinned by `modern_mode_spec`):
+
+| construct | modern mode's treatment |
+|---|---|
+| rule reference whose subtree surfaces no capture | wrapped `Named(rule_name)` |
+| rule reference whose subtree has captures | untouched — the captures surface directly |
+| authored captures (`as`) | never re-wrapped |
+| trivia subtrees (the skip rule's tree) | never wrapped, never counted as captures |
+| lookaheads and behind-guards | untouched (their content never surfaces) |
+| sequences, alternatives, repetitions | recursion; the wrap lands on their references |
+
+The lowering happens after trivia injection — trivia atoms are in
+place first, so the pass sees the final tree. The wire learns
+nothing new: the atoms are ordinary `Named`, and identity rides the
+differential corpus. The envelope records `mode` when declared;
+field-less artifacts are classic. Switching a grammar WITH bindings
+between modes changes tree shape — `parg diff` treats a mode change
+as a major (slice pending), and `parg lint --captures` is the
+migration radar: on a legacy grammar it lists every reference modern
+mode would name.
+
 ## SOTA positioning (2023–2026 literature)
 
 The recent research converges on exactly the primitives PARG ships:

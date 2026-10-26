@@ -228,11 +228,103 @@ module Parsanol
         @resync_cache[rule.to_sym] ||= build_atom(pattern)
       end
 
+      # Modern mode (ruby#304, the #315 spec): every rule reference
+      # that produces no capture is wrapped in Named(rule_name) at
+      # compile time — the tree shape consumers read, opt-in via
+      # `mode "modern"` in the grammar header. Engines see ordinary
+      # Named atoms; identity rides the differential corpus.
+      def apply_modern_captures(atom)
+        return atom unless @document.mode == "modern"
+
+        wrap_uncaptured(atom)
+      end
+
+      def wrap_uncaptured(atom)
+        case atom
+        when Atoms::Named
+          atom
+        when Atoms::Entity
+          if produces_capture?(atom.parslet)
+            atom
+          else
+            Atoms::Named.new(atom, atom.rule_name.to_s)
+          end
+        when Atoms::Sequence, Atoms::Alternative
+          # rubocop:disable Lint/DuplicateBranch -- the two composites
+          # rebuild with their own constructors; identical bodies,
+          # different decisions
+          atom.class.new(*atom.parslets.map { |child| wrap_uncaptured(child) })
+        when Atoms::Repetition
+          Atoms::Repetition.new(wrap_uncaptured(atom.parslet), atom.min, atom.max, atom.result_tag)
+        else
+          atom
+        end
+      end
+
+      # Whether the atom's flattening surfaces any Named capture:
+      # rule references resolve through (their own wrap pass already
+      # ran — a wrapped ref produces a capture), trivia never
+      # surfaces, everything else recurses structurally.
+      def produces_capture?(atom, seen = [])
+        return false if seen.include?(atom.object_id)
+
+        seen << atom.object_id
+        case atom
+        when Atoms::Named then true
+        when Atoms::Entity
+          wrapped = atom.parslet.is_a?(Atoms::Named)
+          wrapped || produces_capture?(atom.parslet, seen)
+        when Atoms::Sequence, Atoms::Alternative
+          atom.parslets.any? { |child| produces_capture?(child, seen) }
+        when Atoms::Repetition
+          produces_capture?(atom.parslet, seen)
+        else
+          false
+        end
+      end
+
+      # The migration radar (ruby#304 `parg lint --captures`): for a
+      # LEGACY grammar, every rule reference modern mode would wrap —
+      # reference site, target rule. The compiler's state is warm
+      # (all rules built) when the lint calls this.
+      def modern_radar
+        return [] if @document.mode
+
+        lines = []
+        @document.rules.each_key do |name|
+          atom = @atom_cache[name]
+          next unless atom
+
+          radar_walk(atom, name, lines, [])
+        end
+        lines
+      end
+
+      def radar_walk(atom, site, lines, seen)
+        return if seen.include?(atom.object_id)
+
+        seen << atom.object_id
+        case atom
+        when Atoms::Named then nil
+        when Atoms::Entity
+          unless produces_capture?(atom.parslet)
+            lines << "rule #{site}: reference to #{atom.rule_name} produces no capture -- " \
+                     "modern mode would name it #{atom.rule_name}"
+          end
+          radar_walk(atom.parslet, site, lines, seen)
+        when Atoms::Sequence, Atoms::Alternative
+          atom.parslets.each { |child| radar_walk(child, site, lines, seen) }
+        when Atoms::Repetition
+          radar_walk(atom.parslet, site, lines, seen)
+        end
+      end
+
       def atom_for(name)
         inject_core_rules!
         expand_left_recursion! unless @expanded
         @atom_cache[name] ||= begin
           atom = build_atom(fetch_rule(name))
+          atom = apply_modern_captures(atom)
           # Atomic rules build without injection entirely: token-shaped
           # rules match contiguously (no inter-iteration trivia, no
           # entry-boundary skips).
@@ -1079,6 +1171,12 @@ module Parsanol
           "source_hash" => Digest::SHA256.hexdigest(@document.source.to_s),
           "compiler_version" => Parsanol::VERSION,
         }
+        if @document.mode
+          # ruby#304: the opt-in capture dialect. Field-less artifacts
+          # are classic; the value names the mode consumers read
+          # before parsing.
+          envelope["mode"] = @document.mode
+        end
         if @document.skip_declaration
           # parsanol-ruby#134: declared trivia rule. Injection is baked
           # into the compiled trees (plain atom kinds), so consumers
