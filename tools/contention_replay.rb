@@ -34,11 +34,12 @@ flavors.each do |flavor|
   corpus = JSON.parse(File.read(File.join(corpora_dir, flavor, "corpus.json")))
   artifact = Parsanol::PARG::Artifact.from_json(
     File.read(File.join(artifacts_dir, "#{flavor}.json")),
-    tables_dir: tables_dir, imports_dir: imports_dir
+    tables_dir: tables_dir, imports_dir: imports_dir,
   )
-  entry = corpus["grammar"] == artifact.envelope["grammar"] ? artifact.envelope["default_entry"] : artifact.envelope["default_entry"]
+  entry = artifact.envelope["default_entry"]
   corpus["cases"].each do |case_data|
     next unless case_data["kind"] == "accept"
+
     plan << [flavor, artifact, entry, case_data["input"], case_data["parsanol_tree"]]
   end
 end
@@ -62,7 +63,7 @@ warn "replay: #{loops} loops under caller-provided contention"
 divergences = 0
 iterations = 0
 loops.times do |loop_index|
-  plan.each_with_index do |(flavor, artifact, entry, input, want_tree), index|
+  plan.each_with_index do |(flavor, artifact, entry, input, _want_tree), index|
     iterations += 1
     tree = artifact.parse(entry, input)
     got = tree_hash(tree)
