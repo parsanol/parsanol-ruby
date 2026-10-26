@@ -64,18 +64,18 @@ module Parsanol
         # trial scan and have no closed form here: the plain grammar
         # ships, and the differential reports the gap honestly.
         def lower_entry(entry, grammar)
-          atoms = grammar.fetch('atoms')
-          body = lower(atoms, grammar.fetch('root'))
+          atoms = grammar.fetch("atoms")
+          body = lower(atoms, grammar.fetch("root"))
           return body unless @recovery
 
-          pattern = @envelope.dig('entries', entry, 'resync')
+          pattern = @envelope.dig("entries", entry, "resync")
           return body unless pattern
 
-          spine = repetition_spine(atoms, grammar.fetch('root'))
+          spine = repetition_spine(atoms, grammar.fetch("root"))
           unless spine
-            unsupported('recovery export: the entry root is not a repetition spine')
+            unsupported("recovery export: the entry root is not a repetition spine")
           end
-          junk = lower(pattern.fetch('atoms'), pattern.fetch('root'))
+          junk = lower(pattern.fetch("atoms"), pattern.fetch("root"))
           # A spine item is a body, optionally preceded by one junk
           # span: the engines scan forward to the first pattern match,
           # consume it as one annotated span, and resume with the next
@@ -90,11 +90,11 @@ module Parsanol
         def repetition_spine(atoms, index)
           tag, fields = atoms.fetch(index).first
           case tag
-          when 'Named', 'Entity' then repetition_spine(atoms, fields.fetch('atom'))
-          when 'Repetition'
-            return nil unless fields['max'].nil?
+          when "Named", "Entity" then repetition_spine(atoms, fields.fetch("atom"))
+          when "Repetition"
+            return nil unless fields["max"].nil?
 
-            fields.fetch('atom')
+            fields.fetch("atom")
           end
         end
 
@@ -164,8 +164,8 @@ module Parsanol
         # lexer instead.
         def de_escape_class(pattern)
           pattern
-            .gsub(/\\u\{([0-9a-fA-F]+)\}/) { [$1.to_i(16)].pack('U') }
-            .gsub(/\\u([0-9a-fA-F]{4})/) { [$1.to_i(16)].pack('U') }
+            .gsub(/\\u\{([0-9a-fA-F]+)\}/) { [$1.to_i(16)].pack("U") }
+            .gsub(/\\u([0-9a-fA-F]{4})/) { [$1.to_i(16)].pack("U") }
         end
 
         def expand_fold(text, pattern)
