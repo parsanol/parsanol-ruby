@@ -91,6 +91,15 @@ module Parsanol
         # which IS the simple-case-fold semantics for ASCII. A non-ASCII
         # fold group needs a fold table the target does not have.
         def re_class(pattern)
+          # Unicode escapes and categories have no EBNF-class spelling:
+          # \u{...} astral forms and \p{...} categories must be
+          # rejected naming the construct, never emitted raw (the
+          # target's lexer rejects them, which fails the round trip
+          # obscurely instead of at export time).
+          if pattern.include?("\\p{") || pattern.include?("\\u")
+            unsupported("unicode class #{pattern.inspect}")
+          end
+
           return pattern if pattern.start_with?("[") && pattern.end_with?("]")
 
           if (folded = pattern[/\A\(\?i:(.*)\)\z/m, 1])
