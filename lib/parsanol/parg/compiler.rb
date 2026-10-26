@@ -324,7 +324,6 @@ module Parsanol
         expand_left_recursion! unless @expanded
         @atom_cache[name] ||= begin
           atom = build_atom(fetch_rule(name))
-          atom = apply_modern_captures(atom)
           # Atomic rules build without injection entirely: token-shaped
           # rules match contiguously (no inter-iteration trivia, no
           # entry-boundary skips).
@@ -339,7 +338,9 @@ module Parsanol
               atom = Atoms::Sequence.new(skip_maybe_atom, atom, skip_maybe_atom)
             end
           end
-          atom
+          # The modern wrap runs LAST — the guide's spec table: trivia
+          # atoms are in place first, so the pass sees the final tree.
+          apply_modern_captures(atom)
         end
       end
 
