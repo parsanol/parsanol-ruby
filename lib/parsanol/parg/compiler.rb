@@ -244,7 +244,15 @@ module Parsanol
         when Atoms::Named
           atom
         when Atoms::Entity
-          if produces_capture?(atom.parslet)
+          # A rule that can only match whitespace is glue, not a
+          # semantic capture (ruby#352): wrapping it named every gap
+          # in the tree and broke consumers that fold captures into
+          # parameters. Conservatively: the rule's body is literals
+          # (through sequence/alternation/repetition composition) and
+          # every literal strips to empty.
+          if trivia_only?(atom.rule_name.to_s, { atom.rule_name.to_s => true })
+            atom
+          elsif produces_capture?(atom.parslet)
             atom
           else
             Atoms::Named.new(atom, atom.rule_name.to_s)
@@ -259,6 +267,37 @@ module Parsanol
           Atoms::Repetition.new(wrap_uncaptured(atom.parslet), atom.min, atom.max, atom.result_tag)
         else
           atom
+        end
+      end
+
+      # Whether the named rule's body is provably whitespace-only:
+      # literals strip to empty; sequence/alternation/repetition
+      # compose the verdict; references resolve through the atom cache
+      # with a cycle set; anything else (classes, customs, authored
+      # captures) disqualifies.
+      def trivia_only?(name, seen)
+        return false unless @document.rules.key?(name)
+
+        trivia_walk(atom_for(name), seen)
+      end
+
+      def trivia_walk(atom, seen)
+        case atom
+        when Atoms::Str
+          atom.str.to_s.strip.empty?
+        when Atoms::Sequence, Atoms::Alternative
+          kids = atom.respond_to?(:alternatives) ? atom.alternatives : atom.parslets
+          kids.all? { |child| trivia_walk(child, seen) }
+        when Atoms::Repetition
+          trivia_walk(atom.parslet, seen)
+        when Atoms::Entity
+          name = atom.rule_name.to_s
+          return false if seen[name]
+
+          seen[name] = true
+          trivia_only?(name, seen)
+        else
+          false
         end
       end
 

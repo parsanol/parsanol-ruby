@@ -34,6 +34,29 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
       expect(names).to include("k")
     end
 
+    it "does not name whitespace-glue rules (ruby#352)" do
+      # A rule that can only match whitespace is glue: wrapping it named
+      # every gap in the tree and broke consumers that fold captures
+      # into parameters. Conservative exemption: literal-only bodies
+      # whose every literal strips to empty.
+      glue = compile(<<~PARG)
+        grammar G version "1.0.0" {
+          entry main: main
+          space = " "
+          ws = space space / space
+          sep = space "," space
+          main = pair
+          pair = ( 1*( %x61-7A ) ) as k sep ( 1*( %x30-39 ) ) as n
+        }
+      PARG
+      names = glue.dig("entries", "main", "grammar", "atoms")
+        .filter_map { |atom| atom.dig("Named", "name") }
+      expect(names).not_to include("space")
+      expect(names).not_to include("ws")
+      # sep carries the comma — semantic, stays named.
+      expect(names).to include("sep")
+    end
+
     it "records mode \"v1\" for grammars that pin the legacy shape" do
       classic = compile(<<~PARG)
         grammar C version "1.0.0" mode "v1" {
