@@ -231,15 +231,18 @@ module Parsanol
         document.grammar_name = ident.value
         ident("version")
         document.version = unquote(expect(:str).value)
-        # `mode "modern"` — the opt-in capture dialect (ruby#304). The
-        # spelling is the owner's pending decision; the mechanism is
-        # fully specified (#315) and keyed off this one token.
+        # `mode` — the capture dialect (ruby#304). THE DEFAULT IS
+        # "v2": fully named trees (every uncaptured rule reference is
+        # wrapped in Named(rule_name)). `mode "classic"` preserves the
+        # legacy shape for grammars that pin it. Acceptance never
+        # changes — only tree shape — and baked artifacts are
+        # unaffected (they do not recompile).
         if peek&.type == :ident && peek.value == "mode"
           advance
           mode = unquote(expect(:str).value)
-          unless mode == "modern"
+          unless %w[v2 classic].include?(mode)
             raise ParseError,
-                  "unknown mode #{mode.inspect} -- the supported mode is \"modern\""
+                  "unknown mode #{mode.inspect} -- supported modes are \"v2\" (default) and \"classic\""
           end
           document.mode = mode
         end

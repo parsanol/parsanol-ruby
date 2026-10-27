@@ -35,7 +35,7 @@ module Parsanol
 
       def initialize
         @grammar_name = nil
-        @mode = nil
+        @mode = "v2"
         @version = "0.0.0"
         @source = nil
         @rules = {}
