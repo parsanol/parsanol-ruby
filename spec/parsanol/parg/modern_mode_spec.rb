@@ -29,7 +29,7 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
       PARG
       expect(default["mode"]).to eq("v2")
       names = default.dig("entries", "main", "grammar", "atoms")
-                     .filter_map { |atom| atom.dig("Named", "name") }
+        .filter_map { |atom| atom.dig("Named", "name") }
       expect(names).to include("sep")
       expect(names).to include("k")
     end
@@ -45,7 +45,7 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
       PARG
       expect(classic["mode"]).to eq("v1")
       names = classic.dig("entries", "main", "grammar", "atoms")
-                     .filter_map { |atom| atom.dig("Named", "name") }
+        .filter_map { |atom| atom.dig("Named", "name") }
       expect(names).to include("k")
       expect(names).not_to include("sep")
     end
@@ -68,7 +68,7 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
             w = "x"
           }
         PARG
-    end.to raise_error(Parsanol::PARG::ParseError, /supported modes/)
+      end.to raise_error(Parsanol::PARG::ParseError, /supported modes/)
     end
   end
 
@@ -104,7 +104,7 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
 
     it "accepts the fully named tree" do
       artifact = Parsanol::PARG::Artifact.from_json(
-        JSON.generate(compile(<<~PARG))
+        JSON.generate(compile(<<~PARG)),
           grammar M version "1.0.0" {
             entry main: main
             main = sep pair
@@ -148,7 +148,7 @@ describe "the migration radar (parg lint --captures)" do
     compiler = Parsanol::PARG::Compiler.new(document, nil)
     document.rules.each_key { |rule| compiler.atom_for(rule) }
     radar = compiler.modern_radar
-    expect(radar.join("\n")).to include('reference to sep produces no capture')
+    expect(radar.join("\n")).to include("reference to sep produces no capture")
     expect(radar.join("\n")).not_to include("reference to pair")
   end
 end
