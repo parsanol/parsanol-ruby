@@ -1233,6 +1233,12 @@ module Parsanol
         # ruby#304: the envelope always names the capture dialect —
         # consumers read the tree-shape contract before parsing.
         envelope["mode"] = @document.mode
+        # ruby#353: the capture-emission level the trees were frozen
+        # against (1.3.108's implicit-capture emission = 1; the
+        # explicit end_guard/marker/hyphen nodes = 2). Consumers freeze
+        # tree shapes and mappers; the loader asserts the level at
+        # load. Absent field = emission 1.
+        envelope["emission"] = Artifact::EMISSION_VERSION
         if @document.skip_declaration
           # parsanol-ruby#134: declared trivia rule. Injection is baked
           # into the compiled trees (plain atom kinds), so consumers
