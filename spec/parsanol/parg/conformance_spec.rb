@@ -43,8 +43,11 @@ RSpec.describe "PARG conformance corpus" do
   # stamped from Parsanol::VERSION, so every gem release legitimately
   # changes it (and the checksum covering it) — parity binds the
   # artifact to its SOURCE via source_hash, not to a compiler build.
+  # unicode_tables is the same class of stamp (U3): the compiling
+  # engine names its Unicode table source, and it moves with the
+  # runner's ruby, not with the grammar.
   def parity_view(envelope)
-    envelope.except("compiler_version", "checksum")
+    envelope.except("compiler_version", "checksum", "unicode_tables")
   end
 
   it "compile-parity: recompiling each .parg reproduces the committed envelope" do
