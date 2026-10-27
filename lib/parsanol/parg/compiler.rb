@@ -231,10 +231,10 @@ module Parsanol
       # Modern mode (ruby#304, the #315 spec): every rule reference
       # that produces no capture is wrapped in Named(rule_name) at
       # compile time — the tree shape consumers read, opt-in via
-      # `mode "modern"` in the grammar header. Engines see ordinary
+      # `mode` in the grammar header. Engines see ordinary
       # Named atoms; identity rides the differential corpus.
       def apply_modern_captures(atom)
-        return atom if @document.mode == "classic"
+        return atom if @document.mode == "v1"
 
         wrap_uncaptured(atom)
       end
@@ -292,7 +292,7 @@ module Parsanol
       def modern_radar
         # The radar is the classic dialect's migration tool: on a v2
         # grammar every reference is already named.
-        return [] if @document.mode != "classic"
+        return [] if @document.mode != "v1"
 
         lines = []
         @document.rules.each_key do |name|
@@ -345,7 +345,14 @@ module Parsanol
           end
           # The modern wrap runs LAST — the guide's spec table: trivia
           # atoms are in place first, so the pass sees the final tree.
-          apply_modern_captures(atom)
+          # The unwrapped tree lands in the cache BEFORE the wrap (the
+          # wrap's capture probes resolve rule references through
+          # atom_for; a mutual-reference grammar must hit the cache,
+          # not rebuild), then the cache takes the wrapped tree.
+          @atom_cache[name] = atom
+          atom = apply_modern_captures(atom)
+          @atom_cache[name] = atom
+          atom
         end
       end
 

@@ -22,7 +22,7 @@ end
 RSpec.describe "repetition flattening parity with parslet (parsanol-ruby#231)" do
   def artifact
     source = <<~PARG
-      grammar P version "1.0.0" {
+      grammar P version "1.0.0" mode "v1" {
         entry s: s
         s = ( 1*( u ) ) as us
         u = pa / g

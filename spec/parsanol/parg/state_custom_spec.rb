@@ -16,7 +16,7 @@ RSpec.describe "PARG runtime state and customs (#129)" do
 
   def block_grammar(delim_rule = "3*4(dash)")
     <<~G
-      grammar Blocks version "1" {
+      grammar Blocks version "1" mode "v1" {
         entry block: block
         state delimiter: string
         dash = %x2D
@@ -55,7 +55,7 @@ RSpec.describe "PARG runtime state and customs (#129)" do
   describe "set" do
     it "writes a literal value readable by state" do
       art, = compile(<<~G)
-        grammar T version "1" {
+        grammar T version "1" mode "v1" {
           entry t: t
           state m: string
           t = ((set m = "a") (state m) 1*%x61-7A) as t
@@ -68,7 +68,7 @@ RSpec.describe "PARG runtime state and customs (#129)" do
   describe "switch" do
     it "dispatches to the arm matching the slot value" do
       art, = compile(<<~G)
-        grammar T version "1" {
+        grammar T version "1" mode "v1" {
           entry t: t
           state mode: symbol
           q = ("[Q]" 1*%x61-7A) as q
@@ -82,7 +82,7 @@ RSpec.describe "PARG runtime state and customs (#129)" do
 
     it "falls through to the default arm" do
       art, = compile(<<~G)
-        grammar T version "1" {
+        grammar T version "1" mode "v1" {
           entry t: t
           state mode: symbol
           q = ("[Q]" 1*%x61-7A) as q
@@ -109,7 +109,7 @@ RSpec.describe "PARG runtime state and customs (#129)" do
 
     it "resolves the class and runs the atom" do
       art, envelope = compile(<<~G)
-        grammar T version "1" {
+        grammar T version "1" mode "v1" {
           entry t: t
           custom mark_a = "SpecMarkA"
           t = ((mark_a) 1*%x61-7A) as t
@@ -123,7 +123,7 @@ RSpec.describe "PARG runtime state and customs (#129)" do
     it "raises loudly when the class cannot resolve" do
       expect do
         compile(<<~G)
-          grammar T version "1" {
+          grammar T version "1" mode "v1" {
             entry t: t
             custom mark_a = "NoSuchAtomAnywhere"
             t = ((mark_a)) as t
@@ -136,7 +136,7 @@ RSpec.describe "PARG runtime state and customs (#129)" do
   describe "envelope and engine routing" do
     it "records states, customs and the dynamic flag" do
       _, envelope = compile(<<~G)
-        grammar T version "1" {
+        grammar T version "1" mode "v1" {
           entry t: t
           state m: string
           t = ((set m = "x") (state m)) as t
@@ -148,7 +148,7 @@ RSpec.describe "PARG runtime state and customs (#129)" do
 
     it "does not flag stateless grammars" do
       _, envelope = compile(<<~G)
-        grammar T version "1" {
+        grammar T version "1" mode "v1" {
           entry t: t
           t = (1*%x61-7A) as t
         }

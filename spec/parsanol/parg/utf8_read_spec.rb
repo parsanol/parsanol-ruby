@@ -39,7 +39,7 @@ RSpec.describe "PARG file reads under a non-UTF-8 locale" do
   let(:dir) { Dir.mktmpdir }
   let(:source) do
     <<~PARG
-      grammar Dash version "1.0.0" {
+      grammar Dash version "1.0.0" mode "v1" {
         digit = %x30-39
         number = 1*digit
         en_dash = "–"
@@ -98,13 +98,13 @@ RSpec.describe "PARG file reads under a non-UTF-8 locale" do
 
   it "merges a used .parg file" do
     write_utf8(File.join(dir, "dash.parg"), <<~PARG)
-      grammar Dash version "1.0.0" {
+      grammar Dash version "1.0.0" mode "v1" {
         en_dash = "–"
       }
     PARG
     document = Parsanol::PARG::Parser.new(<<~PARG).parse
       use dash
-      grammar Main version "1.0.0" {
+      grammar Main version "1.0.0" mode "v1" {
         identifier = "A" dash.en_dash "1"
       }
       entry identifier: identifier
@@ -130,7 +130,7 @@ RSpec.describe "PARG file reads under a non-UTF-8 locale" do
 
   it "loads the self-host artifact" do
     envelope = compile_source(<<~PARG, tables_dir: nil).envelope
-      grammar Dash version "1.0.0" {
+      grammar Dash version "1.0.0" mode "v1" {
         file = "A–1"
       }
       entry file: file

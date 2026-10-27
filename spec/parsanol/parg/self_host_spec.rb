@@ -10,9 +10,11 @@ RSpec.describe Parsanol::PARG::SelfHost do
   end
 
   it "validates a real grammar under the self-hosting artifact" do
-    source = File.read(File.expand_path(
-                         "../../../../../pubid/pubid-grammar/grammars/parg.parg", __dir__
-                       ))
+    # The self-description grammar lives next to the artifact the lib
+    # already located (the same pubid-grammar checkout), so the source
+    # resolves from artifact_path rather than a checkout-layout guess.
+    artifact_path = described_class.artifact_path
+    source = File.read(File.join(File.dirname(artifact_path), "..", "grammars", "parg.parg"))
     expect(described_class.valid?(source)).to be(true)
   end
 
@@ -22,7 +24,7 @@ RSpec.describe Parsanol::PARG::SelfHost do
 
   it "validates brace-form rule bodies (the A3 gate)" do
     brace_source = <<~PARG
-      grammar T version "1" {
+      grammar T version "1" mode "v1" {
         ## Publisher code: case-insensitive tag; raw input is captured.
         publisher = {
           %i"iso" / %i"ieee"

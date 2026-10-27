@@ -233,18 +233,20 @@ module Parsanol
         document.version = unquote(expect(:str).value)
         # `mode` — the capture dialect (ruby#304). THE DEFAULT IS
         # "v2": fully named trees (every uncaptured rule reference is
-        # wrapped in Named(rule_name)). `mode "classic"` preserves the
-        # legacy shape for grammars that pin it. Acceptance never
-        # changes — only tree shape — and baked artifacts are
-        # unaffected (they do not recompile).
+        # wrapped in Named(rule_name)). `mode "v1"` pins the legacy
+        # shape, YAML-version-directive style; `mode "classic"` is
+        # accepted as a deprecated alias for "v1". The mode is
+        # canonicalized here — everything downstream only ever sees
+        # "v1"/"v2". Acceptance never changes — only tree shape — and
+        # baked artifacts are unaffected (they do not recompile).
         if peek&.type == :ident && peek.value == "mode"
           advance
           mode = unquote(expect(:str).value)
-          unless %w[v2 classic].include?(mode)
+          unless %w[v2 v1 classic].include?(mode)
             raise ParseError,
-                  "unknown mode #{mode.inspect} -- supported modes are \"v2\" (default) and \"classic\""
+                  "unknown mode #{mode.inspect} -- supported modes are \"v2\" (default) and \"v1\" (legacy)"
           end
-          document.mode = mode
+          document.mode = mode == "v2" ? "v2" : "v1"
         end
         punct("{")
         skip_newlines

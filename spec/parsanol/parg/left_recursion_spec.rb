@@ -15,7 +15,7 @@ RSpec.describe "PARG direct left recursion" do
 
   let(:arith) do
     <<~PARG
-      grammar LeftRecArith version "1.0.0" {
+      grammar LeftRecArith version "1.0.0" mode "v1" {
         ## `*` binds tighter than `+`; both left-associative.
         expr = expr ( "*" expr ) as mul / expr ( "+" expr ) as add / term
         term = ( 1*%x30-39 ) as num

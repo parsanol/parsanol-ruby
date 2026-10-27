@@ -28,7 +28,7 @@ RSpec.describe Parsanol::PARG do
   let(:source) do
     <<~PARG
       # demo grammar
-      grammar Demo version "1.2.0" {
+      grammar Demo version "1.2.0" mode "v1" {
         digit = %x30-39
         number = 1*digit
         space = " "
@@ -78,20 +78,20 @@ RSpec.describe Parsanol::PARG do
         .to raise_error(Parsanol::PARG::ParseError)
       expect { Parsanol::PARG::Parser.new("nonsense").parse }
         .to raise_error(Parsanol::PARG::ParseError)
-      expect { Parsanol::PARG::Parser.new('grammar X version "1" { entry = "a" }').parse }
+      expect { Parsanol::PARG::Parser.new('grammar X version "1" mode "v1" { entry = "a" }').parse }
         .to raise_error(Parsanol::PARG::ParseError, /expected ident/)
     end
 
     it "rejects duplicate rules and dangling references" do
       src = <<~PARG
-        grammar X version "1" { a = "x" }
+        grammar X version "1" mode "v1" { a = "x" }
         entry e: missing
       PARG
       expect { Parsanol::PARG::Parser.new(src).parse }
         .to raise_error(Parsanol::PARG::ParseError, /unknown rule/)
 
       dup = <<~PARG
-        grammar X version "1" {
+        grammar X version "1" mode "v1" {
           a = "x"
           a = "y"
         }
@@ -107,7 +107,7 @@ RSpec.describe Parsanol::PARG do
       # with nothing but the recursive reference cannot anchor the fold.
       expect do
         compile_source(<<~PARG, tables_dir: nil)
-          grammar X version "1" {
+          grammar X version "1" mode "v1" {
             a = a "x"
           }
         PARG
@@ -115,7 +115,7 @@ RSpec.describe Parsanol::PARG do
 
       expect do
         compile_source(<<~PARG, tables_dir: nil)
-          grammar X version "1" {
+          grammar X version "1" mode "v1" {
             a = b "x"
             b = a / "y"
           }
@@ -125,26 +125,26 @@ RSpec.describe Parsanol::PARG do
 
     it "rejects unknown rule references" do
       expect do
-        compile_source('grammar X version "1" { a = missing }', tables_dir: nil)
+        compile_source('grammar X version "1" mode "v1" { a = missing }', tables_dir: nil)
       end.to raise_error(Parsanol::PARG::CompileError, /unknown rule/)
     end
 
     it "rejects a non-final branch that can match empty" do
-      src = 'grammar X version "1" { a = [ "b" ] / "c" }'
+      src = 'grammar X version "1" mode "v1" { a = [ "b" ] / "c" }'
       expect do
         compile_source(src, tables_dir: nil)
       end.to raise_error(Parsanol::PARG::CompileError, /match empty/)
     end
 
     it "rejects a shorter literal shadowing a longer later branch" do
-      src = 'grammar X version "1" { p = "iso" / "iso/iec" }'
+      src = 'grammar X version "1" mode "v1" { p = "iso" / "iso/iec" }'
       expect do
         compile_source(src, tables_dir: nil)
       end.to raise_error(Parsanol::PARG::CompileError, /shadows branch 2/)
     end
 
     it "records an order-dependent warning for overlapping branches" do
-      src = 'grammar X version "1" { p = "iso/iec" / "iso" }'
+      src = 'grammar X version "1" mode "v1" { p = "iso/iec" / "iso" }'
       result = compile_source(src, tables_dir: nil)
       expect(result.warnings.join).to include("order-dependent")
     end
@@ -163,7 +163,7 @@ RSpec.describe Parsanol::PARG do
   describe "tests and doc comments" do
     let(:authored) do
       <<~PARG
-        grammar T version "1.0.0" {
+        grammar T version "1.0.0" mode "v1" {
           digit = %x30-39
           ## The two-letter publisher code.
           pub = %x41-5A %x41-5A
@@ -209,7 +209,7 @@ RSpec.describe Parsanol::PARG do
     describe "capture kind (grammar-layer phase)" do
       let(:capture_grammar) do
         <<~PARG
-          grammar T version "1.0.0" {
+          grammar T version "1.0.0" mode "v1" {
             digit = %x30-39
             pub = %x41-5A %x41-5A
             identifier = pub as pub 4digit
@@ -256,7 +256,7 @@ RSpec.describe Parsanol::PARG do
     describe "envelope self-test (parsanol-ruby#223)" do
       let(:tested) do
         <<~PARG
-          grammar ST version "1.0" {
+          grammar ST version "1.0" mode "v1" {
             main = ( "x" as x / "y" as y / "z" as z )
             entry main: main
 
@@ -305,7 +305,7 @@ RSpec.describe Parsanol::PARG do
 
     it "rejects example tests in grammars without a bindings section" do
       sourceless = <<~PARG
-        grammar T version "1.0.0" {
+        grammar T version "1.0.0" mode "v1" {
           pub = %x41-5A %x41-5A as pub
           identifier = pub
         }
@@ -322,7 +322,7 @@ RSpec.describe Parsanol::PARG do
 
     it "compiles a multi-entry grammar whose tests all name their entry" do
       multi = <<~PARG
-        grammar M version "1.0.0" {
+        grammar M version "1.0.0" mode "v1" {
           a = "x" as a
           b = "y" as b
         }
@@ -343,7 +343,7 @@ RSpec.describe Parsanol::PARG do
 
     it "still names the missing entry when a multi-entry test omits one" do
       multi = <<~PARG
-        grammar M version "1.0.0" {
+        grammar M version "1.0.0" mode "v1" {
           a = "x" as a
           b = "y" as b
         }
