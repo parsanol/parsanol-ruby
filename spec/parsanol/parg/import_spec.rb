@@ -5,6 +5,10 @@ require "parsanol"
 RSpec.describe Parsanol::PARG::Import do
   def compile_source(src, tables_dir: nil)
     document = Parsanol::PARG::Parser.new(src).parse
+    # The tree-shape expectations below are the legacy flat sequences;
+    # the importer tests pin the v1 dialect (v2's named trees are
+    # modern_mode_spec's subject).
+    document.mode = "v1"
     Parsanol::PARG::Compiler.compile(document, tables_dir: tables_dir)
   end
 

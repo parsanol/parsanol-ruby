@@ -61,7 +61,7 @@ RSpec.describe Parsanol::PARG::Lsp do
 
   let(:grammar) do
     <<~PARG
-      grammar Demo version "1.0.0" {
+      grammar Demo version "1.0.0" mode "v1" {
         ## The publisher vocabulary.
         publisher = %i"iso" / %i"ieee"
         ## A whole identifier.
@@ -205,7 +205,7 @@ RSpec.describe Parsanol::PARG::Lsp do
     let(:main_path) { File.join(workspace, "main.parg") }
     let(:helper_source) do
       <<~PARG
-        grammar Helper version "1.0.0" {
+        grammar Helper version "1.0.0" mode "v1" {
           ## A two-letter code.
           code = 2*2(%x61-7A) as code
 
@@ -217,7 +217,7 @@ RSpec.describe Parsanol::PARG::Lsp do
       <<~PARG
         use helper
 
-        grammar Main version "1.0.0" {
+        grammar Main version "1.0.0" mode "v1" {
           main = helper.code "!"
 
           entry main: main

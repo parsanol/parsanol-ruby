@@ -34,16 +34,16 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
       expect(names).to include("k")
     end
 
-    it "records mode \"classic\" for grammars that pin the legacy shape" do
+    it "records mode \"v1\" for grammars that pin the legacy shape" do
       classic = compile(<<~PARG)
-        grammar C version "1.0.0" mode "classic" {
+        grammar C version "1.0.0" mode "v1" {
           entry main: main
           main = sep pair
           sep = ","
           pair = ( 1*( %x61-7A ) ) as k "="
         }
       PARG
-      expect(classic["mode"]).to eq("classic")
+      expect(classic["mode"]).to eq("v1")
       names = classic.dig("entries", "main", "grammar", "atoms")
                      .filter_map { |atom| atom.dig("Named", "name") }
       expect(names).to include("k")
@@ -137,7 +137,7 @@ describe "the migration radar (parg lint --captures)" do
 
   it "lists the would-be-wrapped references on a classic grammar" do
     source = <<~PARG
-      grammar L version "1.0.0" mode "classic" {
+      grammar L version "1.0.0" mode "v1" {
         entry main: main
         main = sep pair
         sep = ","

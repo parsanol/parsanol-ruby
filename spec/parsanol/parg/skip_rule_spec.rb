@@ -16,7 +16,7 @@ RSpec.describe "PARG skip rule" do
 
   it "injects trivia between tokens: tail comments after code" do
     envelope = compile_parg(<<~PARG)
-      grammar Skippy version "1" {
+      grammar Skippy version "1" mode "v1" {
         skip = line_comment
         line_comment = "//" ( *( !"\\n" ANY ) ) [ "\\n" ]
         pair = ( word " " word ) as pair
@@ -32,7 +32,7 @@ RSpec.describe "PARG skip rule" do
 
   it "consumes leading, inter-token and tail trivia" do
     envelope = compile_parg(<<~PARG)
-      grammar Skippy version "1" {
+      grammar Skippy version "1" mode "v1" {
         skip = spaces
         spaces = 1*" "
         pair = ( "a" "b" ) as pair
@@ -48,7 +48,7 @@ RSpec.describe "PARG skip rule" do
 
   it "keeps trivia capture-free" do
     envelope = compile_parg(<<~PARG)
-      grammar Skippy version "1" {
+      grammar Skippy version "1" mode "v1" {
         skip = spaces
         spaces = 1*" "
         text = ( 1*( ALPHA ) ) as text
@@ -63,7 +63,7 @@ RSpec.describe "PARG skip rule" do
 
   it "preserves ordered-choice and backtracking across injected skips" do
     envelope = compile_parg(<<~PARG)
-      grammar Skippy version "1" {
+      grammar Skippy version "1" mode "v1" {
         skip = spaces
         spaces = 1*" "
         pick = ( ( "ab" / "a" ) ) as pick
@@ -79,7 +79,7 @@ RSpec.describe "PARG skip rule" do
   it "rejects a nullable skip rule at compile time" do
     expect do
       compile_parg(<<~PARG)
-        grammar Bad version "1" {
+        grammar Bad version "1" mode "v1" {
           skip = maybe
           maybe = [ "x" ]
           word = 1*( ALPHA )
@@ -92,7 +92,7 @@ RSpec.describe "PARG skip rule" do
   it "reserves skip: rules may not be named or referenced as skip" do
     expect do
       compile_parg(<<~PARG)
-        grammar Bad version "1" {
+        grammar Bad version "1" mode "v1" {
           skip = "x"
           word = skip
           entry document: word
@@ -108,7 +108,7 @@ RSpec.describe "PARG skip rule" do
   describe "recursive trivia" do
     def compile_nested
       compile_parg(<<~PARG)
-        grammar Nested version "1" {
+        grammar Nested version "1" mode "v1" {
           skip = trivia
           trivia = 1*( ( 1*" " ) / comment )
           comment = "(*" *( comment / ( !"*)" ANY ) ) "*)"
@@ -140,7 +140,7 @@ RSpec.describe "PARG skip rule" do
 
   it "records the declaration in the envelope; non-skip envelopes unchanged" do
     with_skip = compile_parg(<<~PARG)
-      grammar S version "1" {
+      grammar S version "1" mode "v1" {
         skip = spaces
         spaces = 1*" "
         word = 1*( ALPHA )
@@ -148,7 +148,7 @@ RSpec.describe "PARG skip rule" do
       }
     PARG
     without_skip = compile_parg(<<~PARG)
-      grammar S version "1" {
+      grammar S version "1" mode "v1" {
         word = 1*( ALPHA )
         entry document: word
       }
@@ -160,7 +160,7 @@ RSpec.describe "PARG skip rule" do
   describe "QoL companions" do
     it "materializes character-class shorthands" do
       envelope = compile_parg(<<~PARG)
-        grammar QoL version "1" {
+        grammar QoL version "1" mode "v1" {
           code = 3*( DIGIT ) "-" 2*( HEXDIG )
           entry document: code
           test { accept "123-AB" }
@@ -171,7 +171,7 @@ RSpec.describe "PARG skip rule" do
 
     it "provides the any-until operator" do
       envelope = compile_parg(<<~PARG)
-        grammar QoL version "1" {
+        grammar QoL version "1" mode "v1" {
           note = until "//"
           entry document: note
           test { accept "hello there" }
@@ -185,7 +185,7 @@ RSpec.describe "PARG skip rule" do
     def token_envelope(atomic)
       word_decl = atomic ? "atomic word = ( 1*( ALPHA ) )" : "word = ( 1*( ALPHA ) )"
       compile_parg(<<~PARG)
-        grammar Tok version "1" {
+        grammar Tok version "1" mode "v1" {
           skip = spaces
           spaces = 1*" "
           #{word_decl}
@@ -224,7 +224,7 @@ RSpec.describe "PARG skip rule" do
     it "reserves atomic as a keyword" do
       expect do
         compile_parg(<<~PARG)
-          grammar Bad version "1" {
+          grammar Bad version "1" mode "v1" {
             atomic = "x"
             entry document: atomic
           }
@@ -236,7 +236,7 @@ RSpec.describe "PARG skip rule" do
   describe "diagnostics" do
     def diag_envelope
       compile_parg(<<~PARG)
-        grammar Diag version "1" {
+        grammar Diag version "1" mode "v1" {
           skip = trivia
           trivia = 1*( ( 1*" " ) / comment )
           comment = "(*" *( comment / ( !"*)" ANY ) ) "*)"
@@ -282,7 +282,7 @@ RSpec.describe "PARG skip rule" do
 
     def compile_edge
       source = <<~PARG
-        grammar Edge version "1" {
+        grammar Edge version "1" mode "v1" {
           skip = trivia
           trivia = 1*( " " / %x09 / [ %x0D ] %x0A / %x0A / ";" / "//" until "\n" / "/*" ( *( !"*/" ANY ) ) "*/" )
           qstring = %x22 ( *( !%x22 ANY ) ) as text %x22
