@@ -857,11 +857,10 @@ The lowering happens after trivia injection — trivia atoms are in
 place first, so the pass sees the final tree. The wire learns
 nothing new: the atoms are ordinary `Named`, and identity rides the
 differential corpus. The envelope records `mode` when declared;
-field-less artifacts are classic. Switching a grammar WITH bindings
-between modes changes tree shape — `parg diff` treats a mode change
-as a major (slice pending), and `parg lint --captures` is the
-migration radar: on a legacy grammar it lists every reference modern
-mode would name.
+field-less artifacts are classic. Switching a grammar between modes
+changes tree shape — `parg diff` reports it as a major
+(`mode_changed`), and `parg lint --captures` is the migration radar:
+on a legacy grammar it lists every reference modern mode would name.
 
 ## SOTA positioning (2023–2026 literature)
 
