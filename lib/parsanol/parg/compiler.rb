@@ -234,7 +234,7 @@ module Parsanol
       # `mode "modern"` in the grammar header. Engines see ordinary
       # Named atoms; identity rides the differential corpus.
       def apply_modern_captures(atom)
-        return atom unless @document.mode == "modern"
+        return atom if @document.mode == "classic"
 
         wrap_uncaptured(atom)
       end
@@ -253,7 +253,8 @@ module Parsanol
           # rubocop:disable Lint/DuplicateBranch -- the two composites
           # rebuild with their own constructors; identical bodies,
           # different decisions
-          atom.class.new(*atom.parslets.map { |child| wrap_uncaptured(child) })
+          kids = atom.respond_to?(:alternatives) ? atom.alternatives : atom.parslets
+          atom.class.new(*kids.map { |child| wrap_uncaptured(child) })
         when Atoms::Repetition
           Atoms::Repetition.new(wrap_uncaptured(atom.parslet), atom.min, atom.max, atom.result_tag)
         else
@@ -275,7 +276,8 @@ module Parsanol
           wrapped = atom.parslet.is_a?(Atoms::Named)
           wrapped || produces_capture?(atom.parslet, seen)
         when Atoms::Sequence, Atoms::Alternative
-          atom.parslets.any? { |child| produces_capture?(child, seen) }
+          kids = atom.respond_to?(:alternatives) ? atom.alternatives : atom.parslets
+          kids.any? { |child| produces_capture?(child, seen) }
         when Atoms::Repetition
           produces_capture?(atom.parslet, seen)
         else
@@ -288,7 +290,9 @@ module Parsanol
       # reference site, target rule. The compiler's state is warm
       # (all rules built) when the lint calls this.
       def modern_radar
-        return [] if @document.mode
+        # The radar is the classic dialect's migration tool: on a v2
+        # grammar every reference is already named.
+        return [] if @document.mode != "classic"
 
         lines = []
         @document.rules.each_key do |name|
@@ -313,7 +317,8 @@ module Parsanol
           end
           radar_walk(atom.parslet, site, lines, seen)
         when Atoms::Sequence, Atoms::Alternative
-          atom.parslets.each { |child| radar_walk(child, site, lines, seen) }
+          kids = atom.respond_to?(:alternatives) ? atom.alternatives : atom.parslets
+          kids.each { |child| radar_walk(child, site, lines, seen) }
         when Atoms::Repetition
           radar_walk(atom.parslet, site, lines, seen)
         end
@@ -1170,14 +1175,18 @@ module Parsanol
           # back to a reference implementation instead of failing obscurely
           # at parse time. Checksummed like the rest of the envelope.
           "source_hash" => Digest::SHA256.hexdigest(@document.source.to_s),
+          # The U3 provenance stamp (rs#297): which Unicode table source
+          # the compiling engine's categories compiled against. An
+          # engine-specific stamp (checksummed here, excluded from the
+          # cross-engine parity set like compiler_version); the
+          # observable behavior stays pinned by the unicode corpus
+          # fixtures.
+          "unicode_tables" => "onigmo (Ruby #{RUBY_VERSION})",
           "compiler_version" => Parsanol::VERSION,
         }
-        if @document.mode
-          # ruby#304: the opt-in capture dialect. Field-less artifacts
-          # are classic; the value names the mode consumers read
-          # before parsing.
-          envelope["mode"] = @document.mode
-        end
+        # ruby#304: the envelope always names the capture dialect —
+        # consumers read the tree-shape contract before parsing.
+        envelope["mode"] = @document.mode
         if @document.skip_declaration
           # parsanol-ruby#134: declared trivia rule. Injection is baked
           # into the compiled trees (plain atom kinds), so consumers
