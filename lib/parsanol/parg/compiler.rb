@@ -250,13 +250,16 @@ module Parsanol
           # parameters. Conservatively: the rule's body is literals
           # (through sequence/alternation/repetition composition) and
           # every literal strips to empty.
-          if trivia_only?(atom.rule_name.to_s, { atom.rule_name.to_s => true })
-            atom
-          elsif produces_capture?(atom.parslet)
+          # rubocop:disable Lint/DuplicateBranch -- trivia-glue and
+          # capture-producing refs both stay unwrapped; the bodies
+          # agree by design.
+          if trivia_only?(atom.rule_name.to_s, { atom.rule_name.to_s => true }) ||
+              produces_capture?(atom.parslet)
             atom
           else
             Atoms::Named.new(atom, atom.rule_name.to_s)
           end
+          # rubocop:enable Lint/DuplicateBranch
         when Atoms::Sequence, Atoms::Alternative
           # rubocop:disable Lint/DuplicateBranch -- the two composites
           # rebuild with their own constructors; identical bodies,
