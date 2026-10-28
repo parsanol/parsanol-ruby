@@ -1064,10 +1064,23 @@ module Parsanol
                 false
               end
             if matched
-              w = CHAR_WIDTH[b]
-              w = char_width_slow(input, pos) if w.zero?
-              rstack << ((pos << 20) | w)
-              pos += w
+              if table
+                # Single-class pattern: the match is one character.
+                w = CHAR_WIDTH[b]
+                w = char_width_slow(input, pos) if w.zero?
+                rstack << ((pos << 20) | w)
+                pos += w
+              else
+                # A multi-character pattern (%i literals reach RE with
+                # no byte table): the match consumes its FULL length —
+                # advancing one character skipped the pattern's
+                # remainder and let the parse re-match inside it
+                # (ruby#357: the "A" vanishing from "a AND").
+                len = scanner.skip(ops[pc + 1])
+                w = input.byteslice(pos, len).length
+                rstack << ((pos << 20) | w)
+                pos += len
+              end
               pc += 4
             else
               pc = fail_pc
@@ -1266,10 +1279,20 @@ module Parsanol
                       false
                     end
                 if m
-                  w = CHAR_WIDTH[b]
-                  w = char_width_slow(input, pos) if w.zero?
-                  values << ((pos << 20) | w)
-                  pos += w
+                  if kb
+                    # Single-class pattern: one character.
+                    w = CHAR_WIDTH[b]
+                    w = char_width_slow(input, pos) if w.zero?
+                    values << ((pos << 20) | w)
+                    pos += w
+                  else
+                    # Multi-character pattern: full match length
+                    # (ruby#357).
+                    len = scanner.skip(ka)
+                    w = input.byteslice(pos, len).length
+                    values << ((pos << 20) | w)
+                    pos += len
+                  end
                 else
                   failed = true
                 end

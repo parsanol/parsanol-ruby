@@ -195,12 +195,18 @@ module Parsanol
 
           unless success
             last_failure = value
+            if ENV["PARSANOL_REP_TRACE"]
+              warn "REP body FAIL at iter=#{occurrence} start=#{iteration_start} pos_after=#{source.bytepos} restoring"
+            end
             # A failed iteration may have consumed input before its own
             # inner failure (an ordered choice's partial alternative);
             # the repetition owns the rollback — the rep ends at the
             # last SUCCESSFUL iteration's end (ruby#357).
             source.bytepos = iteration_start
             break
+          end
+          if ENV["PARSANOL_REP_TRACE"]
+            warn "REP body OK at iter=#{occurrence} start=#{iteration_start} end=#{source.bytepos}"
           end
 
           occurrence += 1
@@ -281,12 +287,18 @@ module Parsanol
 
           unless success
             last_failure = value
+            if ENV["PARSANOL_REP_TRACE"]
+              warn "REP body FAIL at iter=#{occurrence} start=#{iteration_start} pos_after=#{source.bytepos} restoring"
+            end
             # A failed iteration may have consumed input before its own
             # inner failure (an ordered choice's partial alternative);
             # the repetition owns the rollback — the rep ends at the
             # last SUCCESSFUL iteration's end (ruby#357).
             source.bytepos = iteration_start
             break
+          end
+          if ENV["PARSANOL_REP_TRACE"]
+            warn "REP body OK at iter=#{occurrence} start=#{iteration_start} end=#{source.bytepos}"
           end
 
           occurrence += 1
