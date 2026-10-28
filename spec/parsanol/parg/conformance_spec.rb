@@ -46,8 +46,30 @@ RSpec.describe "PARG conformance corpus" do
   # unicode_tables is the same class of stamp (U3): the compiling
   # engine names its Unicode table source, and it moves with the
   # runner's ruby, not with the grammar.
+  #
+  # edition is normalized, not excluded: the corpus was baked before
+  # the numeric surface, so it spells the same levels "v1"/"v2". The
+  # normalized field still gates parity.
+  #
+  # Hashes canonicalize their key order: the corpus is baked by both
+  # engines, and field order is a serializer detail, not a change
+  # (arrays keep their order — atoms and tests are sequences).
   def parity_view(envelope)
-    envelope.except("compiler_version", "checksum", "unicode_tables")
+    canonical(envelope
+      .except("compiler_version", "checksum", "unicode_tables")
+      .merge("edition" => Parsanol::PARG::Artifact::EDITION_ALIASES
+        .fetch(envelope.fetch("edition", 1))))
+  end
+
+  def canonical(value)
+    case value
+    when Hash
+      value.keys.sort.to_h { |key| [key, canonical(value[key])] }
+    when Array
+      value.map { |item| canonical(item) }
+    else
+      value
+    end
   end
 
   it "compile-parity: recompiling each .parg reproduces the committed envelope" do
