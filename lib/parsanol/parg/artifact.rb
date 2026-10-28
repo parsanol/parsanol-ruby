@@ -26,11 +26,9 @@ module Parsanol
 
       SUPPORTED_SHAPE = "parsanol-tree/v2"
 
-      # The PARG language-semantics level this runtime emits (ruby#353): 1 =
-      # the 1.3.108 implicit-capture shapes; 2 = the explicit
-      # end_guard/marker/hyphen nodes. An artifact declaring a level
-      # the runtime doesn't emit can't replay its frozen trees.
-      LANGUAGE_VERSION = 2
+      # The editions this runtime parses (ruby#357's consolidation):
+      # v1 = the legacy shapes; v2 = named trees + explicit spans.
+      SUPPORTED_EDITIONS = %w[v1 v2].freeze
 
       def initialize(envelope, path, tables_dir, imports_dir: nil)
         unless envelope["shape"] == SUPPORTED_SHAPE
@@ -48,15 +46,13 @@ module Parsanol
         # above this runtime's is a hard error (the trees would carry
         # nodes this engine never emits); a lower one warns — parsing
         # works, but frozen tree comparisons will differ.
-        declared = envelope["language_version"] || 1
-        if declared > LANGUAGE_VERSION
+        # The declared edition must be one this runtime understands
+        # (ruby#357's consolidation: one axis, `edition`, values v1/v2).
+        edition = envelope["edition"] || "v1"
+        unless SUPPORTED_EDITIONS.include?(edition)
           raise ArtifactError,
-                "artifact declares language_version #{declared}; this " \
-                "runtime emits #{LANGUAGE_VERSION} — upgrade parsanol"
-        elsif declared < LANGUAGE_VERSION
-          warn "parsanol: artifact declares language_version #{declared} " \
-               "(this runtime emits #{LANGUAGE_VERSION}) — frozen tree " \
-               "shapes will differ; re-bake or pin parsanol ~> 1.3.108"
+                "artifact declares edition #{edition.inspect}; this " \
+                "runtime supports #{SUPPORTED_EDITIONS.map(&:inspect).join(', ')}"
         end
         @path = path
         @tables_dir = tables_dir
@@ -69,9 +65,6 @@ module Parsanol
       end
 
       def version = envelope["version"]
-
-      # The PARG language-semantics level the artifact's trees carry (ruby#353).
-      def language_version = envelope["language_version"] || 1
 
       # Freshness (parsanol-ruby#209): what source revision and compiler
       # produced this artifact. `source_hash` is the SHA-256 of the .parg
