@@ -18,7 +18,7 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
   end
 
   describe "the header and the envelope" do
-    it "defaults to v2: a grammar without a declaration gets named trees" do
+    it "defaults to v1: a grammar without a declaration keeps the legacy shapes (the owner's reversal)" do
       default = compile(<<~PARG)
         grammar D version "1.0.0" {
           entry main: main
@@ -27,8 +27,24 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
           pair = ( 1*( %x61-7A ) ) as k "="
         }
       PARG
-      expect(default["mode"]).to eq("v2")
+      expect(default["edition"]).to eq("v1")
       names = default.dig("entries", "main", "grammar", "atoms")
+        .filter_map { |atom| atom.dig("Named", "name") }
+      expect(names).not_to include("sep")
+      expect(names).to include("k")
+    end
+
+    it "opts into v2 explicitly with mode \"v2\"" do
+      explicit = compile(<<~PARG)
+        grammar D version "1.0.0" mode "v2" {
+          entry main: main
+          main = sep pair
+          sep = ","
+          pair = ( 1*( %x61-7A ) ) as k "="
+        }
+      PARG
+      expect(explicit["edition"]).to eq("v2")
+      names = explicit.dig("entries", "main", "grammar", "atoms")
         .filter_map { |atom| atom.dig("Named", "name") }
       expect(names).to include("sep")
       expect(names).to include("k")
@@ -40,7 +56,7 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
       # into parameters. Conservative exemption: literal-only bodies
       # whose every literal strips to empty.
       glue = compile(<<~PARG)
-        grammar G version "1.0.0" {
+        grammar G version "1.0.0" mode "v2" {
           entry main: main
           space = " "
           ws = space space / space
@@ -66,7 +82,7 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
           pair = ( 1*( %x61-7A ) ) as k "="
         }
       PARG
-      expect(classic["mode"]).to eq("v1")
+      expect(classic["edition"]).to eq("v1")
       names = classic.dig("entries", "main", "grammar", "atoms")
         .filter_map { |atom| atom.dig("Named", "name") }
       expect(names).to include("k")
@@ -80,18 +96,18 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
           w = 1*( %x61-7A )
         }
       PARG
-      expect(explicit["mode"]).to eq("v2")
+      expect(explicit["edition"]).to eq("v2")
     end
 
-    it "rejects unknown modes" do
+    it "rejects unknown editions" do
       expect do
         compile(<<~PARG)
-          grammar B version "1.0.0" mode "future" {
+          grammar B version "1.0.0" edition "future" {
             entry main: w
             w = "x"
           }
         PARG
-      end.to raise_error(Parsanol::PARG::ParseError, /supported modes/)
+      end.to raise_error(Parsanol::PARG::ParseError, /supported editions/)
     end
   end
 
@@ -113,7 +129,7 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
 
     it "wraps a reference whose subtree has no capture" do
       atoms = grammar(<<~PARG)["atoms"]
-        grammar M version "1.0.0" {
+        grammar M version "1.0.0" mode "v2" {
           entry main: main
           main = sep pair
           sep = ","
@@ -128,7 +144,7 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
     it "accepts the fully named tree" do
       artifact = Parsanol::PARG::Artifact.from_json(
         JSON.generate(compile(<<~PARG)),
-          grammar M version "1.0.0" {
+          grammar M version "1.0.0" mode "v2" {
             entry main: main
             main = sep pair
             sep = ","
@@ -145,7 +161,7 @@ end
 describe "the migration radar (parg lint --captures)" do
   it "reports nothing on a v2 grammar (already named)" do
     source = <<~PARG
-      grammar M version "1.0.0" {
+      grammar M version "1.0.0" mode "v2" {
         entry main: main
         main = sep pair
         sep = ","

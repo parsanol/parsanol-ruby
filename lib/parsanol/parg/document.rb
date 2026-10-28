@@ -17,7 +17,7 @@ module Parsanol
 
       Test = Struct.new(:entry, :kind, :input, :expect)
 
-      attr_accessor :grammar_name, :version, :mode, :source, :uses, :skip_declaration, :skip_source,
+      attr_accessor :grammar_name, :version, :edition, :source, :uses, :skip_declaration, :skip_source,
                     :atomic_rules, :skip_capture_key, :brace_rules
       # R2 declared resync: rule name -> skip pattern (the span matched
       # at a recovery point is consumed as annotated error text).
@@ -35,7 +35,11 @@ module Parsanol
 
       def initialize
         @grammar_name = nil
-        @mode = "v2"
+        # The default capture dialect is v1 (the owner's reversal,
+        # 2026-10-28): runtime compiles of unpinned sources keep the
+        # legacy shapes — the pubid fleet froze against them. mode "v2"
+        # stays the named-trees opt-in via the grammar header.
+        @edition = "v1"
         @version = "0.0.0"
         @source = nil
         @rules = {}

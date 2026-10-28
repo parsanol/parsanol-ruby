@@ -26,11 +26,9 @@ module Parsanol
 
       SUPPORTED_SHAPE = "parsanol-tree/v2"
 
-      # The capture-emission level this runtime emits (ruby#353): 1 =
-      # the 1.3.108 implicit-capture emission; 2 = the explicit
-      # end_guard/marker/hyphen nodes. An artifact declaring a level
-      # the runtime doesn't emit can't replay its frozen trees.
-      EMISSION_VERSION = 2
+      # The editions this runtime parses (ruby#357's consolidation):
+      # v1 = the legacy shapes; v2 = named trees + explicit spans.
+      SUPPORTED_EDITIONS = %w[v1 v2].freeze
 
       def initialize(envelope, path, tables_dir, imports_dir: nil)
         unless envelope["shape"] == SUPPORTED_SHAPE
@@ -44,19 +42,17 @@ module Parsanol
         bindings = envelope["bindings"]
         validate_bindings!(bindings) unless bindings.nil?
         @envelope = envelope
-        # ruby#353: absent field = the pre-1.3.109 emission. A level
+        # ruby#353: absent field = the pre-1.3.109 semantics. A level
         # above this runtime's is a hard error (the trees would carry
         # nodes this engine never emits); a lower one warns — parsing
         # works, but frozen tree comparisons will differ.
-        declared = envelope["emission"] || 1
-        if declared > EMISSION_VERSION
+        # The declared edition must be one this runtime understands
+        # (ruby#357's consolidation: one axis, `edition`, values v1/v2).
+        edition = envelope["edition"] || "v1"
+        unless SUPPORTED_EDITIONS.include?(edition)
           raise ArtifactError,
-                "artifact declares capture emission #{declared}; this " \
-                "runtime emits #{EMISSION_VERSION} — upgrade parsanol"
-        elsif declared < EMISSION_VERSION
-          warn "parsanol: artifact declares capture emission #{declared} " \
-               "(this runtime emits #{EMISSION_VERSION}) — frozen tree " \
-               "shapes will differ; re-bake or pin parsanol ~> 1.3.108"
+                "artifact declares edition #{edition.inspect}; this " \
+                "runtime supports #{SUPPORTED_EDITIONS.map(&:inspect).join(', ')}"
         end
         @path = path
         @tables_dir = tables_dir
@@ -69,9 +65,6 @@ module Parsanol
       end
 
       def version = envelope["version"]
-
-      # The capture-emission level the artifact's trees carry (ruby#353).
-      def emission = envelope["emission"] || 1
 
       # Freshness (parsanol-ruby#209): what source revision and compiler
       # produced this artifact. `source_hash` is the SHA-256 of the .parg

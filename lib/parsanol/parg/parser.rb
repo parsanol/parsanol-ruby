@@ -231,22 +231,22 @@ module Parsanol
         document.grammar_name = ident.value
         ident("version")
         document.version = unquote(expect(:str).value)
-        # `mode` — the capture dialect (ruby#304). THE DEFAULT IS
-        # "v2": fully named trees (every uncaptured rule reference is
-        # wrapped in Named(rule_name)). `mode "v1"` pins the legacy
-        # shape, YAML-version-directive style; `mode "classic"` is
-        # accepted as a deprecated alias for "v1". The mode is
-        # canonicalized here — everything downstream only ever sees
-        # "v1"/"v2". Acceptance never changes — only tree shape — and
-        # baked artifacts are unaffected (they do not recompile).
-        if peek&.type == :ident && peek.value == "mode"
-          advance
-          mode = unquote(expect(:str).value)
-          unless %w[v2 v1 classic].include?(mode)
+        # `edition` — the language edition (ruby#304, ruby#357's
+        # consolidation; Rust's Cargo.toml `edition` is the model):
+        # the author declares, per grammar, which tree semantics the
+        # grammar means. THE DEFAULT IS "v1" (the legacy shapes — the
+        # owner's 2026-10-28 reversal). "v2" = fully named trees +
+        # explicit spans. `mode` remains accepted as a deprecated
+        # alias for the keyword. The edition is canonicalized here —
+        # everything downstream only ever sees "v1"/"v2".
+        if peek&.type == :ident && %w[edition mode].include?(peek.value)
+          keyword = advance.value
+          edition = unquote(expect(:str).value)
+          unless %w[v2 v1 classic].include?(edition)
             raise ParseError,
-                  "unknown mode #{mode.inspect} -- supported modes are \"v2\" (default) and \"v1\" (legacy)"
+                  "unknown edition #{edition.inspect} -- supported editions are \"v1\" (default) and \"v2\" (named trees)"
           end
-          document.mode = mode == "v2" ? "v2" : "v1"
+          document.edition = edition == "v2" ? "v2" : "v1"
         end
         punct("{")
         skip_newlines

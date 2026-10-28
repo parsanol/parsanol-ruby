@@ -971,6 +971,50 @@ module Parsanol
         @memoize = memoize
       end
 
+      # The RE match's [char width, byte advance]: single-class
+      # patterns match one character; multi-character patterns (%i
+      # literals reach RE with no byte table) consume their full
+      # length (ruby#357: advancing one character skipped the
+      # pattern's remainder and let the parse re-match inside it).
+      def re_match_width(scanner, input, pos, table, pattern)
+        if table
+          w = CHAR_WIDTH[input.byteslice(pos, 1).bytes[0]]
+          w = char_width_slow(input, pos) if w.zero?
+          [w, w]
+        else
+          len = scanner.skip(pattern)
+          [input.byteslice(pos, len).length, len]
+        end
+      end
+
+      # An RE instruction's match at pos: [matched?, char width, byte
+      # advance]. Single-class patterns match one character;
+      # multi-character patterns (%i literals reach RE with no byte
+      # table) consume their FULL length (ruby#357: advancing one
+      # character skipped the pattern's remainder and let the parse
+      # re-match inside it).
+      def re_scan(scanner, input, pos, table, pattern)
+        b = table && input.getbyte(pos)
+        matched =
+          if b && b < 128
+            table[b]
+          elsif pos < input.length
+            (scanner.pos = pos) && scanner.match?(pattern)
+          else
+            false
+          end
+        return [false, 0, 0] unless matched
+
+        if b && b < 128
+          w = CHAR_WIDTH[b]
+          w = char_width_slow(input, pos) if w.zero?
+          [true, w, w]
+        else
+          len = scanner.skip(pattern)
+          [true, input.byteslice(pos, len).length, len]
+        end
+      end
+
       def execute # rubocop:disable Metrics/MethodLength, Metrics/BlockLength, Metrics/BlockNesting -- single dispatch loop; hot path
         ops = @ops
         input = @input
@@ -1054,20 +1098,11 @@ module Parsanol
               pc = fail_pc
             end
           when RE
-            b = bytes[pos]
-            matched =
-              if (table = ops[pc + 2]) && b && b < 128
-                table[b]
-              elsif pos < n
-                (scanner.pos = pos) && scanner.match?(ops[pc + 1])
-              else
-                false
-              end
+            table = ops[pc + 2]
+            matched, w, advance = re_scan(scanner, input, pos, table, ops[pc + 1])
             if matched
-              w = CHAR_WIDTH[b]
-              w = char_width_slow(input, pos) if w.zero?
               rstack << ((pos << 20) | w)
-              pos += w
+              pos += advance
               pc += 4
             else
               pc = fail_pc
@@ -1257,19 +1292,10 @@ module Parsanol
               kc = kids[ki + 3]
               case kop
               when RE
-                b = bytes[pos]
-                m = if kb && b && b < 128
-                      kb[b]
-                    elsif pos < n
-                      (scanner.pos = pos) && scanner.match?(ka)
-                    else
-                      false
-                    end
-                if m
-                  w = CHAR_WIDTH[b]
-                  w = char_width_slow(input, pos) if w.zero?
+                matched, w, advance = re_scan(scanner, input, pos, kb, ka)
+                if matched
                   values << ((pos << 20) | w)
-                  pos += w
+                  pos += advance
                 else
                   failed = true
                 end
