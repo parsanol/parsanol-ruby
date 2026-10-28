@@ -18,6 +18,14 @@ module Parsanol
 
       IN_BLOCK_SECTIONS = %w[entry bindings preprocess test].freeze
 
+      # The header's edition spellings: the bare numbers are canonical
+      # (Rust's Cargo.toml model); the quoted forms stay accepted as
+      # aliases for grammars written before the numeric surface.
+      EDITIONS = {
+        "1" => "v1", "v1" => "v1", "classic" => "v1",
+        "2" => "v2", "v2" => "v2"
+      }.freeze
+
       STATE_KEYWORDS = %w[custom state].freeze
       KEYWORDS = %w[grammar as alt from_table column bindings render derive
                     preprocess entry table_lookup custom state set switch
@@ -227,6 +235,23 @@ module Parsanol
 
       def punct(char) = expect(:punct, char)
 
+      def edition_value
+        token = advance
+        raw = case token&.type
+              when :num then token.value
+              when :str then unquote(token.value)
+              else
+                raise ParseError,
+                      "edition must be a number (1 or 2) or a quoted alias " \
+                      "(\"v1\", \"v2\", \"classic\")"
+              end
+        EDITIONS.fetch(raw) do
+          raise ParseError,
+                "unknown edition #{raw.inspect} -- supported editions are " \
+                "1 (default) and 2 (named trees)"
+        end
+      end
+
       def parse_grammar(document)
         document.grammar_name = ident.value
         ident("version")
@@ -234,19 +259,14 @@ module Parsanol
         # `edition` — the language edition (ruby#304, ruby#357's
         # consolidation; Rust's Cargo.toml `edition` is the model):
         # the author declares, per grammar, which tree semantics the
-        # grammar means. THE DEFAULT IS "v1" (the legacy shapes — the
-        # owner's 2026-10-28 reversal). "v2" = fully named trees +
+        # grammar means. THE DEFAULT IS 1 (the legacy shapes — the
+        # owner's 2026-10-28 reversal). 2 = fully named trees +
         # explicit spans. `mode` remains accepted as a deprecated
         # alias for the keyword. The edition is canonicalized here —
         # everything downstream only ever sees "v1"/"v2".
         if peek&.type == :ident && %w[edition mode].include?(peek.value)
-          keyword = advance.value
-          edition = unquote(expect(:str).value)
-          unless %w[v2 v1 classic].include?(edition)
-            raise ParseError,
-                  "unknown edition #{edition.inspect} -- supported editions are \"v1\" (default) and \"v2\" (named trees)"
-          end
-          document.edition = edition == "v2" ? "v2" : "v1"
+          advance
+          document.edition = edition_value
         end
         punct("{")
         skip_newlines

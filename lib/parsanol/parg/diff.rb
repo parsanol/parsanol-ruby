@@ -21,7 +21,7 @@ module Parsanol
 
       def diff(old_envelope, new_envelope)
         findings = []
-        findings.concat(diff_mode(old_envelope, new_envelope))
+        findings.concat(diff_edition(old_envelope, new_envelope))
         findings.concat(diff_entries(old_envelope, new_envelope))
         findings.concat(diff_bindings(old_envelope, new_envelope))
         findings.concat(diff_tests(old_envelope, new_envelope))
@@ -168,16 +168,23 @@ module Parsanol
         branches.uniq.sort
       end
 
-      # -- mode ---------------------------------------------------------
+      # -- edition ------------------------------------------------------
 
-      def diff_mode(old_env, new_env)
-        old_mode = old_env["mode"]
-        new_mode = new_env["mode"]
-        return [] if old_mode == new_mode
+      def diff_edition(old_env, new_env)
+        old_edition = edition_level(old_env)
+        new_edition = edition_level(new_env)
+        return [] if old_edition == new_edition
 
-        [Finding.new(:major, :mode_changed,
-                     "mode changed #{old_mode.inspect} -> #{new_mode.inspect} " \
+        [Finding.new(:major, :edition_changed,
+                     "edition changed #{old_edition.inspect} -> #{new_edition.inspect} " \
                      "(every uncaptured node's tree shape changes)")]
+      end
+
+      # Artifacts baked before the numeric surface spell the edition
+      # "v1"/"v2"; they mean the same levels, not a change.
+      def edition_level(envelope)
+        declared = envelope.fetch("edition", 1)
+        Artifact::EDITION_ALIASES.fetch(declared, declared)
       end
 
       # -- bindings -----------------------------------------------------
