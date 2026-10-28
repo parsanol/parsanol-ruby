@@ -49,3 +49,31 @@ RSpec.describe "repetition rollback on a failed iteration" do
       .to raise_error(Parsanol::ParseFailed)
   end
 end
+
+
+# The gem's internal VM (Base#parse's VM.program_for fast path) keeps a
+# failed iteration's partial state: the second or-level iteration
+# matches "OR" + the empty pq, fails on the trailing primary, and the
+# tree still materializes {"pq" => [], "andx" => "R"@3} — and the parse
+# SUCCEEDS on both dialects. Tracked on ruby#357; pending until the
+# VM's REP_TEST/REP_STEP/K_REP bookkeeping drops the failed iteration.
+RSpec.describe "repetition rollback in the gem VM (ruby#357)" do
+  it "rejects operator-suffixed junk on both dialects", pending: "ruby#357" do
+    %w[v1 v2].each do |mode|
+      doc = Parsanol::PARG::Parser.new(<<~PARG).parse
+        grammar RollbackVm version "1.0.0" {
+          entry main: orx
+          pq = *( %x20 )
+          name = 1*( %x41-5A / %x61-7A )
+          primary = name / ( "(" pq orx pq ")" )
+          andx = primary *( pq "AND" pq primary )
+          orx = andx *( pq "OR" pq andx )
+        }
+      PARG
+      doc.mode = mode
+      atoms = Parsanol::PARG::Compiler.compile(doc).atoms
+      expect { atoms.fetch("orx").parse("a OR", consume_all: true) }
+        .to raise_error(Parsanol::ParseFailed)
+    end
+  end
+end
