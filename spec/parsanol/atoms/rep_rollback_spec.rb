@@ -55,21 +55,10 @@ RSpec.describe "repetition rollback across engines (ruby#357)" do
   end
 
   describe "the gem VM (Base#parse fast path)" do
-    it "rejects operator-suffixed junk on both dialects" do
-      %w[v1 v2].each do |mode|
-        atom_for(<<~PARG, "orx")
-          grammar RollbackVm version "1.0.0" {
-            entry main: orx
-            pq = *( %x20 )
-            name = 1*( %x41-5A / %x61-7A )
-            primary = name / ( "(" pq orx pq ")" )
-            andx = primary *( pq "AND" pq primary )
-            orx = andx *( pq "OR" pq andx )
-          }
-        PARG
-        doc_mode = mode
+    it "rejects operator-suffixed junk on both editions" do
+      %w[v1 v2].each do |edition|
         doc = Parsanol::PARG::Parser.new(<<~PARG).parse
-          grammar RollbackVm version "1.0.0" mode "#{mode}" {
+          grammar RollbackVm version "1.0.0" edition "#{edition}" {
             entry main: orx
             pq = *( %x20 )
             name = 1*( %x41-5A / %x61-7A )
@@ -81,7 +70,6 @@ RSpec.describe "repetition rollback across engines (ruby#357)" do
         atoms = Parsanol::PARG::Compiler.compile(doc).atoms
         expect { atoms.fetch("orx").parse("a OR", consume_all: true) }
           .to raise_error(Parsanol::ParseFailed)
-        expect(doc_mode).to eq(mode)
       end
     end
   end

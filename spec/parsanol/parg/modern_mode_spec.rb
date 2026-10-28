@@ -27,7 +27,7 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
           pair = ( 1*( %x61-7A ) ) as k "="
         }
       PARG
-      expect(default["mode"]).to eq("v1")
+      expect(default["edition"]).to eq("v1")
       names = default.dig("entries", "main", "grammar", "atoms")
         .filter_map { |atom| atom.dig("Named", "name") }
       expect(names).not_to include("sep")
@@ -43,7 +43,7 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
           pair = ( 1*( %x61-7A ) ) as k "="
         }
       PARG
-      expect(explicit["mode"]).to eq("v2")
+      expect(explicit["edition"]).to eq("v2")
       names = explicit.dig("entries", "main", "grammar", "atoms")
         .filter_map { |atom| atom.dig("Named", "name") }
       expect(names).to include("sep")
@@ -82,7 +82,7 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
           pair = ( 1*( %x61-7A ) ) as k "="
         }
       PARG
-      expect(classic["mode"]).to eq("v1")
+      expect(classic["edition"]).to eq("v1")
       names = classic.dig("entries", "main", "grammar", "atoms")
         .filter_map { |atom| atom.dig("Named", "name") }
       expect(names).to include("k")
@@ -96,18 +96,18 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
           w = 1*( %x61-7A )
         }
       PARG
-      expect(explicit["mode"]).to eq("v2")
+      expect(explicit["edition"]).to eq("v2")
     end
 
-    it "rejects unknown modes" do
+    it "rejects unknown editions" do
       expect do
         compile(<<~PARG)
-          grammar B version "1.0.0" mode "future" {
+          grammar B version "1.0.0" edition "future" {
             entry main: w
             w = "x"
           }
         PARG
-      end.to raise_error(Parsanol::PARG::ParseError, /supported modes/)
+      end.to raise_error(Parsanol::PARG::ParseError, /supported editions/)
     end
   end
 
