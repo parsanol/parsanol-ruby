@@ -56,9 +56,9 @@ RSpec.describe "repetition rollback across engines (ruby#357)" do
 
   describe "the gem VM (Base#parse fast path)" do
     it "rejects operator-suffixed junk on both editions" do
-      %w[v1 v2].each do |edition|
+      [1, 2].each do |edition|
         doc = Parsanol::PARG::Parser.new(<<~PARG).parse
-          grammar RollbackVm version "1.0.0" edition "#{edition}" {
+          grammar RollbackVm version "1.0.0" edition #{edition} {
             entry main: orx
             pq = *( %x20 )
             name = 1*( %x41-5A / %x61-7A )

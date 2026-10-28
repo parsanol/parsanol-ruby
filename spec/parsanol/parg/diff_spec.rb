@@ -37,6 +37,19 @@ RSpec.describe "PARG diff" do
     expect(diff_levels(base_grammar, base_grammar)).to eq([:none, []])
   end
 
+  it "classifies an edition change as major and normalizes legacy spellings" do
+    source = base_grammar.sub('version "1.0.0" {', 'version "1.0.0" edition 2 {')
+    one = JSON.parse(envelope_for(base_grammar))
+    two = JSON.parse(envelope_for(source))
+
+    findings = Parsanol::PARG::Diff.diff(one, two)
+    expect(Parsanol::PARG::Diff.level(findings)).to eq(:major)
+    expect(findings.map(&:kind)).to include(:edition_changed)
+
+    legacy = two.merge("edition" => "v2")
+    expect(Parsanol::PARG::Diff.diff(legacy, two)).to eq([])
+  end
+
   it "classifies a literal fix as patch" do
     new_source = base_grammar.sub('word "=" word', 'word ":" word')
       .sub('accept "a=b"', 'accept "a:b"')

@@ -214,15 +214,15 @@ rules once the prelude ships.
 *Specified 2026-10-24; shadowing keeps every published grammar
 byte-identical — implementation tracked in parsanol-ruby (core rules).*
 
-### Implicit capture: the `modern` mode (specified)
+### Implicit capture: edition 2 (specified)
 
 Classic PARG builds its tree only from `as` captures — explicit, but
-boilerplate-heavy. The **modern mode** (opt-in per grammar) wraps every
+boilerplate-heavy. **Edition 2** (opt-in per grammar) wraps every
 rule reference that produces no capture in `Named(rule_name)` at compile
 time, so a grammar's rule structure *is* its tree:
 
 ```
-grammar Demo version "1.0.0" mode "v2" {
+grammar Demo version "1.0.0" edition 2 {
   publisher = %i"iso" / %i"ieee"
   number = 1*DIGIT
   iso_identifier = publisher " " number
@@ -236,7 +236,7 @@ written.
 
 Normative rules (the spec table implementation must pin):
 
-| Construct | Modern-mode capture |
+| Construct | Edition-2 capture |
 |---|---|
 | rule reference (uncaptured) | `Named(rule_name)` around the reference's value |
 | explicitly captured (`as`) | unchanged — explicit wins, never double-wrapped |
@@ -252,23 +252,25 @@ Tower rules:
 1. **Compile-time only.** The wrap lowers to ordinary `Named` atoms —
    engines, artifacts' atom stream, and the wire are unchanged. Nothing
    new crosses the wire but ordinary named captures.
-2. **The envelope records the mode** (`mode` field), so consumers know
-   the tree contract before parsing. Artifacts without the field are
-   classic.
-3. **Tree shape changes are major.** A grammar switching modes changes
+2. **The envelope records the edition** (`edition` field, the number
+   1 or 2), so consumers know the tree contract before parsing.
+   Artifacts without the field are edition 1.
+3. **Tree shape changes are major.** A grammar switching editions changes
    every uncaptured node's shape; with bindings present that is a major
    artifact version (the binding paths re-validate against the new
-   tree). `parg lint --captures` reports, for a classic grammar,
-   exactly which nodes modern mode would wrap — the migration radar.
-4. **Engines never learn the mode.** Differential identity holds by the
-   existing corpus: modern-mode variants of the conformance grammars
+   tree). `parg lint --captures` reports, for an edition-1 grammar,
+   exactly which nodes edition 2 would wrap — the migration radar.
+4. **Engines never learn the edition.** Differential identity holds by the
+   existing corpus: edition-2 variants of the conformance grammars
    must produce the wrapped trees byte-identically in every engine.
 
-The default dialect is **v1** (the legacy shapes): a grammar without a
-`mode` header keeps them, so runtime compiles stay compatible with
-consumers that froze tree shapes. `mode "v2"` opts a grammar into the
-named trees above; `mode "v1"` spells the default explicitly. The
-envelope records whichever dialect the grammar declared.
+The default edition is **1** (the legacy shapes): a grammar without an
+`edition` header keeps them, so runtime compiles stay compatible with
+consumers that froze tree shapes. `edition 2` opts a grammar into the
+named trees above; `edition 1` spells the default explicitly. The
+quoted forms (`edition "v2"`, and the deprecated `mode "v2"` keyword)
+remain accepted aliases. The envelope records the declared edition as
+the number 1 or 2.
 
 ### Unicode position
 
@@ -838,22 +840,23 @@ lutaml-model class.
 
 ## Modern mode: implicit capture by rule name (opt-in)
 
-A grammar header declares `mode "v2"` (ruby#304, the #315 spec). The
-default dialect is **v1** — unpinned sources keep the legacy shapes,
+A grammar header declares `edition 2` (ruby#304, ruby#357). The
+default edition is **1** — unpinned sources keep the legacy shapes,
 so runtime compiles stay compatible with tree-freezing consumers (the
 owner's 2026-10-28 reversal after the v2 default broke the pubid
-fleet). With `mode "v2"` the compiler wraps every rule reference that
+fleet). With `edition 2` the compiler wraps every rule reference that
 produces no capture in `Named(rule_name)` at compile time: the tree
 every engine builds is fully named, the dominant SOTA shape
 (tree-sitter named nodes, Lezer, instaparse).
 
 The spec table (pinned by `modern_mode_spec`):
 
-| construct | modern mode's treatment |
+| construct | edition 2's treatment |
 |---|---|
 | rule reference whose subtree surfaces no capture | wrapped `Named(rule_name)` |
 | rule reference whose subtree has captures | untouched — the captures surface directly |
 | authored captures (`as`) | never re-wrapped |
+| rules whose body can only match whitespace (literals or classes) | exempt — glue never becomes a capture |
 | trivia subtrees (the skip rule's tree) | never wrapped, never counted as captures |
 | lookaheads and behind-guards | untouched (their content never surfaces) |
 | sequences, alternatives, repetitions | recursion; the wrap lands on their references |
@@ -861,11 +864,11 @@ The spec table (pinned by `modern_mode_spec`):
 The lowering happens after trivia injection — trivia atoms are in
 place first, so the pass sees the final tree. The wire learns
 nothing new: the atoms are ordinary `Named`, and identity rides the
-differential corpus. The envelope records `mode` when declared;
-field-less artifacts are classic. Switching a grammar between modes
-changes tree shape — `parg diff` reports it as a major
-(`mode_changed`), and `parg lint --captures` is the migration radar:
-on a legacy grammar it lists every reference modern mode would name.
+differential corpus. The envelope records `edition` (1 or 2);
+field-less artifacts are edition 1. Switching a grammar between
+editions changes tree shape — `parg diff` reports it as a major
+(`edition_changed`), and `parg lint --captures` is the migration radar:
+on an edition-1 grammar it lists every reference edition 2 would name.
 
 ## SOTA positioning (2023–2026 literature)
 

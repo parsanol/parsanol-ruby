@@ -274,10 +274,10 @@ module Parsanol
       end
 
       # Whether the named rule's body is provably whitespace-only:
-      # literals strip to empty; sequence/alternation/repetition
-      # compose the verdict; references resolve through the atom cache
-      # with a cycle set; anything else (classes, customs, authored
-      # captures) disqualifies.
+      # literals strip to empty, character classes are whitespace-only;
+      # sequence/alternation/repetition compose the verdict; references
+      # resolve through the atom cache with a cycle set; anything else
+      # (customs, authored captures) disqualifies.
       def trivia_only?(name, seen)
         return false unless @document.rules.key?(name)
 
@@ -288,6 +288,8 @@ module Parsanol
         case atom
         when Atoms::Str
           atom.str.to_s.strip.empty?
+        when Atoms::Re
+          whitespace_class?(atom.match)
         when Atoms::Sequence, Atoms::Alternative
           kids = atom.respond_to?(:alternatives) ? atom.alternatives : atom.parslets
           kids.all? { |child| trivia_walk(child, seen) }
@@ -302,6 +304,91 @@ module Parsanol
         else
           false
         end
+      end
+
+      # A class matches only whitespace when every codepoint it admits
+      # strips to empty — the same verdict Atoms::Str gets. Compiled
+      # classes are the dialect class_pattern emits: bracket bodies of
+      # literal chars, \t\n\v\f\r, \xHH, \uXXXX and \u{...}, plus ranges
+      # between them. Anything else disqualifies.
+      def whitespace_class?(pattern)
+        body = pattern.to_s[/\A\[(.*)\]\z/m, 1]
+        return false if body.nil? || body.empty? || body.start_with?("^")
+
+        ranges = class_ranges(body)
+        ranges&.all? { |lo, hi| whitespace_range?(lo, hi) }
+      end
+
+      WHITESPACE_CODEPOINTS = [0x00, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20].freeze
+
+      def whitespace_range?(low, high)
+        return false if low > high
+
+        union = WHITESPACE_CODEPOINTS.count { |code| code.between?(low, high) }
+        union == high - low + 1
+      end
+
+      def class_ranges(body)
+        slots = []
+        pending_range = false
+        index = 0
+        while index < body.length
+          if body[index] == "-" && !pending_range && !slots.empty?
+            pending_range = true
+            index += 1
+            next
+          end
+
+          code, index = class_token(body, index)
+          return nil unless code
+
+          if pending_range
+            previous = slots.pop
+            slots << [previous[0], code].minmax
+            pending_range = false
+          else
+            slots << [code, code]
+          end
+        end
+        return nil if pending_range
+
+        slots
+      end
+
+      def class_token(body, index)
+        char = body[index]
+        unless char == "\\"
+          return [char.ord, index + 1]
+        end
+
+        escaped = body[index + 1]
+        return nil if escaped.nil?
+
+        case escaped
+        when "x" then hex_token(body, index + 2, 2)
+        when "u"
+          if body[index + 2] == "{"
+            close = body.index("}", index + 3)
+            return nil unless close
+
+            [body[(index + 3)...close].to_i(16), close + 1]
+          else
+            hex_token(body, index + 2, 4)
+          end
+        when "t" then [0x09, index + 2]
+        when "n" then [0x0A, index + 2]
+        when "v" then [0x0B, index + 2]
+        when "f" then [0x0C, index + 2]
+        when "r" then [0x0D, index + 2]
+        else [escaped.ord, index + 2]
+        end
+      end
+
+      def hex_token(body, start, length)
+        hex = body[start, length]
+        return nil unless hex&.match?(/\A\h{#{length}}\z/)
+
+        [hex.to_i(16), start + length]
       end
 
       # Whether the atom's flattening surfaces any Named capture:
@@ -353,7 +440,10 @@ module Parsanol
         case atom
         when Atoms::Named then nil
         when Atoms::Entity
-          unless produces_capture?(atom.parslet)
+          # Mirror wrap_uncaptured's verdicts: trivia glue and
+          # capture-producing refs both stay bare.
+          unless trivia_only?(atom.rule_name.to_s, { atom.rule_name.to_s => true }) ||
+              produces_capture?(atom.parslet)
             lines << "rule #{site}: reference to #{atom.rule_name} produces no capture -- " \
                      "modern mode would name it #{atom.rule_name}"
           end
@@ -1233,13 +1323,11 @@ module Parsanol
           "unicode_tables" => "onigmo (Ruby #{RUBY_VERSION})",
           "compiler_version" => Parsanol::VERSION,
         }
-        # ruby#304: the envelope always names the capture dialect —
-        # consumers read the tree-shape contract before parsing.
-        envelope["edition"] = @document.edition
-        # ruby#353: the language-semantics level the trees were frozen
-        # against (1.3.108's implicit-capture shapes = 1; the
-        # explicit end_guard/marker/hyphen nodes = 2). Consumers freeze
-        # tree shapes and mappers; the loader asserts the level at
+        # ruby#304: the envelope always names the capture edition —
+        # consumers read the tree-shape contract before parsing. The
+        # numeric form is canonical: 1 = the legacy shapes, 2 = fully
+        # named trees + explicit spans.
+        envelope["edition"] = @document.edition == "v2" ? 2 : 1
         if @document.skip_declaration
           # parsanol-ruby#134: declared trivia rule. Injection is baked
           # into the compiled trees (plain atom kinds), so consumers
