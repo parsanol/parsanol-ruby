@@ -234,7 +234,7 @@ module Parsanol
       # `mode` in the grammar header. Engines see ordinary
       # Named atoms; identity rides the differential corpus.
       def apply_modern_captures(atom)
-        return atom if @document.mode == "v1"
+        return atom if @document.edition == "v1"
 
         wrap_uncaptured(atom)
       end
@@ -334,7 +334,7 @@ module Parsanol
       def modern_radar
         # The radar is the classic dialect's migration tool: on a v2
         # grammar every reference is already named.
-        return [] if @document.mode != "v1"
+        return [] if @document.edition != "v1"
 
         lines = []
         @document.rules.each_key do |name|
@@ -1235,13 +1235,11 @@ module Parsanol
         }
         # ruby#304: the envelope always names the capture dialect —
         # consumers read the tree-shape contract before parsing.
-        envelope["mode"] = @document.mode
+        envelope["edition"] = @document.edition
         # ruby#353: the language-semantics level the trees were frozen
         # against (1.3.108's implicit-capture shapes = 1; the
         # explicit end_guard/marker/hyphen nodes = 2). Consumers freeze
         # tree shapes and mappers; the loader asserts the level at
-        # load. Absent field = language_version 1.
-        envelope["language_version"] = Artifact::LANGUAGE_VERSION
         if @document.skip_declaration
           # parsanol-ruby#134: declared trivia rule. Injection is baked
           # into the compiled trees (plain atom kinds), so consumers
