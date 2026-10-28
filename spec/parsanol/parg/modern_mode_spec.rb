@@ -155,6 +155,40 @@ RSpec.describe "the capture modes (ruby#304, the #315 spec; the v2 default)" do
       shape = artifact.parse("main", ",abc=")
       expect(shape).to be_truthy
     end
+
+    it "keys the wrap with a Symbol, like `as` captures and the native engine" do
+      artifact = Parsanol::PARG::Artifact.from_json(
+        JSON.generate(compile(<<~PARG)),
+          grammar M version "1.0.0" edition "v2" {
+            entry main: main
+            main = word "=" val
+            atomic word = 1*( %x61-7A )
+            val = ( 1*( %x61-7A ) ) as v
+          }
+        PARG
+      )
+      expect(artifact.parse("main", "ab=cd", mode: :ruby).keys)
+        .to contain_exactly(:word, :v)
+    end
+
+    it "gives the same tree on both engines" do
+      skip "native engine unavailable" unless Parsanol::Native.available?
+
+      artifact = Parsanol::PARG::Artifact.from_json(
+        JSON.generate(compile(<<~PARG)),
+          grammar M version "1.0.0" edition "v2" {
+            entry main: main
+            main = word "=" word2
+            atomic word = 1*( %x61-7A )
+            atomic word2 = 1*( %x61-7A )
+          }
+        PARG
+      )
+      ruby = artifact.parse("main", "ab=cd", mode: :ruby)
+      native = artifact.parse("main", "ab=cd", mode: :native)
+      expect(ruby.transform_values(&:to_s))
+        .to eq(native.transform_values(&:to_s))
+    end
   end
 end
 

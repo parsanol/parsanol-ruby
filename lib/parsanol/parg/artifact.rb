@@ -88,12 +88,11 @@ module Parsanol
         end
       end
 
-      # Parse via the native engine. Both engines run the atom tree that
-      # #compiler rebuilds from the embedded source (under the envelope's
-      # recorded capture mode); the native lane registers that tree with
-      # the Rust side once and then runs by handle. The Ruby atom runtime
-      # (mode: :ruby) remains available explicitly, and serves as the
-      # fallback on platforms without the extension.
+      # Parse via the native engine: the envelope's grammar section is the
+      # exact portable JSON the Rust side registers, so the artifact parse
+      # path is a straight register-and-run — no Ruby recompilation. The
+      # Ruby atom runtime (mode: :ruby) remains available explicitly, and
+      # serves as the fallback on platforms without the extension.
       #
       # Dynamic artifacts (runtime state, custom atoms — #129) route to
       # the Ruby engine: the envelope carries the PARG source precisely
@@ -595,11 +594,6 @@ module Parsanol
       def compiler
         @compiler ||= begin
           document = Parser.new(envelope.fetch("source")).parse
-          # The capture dialect is part of the baked contract. Envelopes
-          # written before 1.3.110 carry no "mode" key and were compiled
-          # as v1; re-parsing their source under today's v2 default would
-          # silently reshape their trees (parsanol-ruby#350).
-          document.mode = envelope.fetch("mode", "v1")
           # `use`-importing grammars carry dotted cross-grammar rule
           # references that only resolve once the imported sources merge;
           # without this the pure-Ruby path fails on artifacts whose

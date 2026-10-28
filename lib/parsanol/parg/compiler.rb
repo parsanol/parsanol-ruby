@@ -257,7 +257,7 @@ module Parsanol
               produces_capture?(atom.parslet)
             atom
           else
-            Atoms::Named.new(atom, atom.rule_name.to_s)
+            Atoms::Named.new(atom, atom.rule_name.to_sym)
           end
           # rubocop:enable Lint/DuplicateBranch
         when Atoms::Sequence, Atoms::Alternative
