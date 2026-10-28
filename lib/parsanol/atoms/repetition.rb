@@ -195,6 +195,11 @@ module Parsanol
 
           unless success
             last_failure = value
+            # A failed iteration may have consumed input before its own
+            # inner failure (an ordered choice's partial alternative);
+            # the repetition owns the rollback — the rep ends at the
+            # last SUCCESSFUL iteration's end (ruby#357).
+            source.bytepos = iteration_start
             break
           end
 
@@ -276,6 +281,11 @@ module Parsanol
 
           unless success
             last_failure = value
+            # A failed iteration may have consumed input before its own
+            # inner failure (an ordered choice's partial alternative);
+            # the repetition owns the rollback — the rep ends at the
+            # last SUCCESSFUL iteration's end (ruby#357).
+            source.bytepos = iteration_start
             break
           end
 
