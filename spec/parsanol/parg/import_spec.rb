@@ -8,7 +8,7 @@ RSpec.describe Parsanol::PARG::Import do
     # The tree-shape expectations below are the legacy flat sequences;
     # the importer tests pin the v1 dialect (v2's named trees are
     # modern_mode_spec's subject).
-    document.mode = "v1"
+    document.edition = "v1"
     Parsanol::PARG::Compiler.compile(document, tables_dir: tables_dir)
   end
 
