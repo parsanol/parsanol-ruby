@@ -222,7 +222,7 @@ rule reference that produces no capture in `Named(rule_name)` at compile
 time, so a grammar's rule structure *is* its tree:
 
 ```
-grammar Demo version "1.0.0" mode "modern" {
+grammar Demo version "1.0.0" mode "v2" {
   publisher = %i"iso" / %i"ieee"
   number = 1*DIGIT
   iso_identifier = publisher " " number
@@ -264,8 +264,11 @@ Tower rules:
    existing corpus: modern-mode variants of the conformance grammars
    must produce the wrapped trees byte-identically in every engine.
 
-The mode spelling (`mode "modern"`) is the open owner decision; the
-mechanism above is specified.
+The default dialect is **v1** (the legacy shapes): a grammar without a
+`mode` header keeps them, so runtime compiles stay compatible with
+consumers that froze tree shapes. `mode "v2"` opts a grammar into the
+named trees above; `mode "v1"` spells the default explicitly. The
+envelope records whichever dialect the grammar declared.
 
 ### Unicode position
 
@@ -835,12 +838,14 @@ lutaml-model class.
 
 ## Modern mode: implicit capture by rule name (opt-in)
 
-A grammar header declares `mode "modern"` (ruby#304, the #315 spec —
-the spelling is the owner's pending decision and the single flip
-point). The compiler then wraps every rule reference that produces no
-capture in `Named(rule_name)` at compile time: the tree every engine
-builds is fully named, the dominant SOTA shape (tree-sitter named
-nodes, Lezer, instaparse).
+A grammar header declares `mode "v2"` (ruby#304, the #315 spec). The
+default dialect is **v1** — unpinned sources keep the legacy shapes,
+so runtime compiles stay compatible with tree-freezing consumers (the
+owner's 2026-10-28 reversal after the v2 default broke the pubid
+fleet). With `mode "v2"` the compiler wraps every rule reference that
+produces no capture in `Named(rule_name)` at compile time: the tree
+every engine builds is fully named, the dominant SOTA shape
+(tree-sitter named nodes, Lezer, instaparse).
 
 The spec table (pinned by `modern_mode_spec`):
 
