@@ -29,6 +29,15 @@ module Parsanol
 
       module_function
 
+      # Brace depth for the line-oriented collection: braces inside
+      # string literals are grammar data — test pins quote whole
+      # language forms, including deliberately malformed ones whose
+      # unbalanced braces would push the section depth off (ruby#369).
+      def brace_delta(line)
+        bare = line.gsub(/"(?:[^"\\]|\\.)*"/, "")
+        bare.scan("{").count - bare.scan("}").count
+      end
+
       def parse(source)
         SelfHost.validate(source) unless SelfHost.available? && !SelfHost.valid?(source)
 
@@ -53,7 +62,7 @@ module Parsanol
             # A brace-form rule body spans lines (ruby#311): keep
             # appending until its braces balance.
             state[:rule_lines][state[:rule_depth_name]] << line
-            state[:rule_depth] += line.scan("{").count - line.scan("}").count
+            state[:rule_depth] += brace_delta(line)
             if state[:rule_depth].zero?
               merge_rule(document, state[:rule_lines][state[:rule_depth_name]])
               state[:rule_depth] = nil
@@ -75,7 +84,7 @@ module Parsanol
       # Consumes one line inside a deferred/closed-by-brace section.
       def advance_section(document, state, line, deferred, preprocess_texts)
         section = state[:section]
-        state[:depth] += line.scan("{").count - line.scan("}").count
+        state[:depth] += brace_delta(line)
         if state[:depth].positive?
           preprocess_texts.last << line if section == "preprocess"
           state[:section_lines] << line
@@ -154,7 +163,7 @@ module Parsanol
           document.docs[rule_name] = doc_comments.join("\n") unless doc_comments.empty?
           doc_comments = []
           state[:rule_lines][rule_name] = line
-          depth = line.scan("{").count - line.scan("}").count
+          depth = brace_delta(line)
           if depth.positive?
             # Brace-form body opens (ruby#311): the rule completes on a
             # later line; the continuation loop appends and merges then.
