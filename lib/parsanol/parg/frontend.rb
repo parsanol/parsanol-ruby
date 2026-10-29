@@ -20,6 +20,12 @@ module Parsanol
       ENTRY_LINE = /\Aentry\s+(\w+)\s*:\s*(\w+)/
       USE_LINE = /\Ause\s+(\w+)/
       GRAMMAR_LINE = /\Agrammar\s+(\w+)\s+version\s+"([^"]+)"/
+      # The capture-edition tail: the canonical numeric spelling or the
+      # quoted aliases (ruby#361); `mode` stays the deprecated keyword.
+      EDITION_TAIL = /
+        \s+(?:edition\s+(?:"(?<quoted>[^"]+)"|(?<number>\d+))|mode\s+"(?<mode>[^"]+)")
+      /x
+      GLUE_LINE = /\Aglue\s+([a-z_][a-z0-9_]*(?:\s+[a-z_][a-z0-9_]*)*)\s*\z/
 
       module_function
 
@@ -43,7 +49,17 @@ module Parsanol
           end
           next if stripped.empty? || stripped.start_with?("#")
 
-          if state[:section]
+          if state[:rule_depth]&.positive?
+            # A brace-form rule body spans lines (ruby#311): keep
+            # appending until its braces balance.
+            state[:rule_lines][state[:rule_depth_name]] << line
+            state[:rule_depth] += line.scan("{").count - line.scan("}").count
+            if state[:rule_depth].zero?
+              merge_rule(document, state[:rule_lines][state[:rule_depth_name]])
+              state[:rule_depth] = nil
+              state[:rule_depth_name] = nil
+            end
+          elsif state[:section]
             advance_section(document, state, line, deferred, preprocess_texts)
           else
             route_top_level(document, stripped, line, state,
@@ -91,9 +107,19 @@ module Parsanol
         when USE_LINE
           document.uses << Regexp.last_match(1)
           doc_comments = []
+        when GLUE_LINE
+          document.glue_rules.concat(Regexp.last_match(1).split)
+          doc_comments = []
         when GRAMMAR_LINE
           document.grammar_name = Regexp.last_match(1)
           document.version = Regexp.last_match(2)
+          tail = stripped.match(EDITION_TAIL)
+          document.edition = if tail.nil?
+                               "v1"
+                             else
+                               level = tail[:number] || tail[:quoted] || tail[:mode]
+                               ["2", "v2"].include?(level) ? "v2" : "v1"
+                             end
           doc_comments = []
         when NAMED_SECTION
           state[:section] = Regexp.last_match(1)
@@ -128,7 +154,15 @@ module Parsanol
           document.docs[rule_name] = doc_comments.join("\n") unless doc_comments.empty?
           doc_comments = []
           state[:rule_lines][rule_name] = line
-          merge_rule(document, line)
+          depth = line.scan("{").count - line.scan("}").count
+          if depth.positive?
+            # Brace-form body opens (ruby#311): the rule completes on a
+            # later line; the continuation loop appends and merges then.
+            state[:rule_depth] = depth
+            state[:rule_depth_name] = rule_name
+          else
+            merge_rule(document, line)
+          end
         else
           doc_comments = []
         end
