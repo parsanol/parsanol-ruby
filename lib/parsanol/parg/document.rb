@@ -18,7 +18,7 @@ module Parsanol
       Test = Struct.new(:entry, :kind, :input, :expect)
 
       attr_accessor :grammar_name, :version, :edition, :source, :uses, :skip_declaration, :skip_source,
-                    :atomic_rules, :skip_capture_key, :brace_rules
+                    :atomic_rules, :skip_capture_key, :brace_rules, :glue_rules
       # R2 declared resync: rule name -> skip pattern (the span matched
       # at a recovery point is consumed as annotated error text).
       attr_reader :resyncs
@@ -60,6 +60,10 @@ module Parsanol
         # contiguously).
         @atomic_rules = []
         @brace_rules = []
+        # Rules declared `glue <name> ...` (parsanol-ruby#364): the
+        # edition-2 wrap never names them — references stay bare and
+        # the rule's own body compiles unwrapped.
+        @glue_rules = []
         @authored_rules = nil
         # R2 declared resync: rule -> skip pattern. Recovery consumes
         # each pattern match at a failure point as annotated error text

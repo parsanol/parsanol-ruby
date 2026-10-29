@@ -338,6 +338,24 @@ module Parsanol
             skip_newlines
             next
           end
+          # `glue <rule> [<rule>...]` (parsanol-ruby#364): names rules
+          # whose references edition 2 never wraps — glue the tree must
+          # not see. Same-line names accumulate; the declaration may
+          # appear any number of times.
+          if peek&.type == :ident && peek.value == "glue"
+            advance
+            names = []
+            while peek&.type == :ident
+              names << ident.value
+            end
+            if names.empty?
+              raise ParseError, "glue must name at least one rule"
+            end
+
+            document.glue_rules.concat(names)
+            skip_newlines
+            next
+          end
           # `atomic <rule> = ...` suppresses skip-trivia injection inside
           # the rule body: token-shaped rules match their input
           # contiguously instead of spanning trivia between iterations.
