@@ -33,13 +33,14 @@ While maintaining full API compatibility with Parslet, Parsanol features a compl
 
 == Releases
 
-parsanol is one product on three language runtimes: **ruby** (rubygems),
-**python** (PyPI, `parsanol`), and **typescript** (npm, `parsanol` — the
-wasm-backed runtime). Every release publishes **all three together**; a
-release that ships one runtime and not the others is incomplete. If the
-runtime you use lags the latest grammar-language features, check the other
-registries' changelogs and the release train on the
-https://github.com/parsanol/parsanol-ruby/actions[Release workflow].
+parsanol is one product on **four runtimes**: **rs** (crates.io +
+`@parsanol/wasm` + release binaries), **ruby** (rubygems), **python**
+(PyPI, `parsanol`), and **typescript** (npm, `parsanol` — the
+wasm-backed runtime). **Every engine update releases all four
+together**; a release that ships some runtimes and not the rest is
+incomplete. If the runtime you use lags the latest grammar-language
+features, check the other registries' changelogs and the release train
+on the https://github.com/parsanol/parsanol-ruby/actions[Release workflow].
 
 == Installation
 
