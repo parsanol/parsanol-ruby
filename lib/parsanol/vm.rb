@@ -452,6 +452,11 @@ module Parsanol
         @subs = {}      # [obj_id, flag] => pc or :pending
         @pending = {}   # [obj_id, flag] => [[call_idx, body], ...]
         @backtracking_prone = false
+        # Grammar rules form a shared graph. Re-analyzing every reference
+        # repeats whole alternative trees during inlining. These caches
+        # live only for this compiler and retain the depth limit's meaning.
+        @first_byte_tables = {}.compare_by_identity
+        @nullability = {}.compare_by_identity
       end
 
       attr_reader :ops, :backtracking_prone
@@ -484,6 +489,13 @@ module Parsanol
       def first_byte_table(atom, depth = 0)
         return nil if depth > 10
 
+        cached = (@first_byte_tables[atom] ||= {})
+        return cached[depth] if cached.key?(depth)
+
+        cached[depth] = compute_first_byte_table(atom, depth)&.freeze
+      end
+
+      def compute_first_byte_table(atom, depth)
         case atom
         when Parsanol::Atoms::Str
           b = atom.str.getbyte(0)
@@ -508,7 +520,7 @@ module Parsanol
                 i += 1
               end
             else
-              t = ct
+              t = ct.dup
             end
             unless nullable?(child, depth + 1)
               nullable_all = false
@@ -529,7 +541,7 @@ module Parsanol
                 i += 1
               end
             else
-              t = bt
+              t = bt.dup
             end
           end
           t
@@ -572,6 +584,13 @@ module Parsanol
       def nullable?(atom, depth = 0)
         return false if depth > 10
 
+        cached = (@nullability[atom] ||= {})
+        return cached[depth] if cached.key?(depth)
+
+        cached[depth] = compute_nullable(atom, depth)
+      end
+
+      def compute_nullable(atom, depth)
         case atom
         when Parsanol::Atoms::Str then atom.str.bytesize.zero?
         when Parsanol::Atoms::Re then false
