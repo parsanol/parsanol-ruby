@@ -31,6 +31,16 @@ While maintaining full API compatibility with Parslet, Parsanol features a compl
 * <<debug-tools,Debug Tools>> - Tracing and grammar visualization
 * <<benchmarking,Benchmarking>> - Built-in performance testing tools
 
+== Releases
+
+parsanol is one product on three language runtimes: **ruby** (rubygems),
+**python** (PyPI, `parsanol`), and **typescript** (npm, `parsanol` — the
+wasm-backed runtime). Every release publishes **all three together**; a
+release that ships one runtime and not the others is incomplete. If the
+runtime you use lags the latest grammar-language features, check the other
+registries' changelogs and the release train on the
+https://github.com/parsanol/parsanol-ruby/actions[Release workflow].
+
 == Installation
 
 Add this line to your application's Gemfile:
