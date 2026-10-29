@@ -233,10 +233,22 @@ module Parsanol
       # compile time — the tree shape consumers read, opt-in via
       # `mode` in the grammar header. Engines see ordinary
       # Named atoms; identity rides the differential corpus.
-      def apply_modern_captures(atom)
+      def apply_modern_captures(atom, rule_name)
         return atom if @document.edition == "v1"
+        # A glue rule's own body compiles unwrapped (parsanol-ruby#364):
+        # the declaration means the tree never sees this subtree named,
+        # inside or out.
+        return atom if glue_rule?(rule_name)
 
         wrap_uncaptured(atom)
+      end
+
+      # The `glue` declaration's verdict (parsanol-ruby#364): references
+      # to declared glue rules never wrap — the trivia exemption's
+      # "glue never becomes a capture", author-declared for rules that
+      # eat more than whitespace.
+      def glue_rule?(name)
+        @document.glue_rules.include?(name.to_s)
       end
 
       def wrap_uncaptured(atom)
@@ -254,6 +266,7 @@ module Parsanol
           # capture-producing refs both stay unwrapped; the bodies
           # agree by design.
           if trivia_only?(atom.rule_name.to_s, { atom.rule_name.to_s => true }) ||
+              glue_rule?(atom.rule_name.to_s) ||
               produces_capture?(atom.parslet)
             atom
           else
@@ -440,9 +453,10 @@ module Parsanol
         case atom
         when Atoms::Named then nil
         when Atoms::Entity
-          # Mirror wrap_uncaptured's verdicts: trivia glue and
-          # capture-producing refs both stay bare.
+          # Mirror wrap_uncaptured's verdicts: trivia glue, declared
+          # glue, and capture-producing refs all stay bare.
           unless trivia_only?(atom.rule_name.to_s, { atom.rule_name.to_s => true }) ||
+              glue_rule?(atom.rule_name.to_s) ||
               produces_capture?(atom.parslet)
             lines << "rule #{site}: reference to #{atom.rule_name} produces no capture -- " \
                      "modern mode would name it #{atom.rule_name}"
@@ -482,7 +496,7 @@ module Parsanol
           # atom_for; a mutual-reference grammar must hit the cache,
           # not rebuild), then the cache takes the wrapped tree.
           @atom_cache[name] = atom
-          atom = apply_modern_captures(atom)
+          atom = apply_modern_captures(atom, name)
           @atom_cache[name] = atom
           atom
         end

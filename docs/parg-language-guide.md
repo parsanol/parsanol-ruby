@@ -857,9 +857,32 @@ The spec table (pinned by `modern_mode_spec`):
 | rule reference whose subtree has captures | untouched — the captures surface directly |
 | authored captures (`as`) | never re-wrapped |
 | rules whose body can only match whitespace (literals or classes) | exempt — glue never becomes a capture |
+| references to rules declared `glue` | exempt — the author's verdict, for glue that eats more than whitespace |
+| a `glue` rule's own body | never wrapped — its internal references stay anonymous |
 | trivia subtrees (the skip rule's tree) | never wrapped, never counted as captures |
 | lookaheads and behind-guards | untouched (their content never surfaces) |
 | sequences, alternatives, repetitions | recursion; the wrap lands on their references |
+
+The **`glue` declaration** (parsanol-ruby#364) is the author's
+version of the whitespace verdict: some glue eats more than
+whitespace — LML's `whitespace` also eats `;` and comments — and no
+inference can see it. The declaration names one or more rules on one
+line, and may appear any number of times:
+
+```
+grammar Lml version "1.0.0" edition 2 {
+  glue whitespace line_comment block_comment
+  ...
+}
+```
+
+A declared rule's references stay bare and its own body compiles
+unwrapped, so declare the whole glue chain (in the example above,
+`line_comment`'s internal scan stays anonymous only because
+`line_comment` itself is declared). Nothing crosses the wire: the
+artifact's atom stream is ordinary, and the declaration rides in the
+source. `parg lint --captures` honors it — declared glue never
+appears in the migration radar.
 
 The lowering happens after trivia injection — trivia atoms are in
 place first, so the pass sees the final tree. The wire learns

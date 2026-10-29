@@ -265,6 +265,70 @@ RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edi
         .to eq(native.transform_values(&:to_s))
     end
   end
+
+  describe "the glue declaration (parsanol-ruby#364)" do
+    def wrapped_names(envelope, entry = "main")
+      envelope.dig("entries", entry, "grammar", "atoms")
+        .filter_map { |atom| atom.dig("Named", "name") }
+    end
+
+    it "keeps declared glue rules bare in edition 2" do
+      envelope = compile(<<~PARG)
+        grammar G version "1.0.0" edition 2 {
+          glue ws
+          entry main: main
+          ws = 1*( %x20 / ";" / %x0A )
+          main = "a" ws "b"
+        }
+      PARG
+      expect(wrapped_names(envelope)).not_to include("ws")
+    end
+
+    it "compiles a glue rule's own body unwrapped, all the way down" do
+      # ws eats comments; without the glue chain edition 2 would name
+      # comment and any_char per character inside every gap.
+      envelope = compile(<<~PARG)
+        grammar G version "1.0.0" edition 2 {
+          glue ws comment
+          entry main: main
+          ws = ( 1*" " ) / comment
+          comment = "//" ( *( !%x0A any_char ) )
+          any_char = %x00-10FFFF
+          main = "a" ws "b"
+        }
+      PARG
+      names = wrapped_names(envelope)
+      expect(names).not_to include("ws")
+      expect(names).not_to include("comment")
+      expect(names).not_to include("any_char")
+    end
+
+    it "is a no-op in edition 1 and adds no envelope field" do
+      envelope = compile(<<~PARG)
+        grammar G version "1.0.0" edition 1 {
+          glue ws
+          entry main: main
+          ws = 1*( %x20 / ";" / %x0A )
+          main = "a" ws "b"
+        }
+      PARG
+      expect(wrapped_names(envelope)).not_to include("ws")
+      expect(envelope).not_to have_key("glue")
+      expect(envelope).not_to have_key("glue_rules")
+    end
+
+    it "raises when glue names no rule" do
+      expect do
+        compile(<<~PARG)
+          grammar G version "1.0.0" edition 2 {
+            glue
+            entry main: main
+            main = "a"
+          }
+        PARG
+      end.to raise_error(Parsanol::PARG::ParseError, /glue must name/)
+    end
+  end
 end
 
 describe "the migration radar (parg lint --captures)" do

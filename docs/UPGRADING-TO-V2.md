@@ -34,7 +34,24 @@ sites edition 2 would wrap — the complete list of tree nodes whose
 shape changes. Whitespace glue is not reported: rules that can only
 match whitespace are exempt from the wrap.
 
-### 3. Update the tree readers
+### 3. Declare the glue that eats more than whitespace
+
+Some separators carry non-whitespace text (`;`, comments) or wrap
+verbatim scans. Declare them and the wrap leaves them alone
+(parsanol-ruby#364):
+
+```parg
+grammar YourThing version "1.0.0" edition 2 {
+  glue whitespace line_comment block_comment
+  ...
+}
+```
+
+Declared rules stay anonymous — references to them and their own
+bodies. Declare the whole chain: a comment rule's internal scan stays
+anonymous only if the comment rule itself is declared.
+
+### 4. Update the tree readers
 
 Each radar entry is a node your builder will now see as
 `{rule_name: <value>}` instead of a bare value. Two recurring cases:
@@ -49,7 +66,7 @@ Each radar entry is a node your builder will now see as
   values); parsanol's flatten laws keep a single-iteration case
   scalar.
 
-### 4. Re-freeze and assert
+### 5. Re-freeze and assert
 
 Re-bake artifacts (the `edition` field and checksums change) and record
 the edition alongside any frozen tree expectations. At load:
