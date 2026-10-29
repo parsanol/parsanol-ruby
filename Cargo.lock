@@ -307,9 +307,9 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "parsanol"
-version = "0.19.8"
+version = "0.19.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86357f129e791c3b7b79a0a8a2b10c7ad00a2e0f8452224bc1cd15b81a7d5c31"
+checksum = "15a98bef9670827328d0ea1c8c76e45453a2c4718513ecbfb785441906f54c75"
 dependencies = [
  "ahash",
  "getrandom 0.3.4",
@@ -326,9 +326,9 @@ dependencies = [
 
 [[package]]
 name = "parsanol-derive"
-version = "0.19.8"
+version = "0.19.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45bbd7570b3fe0a704e1db635f2f54b792d34646576794244646e88f4575c06d"
+checksum = "35a3d2c247ee11443d9cde90544c7d18d4aed244fd1cd17a2df0fe954f61085b"
 dependencies = [
  "proc-macro2",
  "quote",
