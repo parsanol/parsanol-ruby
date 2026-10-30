@@ -117,7 +117,9 @@ module Parsanol
         # The reporting pass (the re-parse after a failure) must try every
         # branch so the failure cause tree stays complete; the literal index
         # only prunes the fast non-reporting pass.
-        unless context.reporting?
+        # Legacy memo answers depend on attempted branches, including a
+        # prefix success in a branch that later fails its literal suffix.
+        unless context.reporting? || context.parslet_compatible?
           indexed = candidate_indexes(source)
           if indexed
             return try_selected(indexed, options, source, context, consume_all)

@@ -12,3 +12,7 @@ debug = true
 # crates.io. magnus 0.9 is now on crates.io — no magnus patch is needed.
 [patch.crates-io]
 rb-sys = { git = "https://github.com/oxidize-rb/rb-sys.git", rev = "daa12b6521a0c442a705d7f9a929029119aab1d6" }
+
+# Exact source candidate for cross-repository compatibility validation.
+# Replace with the published crate and registry lock before merging.
+parsanol = { git = "https://github.com/parsanol/parsanol-rs.git", rev = "390c5514d541112a73e0eaf471d0b65b5eace982" }

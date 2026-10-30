@@ -27,17 +27,27 @@ module Parsanol
       # @param options [Hash] parsing options
       # @option options [Parsanol::ErrorReporter] :reporter error collector
       # @option options [Boolean] :prefix allow partial parse (default: false)
+      # @option options [Symbol] :compatibility :strict (default), or :parslet
+      #   for legacy consume-all memo decisions on the Ruby interpreter
       # @return [Object] the parsed result
       # @raise [Parsanol::ParseFailed] on parse failure
       def parse(source, options = {})
         must_consume_all = !options[:prefix]
+        compatibility = options.fetch(:compatibility, :strict)
+        unless %i[strict parslet].include?(compatibility)
+          raise ArgumentError, "Unknown compatibility policy: #{compatibility}"
+        end
+
+        context_options = compatibility == :strict ? {} : { compatibility: compatibility }
 
         # Compiled-VM fast path: String input, full-consumption semantics.
         # On failure (or unsupported grammar / budget exhaustion) fall
         # through to the interpreter, which also produces the exact
         # cause-tree diagnostics. run_for memoizes heavy-backtracking
         # grammars transparently.
-        if must_consume_all && source.is_a?(String) &&
+        # The VM implements strict memo semantics. The opt-in legacy policy
+        # is currently supported by the Ruby interpreter only.
+        if compatibility == :strict && must_consume_all && source.is_a?(String) &&
             (program = VM.program_for(self))
           begin
             result = VM.run_for(self, program, source, true)
@@ -62,12 +72,12 @@ module Parsanol
         input = normalize_input(source)
 
         # Initial parse attempt (no error collection)
-        success, value = run_with_context(input, nil, must_consume_all)
+        success, value = run_with_context(input, nil, must_consume_all, **context_options)
         return finalize_result(value) if success
 
         # Reparse with error reporting for diagnostics
         report_detailed_error(input, must_consume_all, options[:reporter],
-                              value)
+                              value, **context_options)
       end
 
       # Creates a new parsing context and executes the atom.
@@ -76,10 +86,11 @@ module Parsanol
       # @param reporter [Object, nil] error reporter
       # @param consume_all [Boolean] require complete consumption
       # @return [Array(Boolean, Object)] outcome tuple
-      def run_with_context(input, reporter, consume_all)
+      def run_with_context(input, reporter, consume_all, compatibility: :strict)
         parser_class = detect_parser_class
         context = Parsanol::Atoms::Context.new(reporter,
-                                               parser_class: parser_class)
+                                               parser_class: parser_class,
+                                               compatibility: compatibility)
         apply(input, context, consume_all)
       end
 
@@ -242,10 +253,12 @@ module Parsanol
       # consumer's file:line:col degrades to "line 1 char 1" when the
       # interpreter raises the outermost sequence instead. Explicit
       # reporters (Tree for full cause trees) are honored unchanged.
-      def report_detailed_error(input, consume_all, reporter, _initial_error)
+      def report_detailed_error(input, consume_all, reporter, _initial_error, compatibility: :strict)
         input.bytepos = 0
-        error_reporter = reporter || Parsanol::ErrorReporter::Deepest.new
-        success, cause = run_with_context(input, error_reporter, consume_all)
+        error_reporter = reporter ||
+          (compatibility == :parslet ? Parsanol::ErrorReporter::Tree.new : Parsanol::ErrorReporter::Deepest.new)
+        context_options = compatibility == :strict ? {} : { compatibility: compatibility }
+        success, cause = run_with_context(input, error_reporter, consume_all, **context_options)
 
         # Second parse should also fail
         raise "Invariant violation: parse succeeded during error reporting" if success

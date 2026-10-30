@@ -57,9 +57,9 @@ module Parsanol
         #
         # @param grammar [Parsanol::Atoms::Base] Ruby grammar or JSON string
         # @param input [String] Input string to parse
-        def parse(grammar, input)
+        def parse(grammar, input, **)
           # Delegate to Parsanol::Native.parse for consistency
-          Parsanol::Native.parse(grammar, input)
+          Parsanol::Native.parse(grammar, input, **)
         end
 
         # Parse input with a Ruby grammar, returning the parslet-shaped
