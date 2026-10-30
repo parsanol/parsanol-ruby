@@ -97,11 +97,6 @@ module Parsanol
         @array_pool = Parsanol::Pools::ArrayPool.new(size: 10_000, preallocate: false)
         @buffer_pool = Parsanol::Pools::BufferPool.new(pool_size: 100)
 
-        # Selective memoization tracking
-        @hit_stats = Hash.new(0)
-        @miss_stats = Hash.new(0)
-        @min_hits_for_cache = 2
-
         # Optional GPeg-style interval caching
         @use_intervals = interval_cache
         if @use_intervals
@@ -205,28 +200,21 @@ module Parsanol
         # prefix-success fallback for ordered choice)
         cached_key = cached_entry_key(@memo[pos], atom, must_consume_all)
         if cached_key
-          @hit_stats[cached_key] += 1
           outcome, delta = @memo[pos][cached_key]
           src.bytepos = pos + delta
           return outcome
         end
 
         # Cache miss - execute and store
-        @miss_stats[key] += 1
         unsafe_before = @cache_unsafe_events
         outcome = atom.try(src, self, must_consume_all)
         delta = src.bytepos - pos
 
-        # Never store results spanning cache-unsafe events (dynamic
-        # blocks, capture writes); keep the beneficial-attempts
-        # heuristic to avoid one-shot memo pollution.
-        if storable_outcome?(key, outcome, unsafe_before)
-          attempts = @hit_stats[key] + @miss_stats[key]
-          # Skipping a later legacy entry can change subsequent consume-all
-          # decisions, even when earlier positions did not benefit from it.
-          if @parslet_compatibility || attempts <= @min_hits_for_cache || @hit_stats[key].positive?
-            (@memo[pos] ||= {})[key] = [outcome, delta]
-          end
+        # Once backtracking activates memoization, retain every safe answer.
+        # An atom-wide attempts limit suppresses its entries at later positions
+        # and can leave recursive alternatives with exponential repeated work.
+        if @cache_unsafe_events == unsafe_before
+          (@memo[pos] ||= {})[key] = [outcome, delta]
         end
 
         outcome
@@ -242,23 +230,21 @@ module Parsanol
       def try_with_interval(atom, src, must_consume_all)
         pos = src.bytepos
         key = scoped_cache_key(atom, must_consume_all)
-        cached_key, cached = cached_interval_entry(atom, pos,
-                                                   must_consume_all)
+        _cached_key, cached = cached_interval_entry(atom, pos,
+                                                    must_consume_all)
 
         if cached
-          @hit_stats[cached_key] += 1
           outcome, delta = cached
           src.bytepos = pos + delta
           return outcome
         end
 
-        @miss_stats[key] += 1
         unsafe_before = @cache_unsafe_events
         outcome = atom.try(src, self, must_consume_all)
         delta = src.bytepos - pos
         end_pos = pos + delta
 
-        if storable_outcome?(key, outcome, unsafe_before)
+        if @cache_unsafe_events == unsafe_before
           @interval_trees[key].insert(pos, end_pos, [outcome, delta])
         end
 
@@ -579,18 +565,6 @@ module Parsanol
       # consume-all recheck (parsanol-ruby#22).
       def prefix_success_fallback?(atom, must_consume_all)
         !must_consume_all && share_prefix_success_cache?(atom)
-      end
-
-      # An outcome may be memoized only when no cache-unsafe event (dynamic
-      # evaluation, capture write) happened while computing it, and the
-      # attempts heuristic deems the entry worthwhile.
-      def storable_outcome?(key, outcome, unsafe_before)
-        return false unless @cache_unsafe_events == unsafe_before
-        return true if @parslet_compatibility
-
-        outcome.first ||
-          @hit_stats[key] + @miss_stats[key] <= @min_hits_for_cache ||
-          @hit_stats[key].positive?
       end
 
       def successful_prefix_entry?(entry)
