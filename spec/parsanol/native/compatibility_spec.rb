@@ -24,6 +24,18 @@ RSpec.describe "Native compatibility" do
     end
   end
 
+  def topology_parser(use_other)
+    Class.new(Parsanol::Parser) do
+      rule(:document) do
+        first = str("a").maybe
+        other = str("a").maybe
+        chosen = use_other ? other : first
+        first | (other >> str("!")) | (chosen >> str("b")).as(:branch) | str("b").as(:fallback)
+      end
+      root(:document)
+    end.new
+  end
+
   describe "compatibility dispatch" do
     it "rejects an unknown policy before selecting an engine" do
       expect(Parsanol::Native).not_to receive(:available?)
@@ -88,6 +100,18 @@ RSpec.describe "Native compatibility" do
   # Enabled by default and in GHA. Local checks against an old binary may
   # explicitly exclude this tag; stubs are never native functionality proof.
   describe "the actual native compatibility seam", :native_compatibility do
+    it "keeps different shared-node graphs independent across warmed handles" do
+      first = topology_parser(false)
+      second = topology_parser(true)
+
+      expect(plain(first.parse("b", mode: :native, compatibility: :parslet)))
+        .to eq(fallback: "b")
+      expect(plain(second.parse("b", mode: :native, compatibility: :parslet)))
+        .to eq(branch: "b")
+      expect(plain(first.parse("b", mode: :native, compatibility: :parslet)))
+        .to eq(fallback: "b")
+    end
+
     [8, 8_300].each do |length|
       it "preserves complete capture values and strict defaults with #{length} padding bytes" do
         parser = choice_parser

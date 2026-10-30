@@ -384,13 +384,15 @@ module Parsanol
       # Compatibility failures are authoritative native refusals. Unlike the
       # legacy strict helper, this path never reparses or accepts in Ruby.
       def parse_compatible_atom_grammar(grammar, input)
-        handle = Parser.grammar_handle(grammar)
+        handle = Parser.grammar_handle(grammar, compatibility: :parslet)
         raw = begin
           _parse_handle_with_compatibility(handle, input, "parslet")
         rescue ArgumentError
           Parser.invalidate_handle(handle)
           begin
-            _parse_handle_with_compatibility(Parser.grammar_handle(grammar), input, "parslet")
+            _parse_handle_with_compatibility(
+              Parser.grammar_handle(grammar, compatibility: :parslet), input, "parslet"
+            )
           rescue RuntimeError => e
             raise_compatible_parse_error(e, input)
           end

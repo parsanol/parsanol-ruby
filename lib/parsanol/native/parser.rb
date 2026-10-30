@@ -84,8 +84,13 @@ module Parsanol
         # Resolve a Rust-side handle for the grammar, registering it once.
         # Per-call cost is the memoized structure-hash lookup plus one Hash
         # access — no JSON marshal, no re-hash inside Rust.
-        def grammar_handle(root_atom)
-          cache_key = grammar_cache_key(root_atom)
+        def grammar_handle(root_atom, compatibility: :strict)
+          root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
+          legacy = compatibility == :parslet
+          # Legacy decisions depend on the exact shared-node graph. The
+          # strict structure hash deliberately omits repeated-node targets.
+          # Retaining the root in this bounded key also prevents id recycling.
+          cache_key = legacy ? [:parslet, root_atom] : grammar_cache_key(root_atom)
           handle = HANDLE_CACHE[cache_key]
           if handle
             # Refresh recency: reinsertion moves the entry to the end,
@@ -94,7 +99,8 @@ module Parsanol
             return handle
           end
 
-          handle = Native._register_grammar(grammar_json(root_atom))
+          json = legacy ? GrammarSerializer.serialize(root_atom) : grammar_json(root_atom)
+          handle = Native._register_grammar(json)
           HANDLE_CACHE[cache_key] = handle
           trim_caches
           handle
