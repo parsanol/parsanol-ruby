@@ -26,6 +26,15 @@ end
 require "mkmf"
 require "rb_sys/mkmf"
 
+# RubyInstaller supplies MinGW headers. Bindgen otherwise discovers the
+# runner's MSVC headers when building a Git/source gem outside the native CI.
+if RUBY_PLATFORM.include?("mingw") && ENV.key?("RI_DEVKIT") && ENV.key?("MSYSTEM_PREFIX")
+  sysroot = ENV.fetch("RI_DEVKIT").tr("\\", "/") + ENV.fetch("MSYSTEM_PREFIX")
+  ENV["BINDGEN_EXTRA_CLANG_ARGS"] ||=
+    "--target=x86_64-pc-windows-gnu --sysroot=#{sysroot} " \
+    "-D__AVX512VLFP16INTRIN_H -D__AVX512FP16INTRIN_H"
+end
+
 create_rust_makefile("parsanol/parsanol_native") do |r|
   # Create debug builds in dev, release in production
   r.profile = ENV.fetch("RB_SYS_CARGO_PROFILE", :dev).to_sym
