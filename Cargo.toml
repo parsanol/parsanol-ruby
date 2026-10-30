@@ -15,4 +15,4 @@ rb-sys = { git = "https://github.com/oxidize-rb/rb-sys.git", rev = "daa12b6521a0
 
 # Exact source candidate for cross-repository compatibility validation.
 # Replace with the published crate and registry lock before merging.
-parsanol = { git = "https://github.com/parsanol/parsanol-rs.git", rev = "8fb1211e52fef18dbc7a8e69faa043e086a8a095" }
+parsanol = { git = "https://github.com/parsanol/parsanol-rs.git", rev = "830f97ec9adf2c2b5c80c29d4fc047fe1c4df16e" }
