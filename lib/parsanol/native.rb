@@ -58,8 +58,23 @@ module Parsanol
       #   result = Parsanol::Native.parse(str('hello').as(:greeting), "hello\nworld")
       #   result[:greeting].line_and_column  # => [1, 1]
       #
-      def parse(grammar, input)
+      def parse(grammar, input, compatibility: :strict)
+        unless %i[strict parslet].include?(compatibility)
+          raise ArgumentError, "Unknown compatibility policy: #{compatibility}"
+        end
         raise LoadError, "Native parser not available" unless available?
+
+        if compatibility == :parslet
+          unless Parser.extension_loaded? && respond_to?(:_parse_handle_with_compatibility)
+            raise NotImplementedError,
+                  "Native Parslet compatibility requires an extension with _parse_handle_with_compatibility"
+          end
+          if grammar.is_a?(String)
+            raise NotImplementedError, "Native Parslet compatibility requires grammar atoms, not JSON"
+          end
+
+          return parse_compatible_atom_grammar(grammar, input)
+        end
 
         # ffi-gem tier (JRuby/TruffleRuby/no-binary MRI): same contract,
         # batch-decoded results, single reporter-pass error fallback.
@@ -364,6 +379,35 @@ module Parsanol
         rescue RuntimeError => e
           raise_native_parse_error(e, grammar, input)
         end
+      end
+
+      # Compatibility failures are authoritative native refusals. Unlike the
+      # legacy strict helper, this path never reparses or accepts in Ruby.
+      def parse_compatible_atom_grammar(grammar, input)
+        handle = Parser.grammar_handle(grammar, compatibility: :parslet)
+        raw = begin
+          _parse_handle_with_compatibility(handle, input, "parslet")
+        rescue ArgumentError
+          Parser.invalidate_handle(handle)
+          begin
+            _parse_handle_with_compatibility(
+              Parser.grammar_handle(grammar, compatibility: :parslet), input, "parslet"
+            )
+          rescue RuntimeError => e
+            raise_compatible_parse_error(e, input)
+          end
+        rescue RuntimeError => e
+          raise_compatible_parse_error(e, input)
+        end
+        BatchDecoder.decode_and_flatten(raw, input, Parsanol::Slice)
+      end
+
+      def raise_compatible_parse_error(error, input)
+        message = error.message
+        position = message[NATIVE_POS_MARKER, 1].to_i
+        cause = Parsanol::Cause.new(message.sub(NATIVE_POS_MARKER, ""),
+                                    Parsanol::Source.new(input), position)
+        raise Parsanol::ParseFailed.new(cause.to_s, cause), cause: nil
       end
 
       # Reference-walker path (TODO.sota/8 B1): the plain recursive

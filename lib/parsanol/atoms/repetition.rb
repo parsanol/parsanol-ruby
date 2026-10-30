@@ -74,6 +74,8 @@ module Parsanol
       # @param consume_all [Boolean] require full consumption
       # @return [Array(Boolean, Object)] result
       def try(source, context, consume_all)
+        return try_compatible(source, context, consume_all) if context.parslet_compatible?
+
         # Check for tree memoization support
         if context.use_tree_memoization?
           return with_tree_cache(source, context, consume_all)
@@ -117,6 +119,37 @@ module Parsanol
         first = @parslet.first_set.dup
         first.add(Parsanol::FirstSet::EPSILON) if @min.zero?
         first
+      end
+
+      # Legacy repetition checks all children as prefixes. A bounded success
+      # returns before the outer consume-all guard; an exhausted optional
+      # failure checks consume-all inside #try. Their raw memo answers differ.
+      def try_compatible(source, context, consume_all)
+        start_pos = source.bytepos
+        result = [@result_tag]
+        count = 0
+        failure = nil
+        loop do
+          previous = source.bytepos
+          success, value = @parslet.apply(source, context, false)
+          unless success
+            failure = value
+            source.bytepos = previous
+            break
+          end
+
+          count += 1
+          result << value
+          return ok(result) if @max && count >= @max
+          # Retain the current engine's protection against empty loops.
+          break if source.bytepos == previous
+        end
+        return context.err_at(self, source, min_error, start_pos, [failure]) if count < @min
+        if consume_all && source.chars_left.positive?
+          return context.err(self, source, @extra_error, [failure])
+        end
+
+        ok(result)
       end
 
       # Optional match (0 or 1)

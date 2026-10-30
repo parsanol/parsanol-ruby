@@ -176,6 +176,9 @@ module Parsanol
     # Options:
     # - :reporter - Custom error reporter instance
     # - :prefix - Allow partial matching (default: false)
+    # - :compatibility - :strict (default), or :parslet for legacy memo
+    #   decisions. Auto mode selects native when available; an older native
+    #   extension without the compatibility entrypoint raises unsupported.
     #
     # @return [Hash, Array, Parsanol::Slice] parsed result with position info
     # @raise [Parsanol::ParseFailed] when parsing fails
@@ -200,8 +203,22 @@ module Parsanol
       # parse(input, {mode: :ruby, ...}) is the same call shape a subclass
       # forwarding options via super produces; :mode must be honored
       # wherever it appears, or those callers silently get the native path.
-      mode = opts.delete(:mode) ||
-        (Parsanol::Native.available? && native_expressible? ? :native : :ruby)
+      compatibility = opts.fetch(:compatibility, :strict)
+      unless %i[strict parslet].include?(compatibility)
+        raise ArgumentError, "Unknown compatibility policy: #{compatibility}"
+      end
+
+      requested_mode = opts.delete(:mode)
+      mode = requested_mode ||
+        if compatibility == :parslet
+          Parsanol::Native.available? ? :native : :ruby
+        else
+          Parsanol::Native.available? && native_expressible? ? :native : :ruby
+        end
+      if compatibility == :parslet && mode == :json
+        raise NotImplementedError, "Parslet compatibility does not yet support JSON mode"
+      end
+
       case mode
       when :ruby
         super(input, opts)
@@ -291,6 +308,14 @@ module Parsanol
     # @return [Object] parse result with Slice objects for position info
     #
     def parse_native(input, opts)
+      if opts[:compatibility] == :parslet
+        if opts[:prefix]
+          raise NotImplementedError, "Native Parslet compatibility does not yet support prefix mode"
+        end
+
+        return Parsanol::Native.parse(root, input, compatibility: :parslet)
+      end
+
       unless Parsanol::Native.available?
         Parsanol::Atoms::Base.instance_method(:parse).bind_call(self, input,
                                                                 opts)

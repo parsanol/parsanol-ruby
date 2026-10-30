@@ -44,11 +44,24 @@ module Parsanol
       # @param interval_cache: [Boolean] enable GPeg-style interval caching
       # @param adaptive_cache_threshold: [Integer, nil] minimum input size for caching
       # @param parser_class: [Class, nil] parser class for threshold selection
+      # @param compatibility: [Symbol] :strict or opt-in :parslet. Legacy
+      #   decisions use eager, parse-lifetime memo entries; mutable capture
+      #   and dynamic evaluations still retain their cache barriers.
       #
       def initialize(error_reporter = Parsanol::ErrorReporter::Tree.new,
                      interval_cache: false,
                      adaptive_cache_threshold: nil,
-                     parser_class: nil)
+                     parser_class: nil,
+                     compatibility: :strict)
+        unless %i[strict parslet].include?(compatibility)
+          raise ArgumentError, "Unknown compatibility policy: #{compatibility}"
+        end
+
+        @parslet_compatibility = compatibility == :parslet
+        if @parslet_compatibility && interval_cache
+          raise NotImplementedError, "Parslet compatibility does not yet support interval caching"
+        end
+
         # Core memoization cache: position -> { atom_id -> [result, advance] }
         # Auto-vivifying sub-hashes: a probe-phase position can reach the
         # active-path lookup before any entry exists at that position
@@ -84,11 +97,6 @@ module Parsanol
         @array_pool = Parsanol::Pools::ArrayPool.new(size: 10_000, preallocate: false)
         @buffer_pool = Parsanol::Pools::BufferPool.new(pool_size: 100)
 
-        # Selective memoization tracking
-        @hit_stats = Hash.new(0)
-        @miss_stats = Hash.new(0)
-        @min_hits_for_cache = 2
-
         # Optional GPeg-style interval caching
         @use_intervals = interval_cache
         if @use_intervals
@@ -117,7 +125,7 @@ module Parsanol
 
         @adaptive_threshold = threshold
         @input_len = nil
-        @caching_active = false
+        @caching_active = @parslet_compatibility
         @backtrack_events = 0
 
         # Monotonic counter of cache-unsafe events (dynamic-atom evaluations
@@ -131,6 +139,10 @@ module Parsanol
 
       # @return [Integer] monotonic count of cache-unsafe events so far
       attr_reader :cache_unsafe_events
+
+      def parslet_compatible?
+        @parslet_compatibility
+      end
 
       # Records that mutable parse state was read or written (dynamic atom
       # evaluated, capture stored). Called by atoms; results computed across
@@ -152,7 +164,11 @@ module Parsanol
       #
       def try_with_cache(atom, src, must_consume_all)
         # Skip caching for atoms that don't benefit from it
-        return atom.try(src, self, must_consume_all) unless atom.cached?
+        legacy_pure = @parslet_compatibility &&
+          (atom.instance_of?(Parsanol::Atoms::Entity) ||
+           atom.instance_of?(Parsanol::Atoms::Str) || atom.instance_of?(Parsanol::Atoms::Re))
+        cacheable = atom.cached? || legacy_pure
+        return atom.try(src, self, must_consume_all) unless cacheable
 
         # Use interval-based caching if enabled
         return try_with_interval(atom, src, must_consume_all) if @use_intervals
@@ -171,7 +187,9 @@ module Parsanol
           @furthest_pos = pos
           @evict_counter += 1
 
-          if @evict_counter >= @evict_interval
+          # Legacy prefix decisions remain observable on later backtracking;
+          # retain them for this parse rather than silently re-evaluating.
+          if !@parslet_compatibility && @evict_counter >= @evict_interval
             @evict_counter = 0
             cutoff = pos - @evict_threshold
             @memo.delete_if { |p, _| p < cutoff }
@@ -182,26 +200,21 @@ module Parsanol
         # prefix-success fallback for ordered choice)
         cached_key = cached_entry_key(@memo[pos], atom, must_consume_all)
         if cached_key
-          @hit_stats[cached_key] += 1
           outcome, delta = @memo[pos][cached_key]
           src.bytepos = pos + delta
           return outcome
         end
 
         # Cache miss - execute and store
-        @miss_stats[key] += 1
         unsafe_before = @cache_unsafe_events
         outcome = atom.try(src, self, must_consume_all)
         delta = src.bytepos - pos
 
-        # Never store results spanning cache-unsafe events (dynamic
-        # blocks, capture writes); keep the beneficial-attempts
-        # heuristic to avoid one-shot memo pollution.
-        if storable_outcome?(key, outcome, unsafe_before)
-          attempts = @hit_stats[key] + @miss_stats[key]
-          if attempts <= @min_hits_for_cache || @hit_stats[key].positive?
-            (@memo[pos] ||= {})[key] = [outcome, delta]
-          end
+        # Once backtracking activates memoization, retain every safe answer.
+        # An atom-wide attempts limit suppresses its entries at later positions
+        # and can leave recursive alternatives with exponential repeated work.
+        if @cache_unsafe_events == unsafe_before
+          (@memo[pos] ||= {})[key] = [outcome, delta]
         end
 
         outcome
@@ -217,23 +230,21 @@ module Parsanol
       def try_with_interval(atom, src, must_consume_all)
         pos = src.bytepos
         key = scoped_cache_key(atom, must_consume_all)
-        cached_key, cached = cached_interval_entry(atom, pos,
-                                                   must_consume_all)
+        _cached_key, cached = cached_interval_entry(atom, pos,
+                                                    must_consume_all)
 
         if cached
-          @hit_stats[cached_key] += 1
           outcome, delta = cached
           src.bytepos = pos + delta
           return outcome
         end
 
-        @miss_stats[key] += 1
         unsafe_before = @cache_unsafe_events
         outcome = atom.try(src, self, must_consume_all)
         delta = src.bytepos - pos
         end_pos = pos + delta
 
-        if storable_outcome?(key, outcome, unsafe_before)
+        if @cache_unsafe_events == unsafe_before
           @interval_trees[key].insert(pos, end_pos, [outcome, delta])
         end
 
@@ -533,6 +544,8 @@ module Parsanol
       end
 
       def scoped_cache_key(atom, must_consume_all)
+        return shared_cache_key(atom) if @parslet_compatibility
+
         must_consume_all ? strict_cache_key(atom) : shared_cache_key(atom)
       end
 
@@ -552,17 +565,6 @@ module Parsanol
       # consume-all recheck (parsanol-ruby#22).
       def prefix_success_fallback?(atom, must_consume_all)
         !must_consume_all && share_prefix_success_cache?(atom)
-      end
-
-      # An outcome may be memoized only when no cache-unsafe event (dynamic
-      # evaluation, capture write) happened while computing it, and the
-      # attempts heuristic deems the entry worthwhile.
-      def storable_outcome?(key, outcome, unsafe_before)
-        return false unless @cache_unsafe_events == unsafe_before
-
-        outcome.first ||
-          @hit_stats[key] + @miss_stats[key] <= @min_hits_for_cache ||
-          @hit_stats[key].positive?
       end
 
       def successful_prefix_entry?(entry)
