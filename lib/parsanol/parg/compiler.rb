@@ -32,6 +32,18 @@ module Parsanol
         "sha256:#{Digest::SHA256.hexdigest(JSON.generate(canonicalize(payload)))}"
       end
 
+      # Producer metadata: the checksum pins the exact producer, but the
+      # semantics hash (ruby#377) skips these fields so a re-bake by a
+      # newer compiler — or a different Ruby patch stamping
+      # unicode_tables — is byte-stable when the grammar's behavior is
+      # unchanged. Mirrors the cross-engine parity view.
+      SEMANTICS_EXCLUDED = %w[checksum compiler_version unicode_tables semantics_hash].freeze
+
+      def self.semantics_hash(envelope)
+        payload = envelope.except(*SEMANTICS_EXCLUDED)
+        "sha256:#{Digest::SHA256.hexdigest(JSON.generate(canonicalize(payload)))}"
+      end
+
       def self.canonicalize(obj)
         case obj
         when Hash then obj.sort.to_h.transform_values { |value| canonicalize(value) }
@@ -1352,6 +1364,7 @@ module Parsanol
         envelope["customs"] = @document.customs unless @document.customs.empty?
         envelope["states"] = @document.states unless @document.states.empty?
         envelope["dynamic"] = true if @dynamic
+        envelope["semantics_hash"] = Compiler.semantics_hash(envelope)
         envelope["checksum"] = Compiler.checksum(envelope)
         envelope
       end

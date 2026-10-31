@@ -56,7 +56,7 @@ RSpec.describe "PARG conformance corpus" do
   # (arrays keep their order — atoms and tests are sequences).
   def parity_view(envelope)
     canonical(envelope
-      .except("compiler_version", "checksum", "unicode_tables")
+      .except("compiler_version", "checksum", "unicode_tables", "semantics_hash")
       .merge("edition" => Parsanol::PARG::Artifact::EDITION_ALIASES
         .fetch(envelope.fetch("edition", 1))))
   end
