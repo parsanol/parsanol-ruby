@@ -24,7 +24,7 @@ RSpec.describe Parsanol::PARG::SelfHost do
 
   it "validates brace-form rule bodies (the A3 gate)" do
     brace_source = <<~PARG
-      grammar T version "1" mode "v1" {
+      grammar T version "1" edition "v1" {
         ## Publisher code: case-insensitive tag; raw input is captured.
         publisher = {
           %i"iso" / %i"ieee"

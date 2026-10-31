@@ -50,14 +50,15 @@ RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edi
       expect(names).to include("k")
     end
 
-    it "accepts the deprecated mode keyword and the quoted edition aliases" do
-      mode = compile(<<~PARG)
-        grammar D version "1.0.0" mode "v2" {
-          entry main: w
-          w = 1*( %x61-7A )
-        }
-      PARG
-      expect(mode["edition"]).to eq(2)
+    it "rejects the removed mode keyword; the quoted edition aliases canonicalize" do
+      expect do
+        compile(<<~PARG)
+          grammar M version "1.0.0" mode "v2" {
+            entry main: w
+            w = 1*( %x61-7A )
+          }
+        PARG
+      end.to raise_error(Parsanol::PARG::ParseError, /edition.*mode.*removed/m)
 
       quoted = compile(<<~PARG)
         grammar Q version "1.0.0" edition "v2" {

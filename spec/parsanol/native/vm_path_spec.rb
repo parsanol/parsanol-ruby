@@ -28,7 +28,7 @@ RSpec.describe "native VM path (inputs of 8 KB or more)" do
 
   it "matches escaped character classes the way PARG emits them" do
     document = Parsanol::PARG::Parser.new(<<~PARG).parse
-      grammar Words version "1.0.0" mode "v1" {
+      grammar Words version "1.0.0" edition "v1" {
         word = 1*%x61-7A
         ws = %x20 / %x0A
         doc = 0*( ws / word as word )

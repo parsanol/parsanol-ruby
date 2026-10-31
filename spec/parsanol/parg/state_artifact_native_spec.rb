@@ -10,7 +10,7 @@ require "spec_helper"
 RSpec.describe "PARG artifact state atoms parse natively" do
   let(:grammar) do
     <<~PARG
-      grammar F version "1.0.0" mode "v1" {
+      grammar F version "1.0.0" edition "v1" {
         newline = %x0A
         state fence: string
         entry code: code_block

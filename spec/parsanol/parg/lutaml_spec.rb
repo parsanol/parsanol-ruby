@@ -21,7 +21,7 @@ RSpec.describe Parsanol::PARG::Lutaml do
 
   let(:source) do
     <<~PARG
-      grammar Demo version "1.0.0" mode "v1" {
+      grammar Demo version "1.0.0" edition "v1" {
         digit = %x30-39
         number = 1*digit
         space = " "
