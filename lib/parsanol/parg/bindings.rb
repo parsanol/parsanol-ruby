@@ -185,7 +185,29 @@ module Parsanol
 
           value.to_s
         when "boolean" then value == true || value.to_s.casecmp("true").zero?
+        when "any"
+          # The ONE plain shape on every engine (ruby#383): scalars and
+          # capture leaves render as their text, named groups as plain
+          # string-keyed hashes, repeats as arrays — so (any)-bound keys
+          # survive a cross-engine gate without consumer shims.
+          plain(value)
         else value
+        end
+      end
+
+      # The engine-neutral reduction behind (any): capture leaves
+      # (Parsanol::Slice, native wire objects) and scalars render as
+      # their text, hashes as string-keyed plain hashes, arrays
+      # recurse. Nil passes through (absent captures stay absent —
+      # assign_scalar/assign_array skip them upstream).
+      def plain(value)
+        case value
+        when nil then nil
+        when String then value
+        when Hash
+          value.to_h { |key, item| [key.to_s, plain(item)] }
+        when Array then value.map { |item| plain(item) }
+        else value.to_s
         end
       end
     end
