@@ -96,4 +96,60 @@ RSpec.describe "PARG capture precedence" do
     expect(parse_artifact(source, input))
       .to eq(text: [{ text: "\\_" }])
   end
+
+  # parsanol-ruby#380: `as` after a GUARD binds the guard, not the
+  # guarded primary — `!digit as year` used to parse as
+  # `!(digit as year)`, and a capture inside a negated lookahead
+  # (which consumes nothing) never binds: the capture silently
+  # vanished from every tree, with no lint (pubid's 47-flavor fleet
+  # lost supplement years to this spelling).
+  it "binds `as` after a lookahead guard to the guard" do
+    document = compile_document(<<~PARG)
+      grammar E version "1" edition 2 {
+        text = 1*( digit !digit as mark )
+        digit = %x30-39
+        entry document: text
+      }
+    PARG
+    rule = document.rules["text"]
+    body = rule.a.kind == :seq ? rule.a.a.last : rule.a
+    expect(body.kind).to eq(:cap)
+    expect(body.a).to eq("mark")
+    expect(body.b.kind).to eq(:pred)
+    expect(body.b.a).to be(false)
+  end
+
+  it "binds a guard capture inside a non-leading bracket (#380)" do
+    source = <<~PARG
+      grammar E version "1" edition 2 {
+        text = ( colon ) ( word ) [ colon ( "19" / "20" ) 2*digit !digit as year ]
+        colon = ":"
+        word = "AMD" / "COR"
+        digit = %x30-39
+        entry document: text
+      }
+    PARG
+    input = ":AMD:1999"
+    tree = parse_artifact(source, input)
+    year = tree.is_a?(Array) ? tree.last : tree
+    expect(year).to include(:year)
+    expect(tree.first).to include(:colon)
+  end
+
+  it "keeps a behind-guard capture on the guard" do
+    document = compile_document(<<~PARG)
+      grammar E version "1" edition 2 {
+        text = ( word ) &word as boundary
+        word = 1*( ALPHA )
+        entry document: text
+      }
+    PARG
+    rule = document.rules["text"]
+    last = rule.a.is_a?(Array) ? rule.a.last : rule.a
+    expect(last.kind).to eq(:cap)
+    expect(last.a).to eq("boundary")
+    expect(last.b.kind).to eq(:pred)
+    expect(last.b.a).to be(true)
+    expect(last.b.c).to be_nil
+  end
 end
