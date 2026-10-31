@@ -149,14 +149,24 @@ module Parsanol
 
         artifact = Artifact.from_json(JSON.generate(envelope), tables_dir: tables_dir)
         default = envelope["default_entry"] || artifact.entries.first
+        # `Native.available?` is true under either engine tier, but the
+        # JSON-grammar fast path rides the MRI C-API extension's
+        # `_parse_raw` — an ffi-cdylib install is available without it.
+        # Probe rather than assume (same doctrine as
+        # Native.reference_available?): without the C-API symbol the
+        # self-test runs through the artifact's own parse lane, which
+        # picks native-or-pure-Ruby honestly instead of raising
+        # NoMethodError mid-run.
+        json_capable = Native.respond_to?(:_parse_raw)
         grammars = {}
         tests.filter_map do |test|
           entry = test["entry"] || default
-          grammar_json = (grammars[entry] ||= JSON.generate(artifact.entry(entry)["grammar"]))
-          artifact.run_test_list(
-            [test],
-            parse_with: ->(input) { Native.parse_json_grammar(grammar_json, input) },
-          )
+          parse_with =
+            if json_capable
+              grammar_json = (grammars[entry] ||= JSON.generate(artifact.entry(entry)["grammar"]))
+              ->(input) { Native.parse_json_grammar(grammar_json, input) }
+            end
+          artifact.run_test_list([test], parse_with: parse_with)
         end.flatten
       end
 

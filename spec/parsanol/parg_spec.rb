@@ -274,18 +274,25 @@ RSpec.describe Parsanol::PARG do
       end
 
       it "catches an envelope whose atoms lost an ordered-choice member" do
+        skip "no parse engine available" unless Parsanol::Native.available?
         env = compile_source(tested, tables_dir: nil).envelope
         # The 1.3.91 bake shape: the "z" branch is dead in the baked
         # atoms (the choice member binds nothing) while the tests still
         # demand it. Atoms are index-referenced, so the faithful tamper
-        # disables the member in place rather than pruning it; re-sign
-        # so the envelope verifies — the failure must come from the
-        # tests, not the checksum.
+        # disables the member in place rather than pruning it. The
+        # embedded source must be tampered with the same stroke: the
+        # pure-Ruby lane recompiles the embedded source rather than
+        # walking the atoms, so an atoms-only tamper leaves that lane
+        # (falsely) green. Re-sign so the envelope verifies — the
+        # failure must come from the tests, not the checksum.
         atoms = env["entries"]["main"]["grammar"]["atoms"]
         atoms.each do |atom|
           str = atom["Str"]
           str["pattern"] = "q" if str && str["pattern"] == "z"
         end
+        # First "z" in the source is the rule body's literal; the
+        # test's `accept "z"` stays untouched.
+        env["source"] = env["source"].sub('"z"', '"q"')
         env["checksum"] = Parsanol::PARG::Compiler.checksum(env)
         failures = Parsanol::PARG::Compiler.self_test(env)
         expect(failures).not_to be_empty
