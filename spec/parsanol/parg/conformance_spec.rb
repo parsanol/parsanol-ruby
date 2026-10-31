@@ -131,7 +131,14 @@ RSpec.describe "PARG conformance corpus" do
   # artifacts.
   it "the corpus is baked by a semantics-hash compiler" do
     skip unless corpus
-    artifacts = Dir.glob(corpus.join("*.json")).map { |f| JSON.parse(File.read(f)) }
+    # Dir.children, not Dir.glob: on Windows the corpus path carries
+    # backslashes, which Dir.glob treats as escapes (the compile-parity
+    # lesson above) — an empty glob here would fail the gate for the
+    # wrong reason.
+    artifacts = Dir.children(corpus.to_s)
+                   .select { |f| f.end_with?(".json") }
+                   .sort
+                   .map { |f| JSON.parse(File.read(corpus.join(f))) }
     expect(artifacts).not_to be_empty, "conformance corpus has no artifacts"
     stale = artifacts.reject { |artifact| artifact["semantics_hash"] }
     expect(stale).to be_empty,
