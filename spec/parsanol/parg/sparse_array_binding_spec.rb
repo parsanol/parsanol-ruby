@@ -48,4 +48,42 @@ RSpec.describe "sparse array-binding pairing" do
       ],
     )
   end
+
+  it "binds nothing when the repetition fires zero instances" do
+    # The tree carries `parts: []` for the zero-iteration repetition;
+    # the bound map omits the key — the occurrence path's
+    # `return if count.zero?` reading, which the recorded native
+    # expectations (the pubid corpora) and the pubid builders rely on
+    # (parsanol-rs#370).
+    source = <<~PARG
+      grammar ZeroRep version "1.0.0" edition 2 {
+        word = 1*( %x41-5A / %x61-7A )
+        space = " "
+        digit = %x30-39
+        part = ( ( digit ) ( word ) ) as part_code
+        identifier = "X" space ( *( part space ) ) as parts ( ( word ) ) as tail
+
+        bindings identifier {
+          tail -> tail (string)
+          part_code -> parts[].part_code (string)
+        }
+
+        entry identifier: identifier
+        test {
+          accept "X AB"
+          accept "X 5AB CD"
+        }
+      }
+    PARG
+    envelope = Parsanol::PARG::Compiler.compile(Parsanol::PARG::Parser.new(source).parse).envelope
+    art = Parsanol::PARG::Artifact.from_json(JSON.generate(envelope))
+
+    tree = art.parse("identifier", "X AB")
+    expect(tree).to include(parts: [])
+    expect(art.parse_and_bind("identifier", "X AB")).to eq(tail: "AB")
+    expect(art.parse_and_bind("identifier", "X 5AB CD")).to eq(
+      tail: "CD",
+      parts: [{ part_code: "5AB" }],
+    )
+  end
 end

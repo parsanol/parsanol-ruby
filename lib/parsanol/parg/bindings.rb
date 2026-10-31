@@ -74,6 +74,14 @@ module Parsanol
         # any instance keep the legacy occurrence pairing.
         instances = shape && group_instances(shape, prefix)
         if instances
+          # The occurrence path's `return if count.zero?`: a repetition
+          # that fired zero iterations (the tree carries `parts: []`)
+          # binds no key — the recorded native expectations and the
+          # pubid builders rely on the absent reading (the empty-array
+          # binding regression, caught by the pubid corpus gate; see
+          # parsanol-rs#370).
+          return if instances.empty?
+
           list = (out[prefix.to_sym] ||= [])
           instances.each do |instance|
             found = collect_captures(instance)
