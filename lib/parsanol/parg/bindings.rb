@@ -20,7 +20,7 @@ module Parsanol
           assign_scalar(out, artifact, binding, captures)
         end
         arrays.group_by { |binding| binding["path"].split("[]").first }.each do |prefix, group|
-          assign_array(out, artifact, prefix, group, captures)
+          assign_array(out, artifact, prefix, group, captures, shape)
         end
         out
       end
@@ -63,7 +63,32 @@ module Parsanol
         out[leaf_key(binding)] = finalize(artifact, binding, value)
       end
 
-      def assign_array(out, artifact, prefix, group, captures)
+      def assign_array(out, artifact, prefix, group, captures, shape = nil)
+        # Position-aware pairing (parsanol-ruby#381): when the shape
+        # nests the group's instances under the prefix key, each
+        # instance's subtree owns its captures — pairing by OCCURRENCE
+        # index landed a sparse capture (one that fires in only some
+        # instances) on the wrong instance. Per-instance collection
+        # fixes the pairing and is identical to the old flat pairing
+        # when every instance fires every capture. Captures outside
+        # any instance keep the legacy occurrence pairing.
+        instances = shape && group_instances(shape, prefix)
+        if instances
+          list = (out[prefix.to_sym] ||= [])
+          instances.each do |instance|
+            found = collect_captures(instance)
+            element = {}
+            group.each do |binding|
+              value = found[binding["capture"].to_sym].first
+              next if value.nil?
+
+              element[leaf_key(binding)] = finalize(artifact, binding, value)
+            end
+            list << element
+          end
+          return
+        end
+
         count = group.map { |binding| captures[binding["capture"].to_sym].length }.max || 0
         return if count.zero?
 
@@ -80,6 +105,27 @@ module Parsanol
           end
           list << element
         end
+      end
+
+      # The `prefix[]` group's instance subtrees: the first array under
+      # a key naming the prefix, walked in collect_captures' BFS order.
+      # A repetition-root entry's shape IS the instances array (the wire
+      # has no key for it) — that is the fallback when no key matches.
+      def group_instances(shape, prefix)
+        queue = [shape]
+        until queue.empty?
+          node = queue.shift
+          case node
+          when Hash
+            node.each do |key, value|
+              return value if key.to_s == prefix && value.is_a?(Array)
+
+              queue << value if value.is_a?(Hash) || value.is_a?(Array)
+            end
+          when Array then queue.concat(node)
+          end
+        end
+        shape if shape.is_a?(Array) && shape.any?(Hash)
       end
 
       def validate_path!(binding)
