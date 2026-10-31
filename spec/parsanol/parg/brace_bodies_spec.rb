@@ -20,7 +20,7 @@ RSpec.describe "PARG brace bodies" do
 
   it "parses a multi-line body with comments inside the braces" do
     source = <<~PARG
-      grammar Demo version "1.0.0" mode "v1" {
+      grammar Demo version "1.0.0" edition "v1" {
         ## Publisher code: case-insensitive tag.
         publisher = {
           # a line comment inside the body
@@ -43,7 +43,7 @@ RSpec.describe "PARG brace bodies" do
 
   it "attaches the doc comment to the brace rule structurally" do
     source = <<~PARG
-      grammar Demo version "1.0.0" mode "v1" {
+      grammar Demo version "1.0.0" edition "v1" {
         ## The documented rule.
         documented = {
           "x"
@@ -58,7 +58,7 @@ RSpec.describe "PARG brace bodies" do
 
   it "mixes line-mode and brace-mode rules in one grammar" do
     source = <<~PARG
-      grammar Demo version "1.0.0" mode "v1" {
+      grammar Demo version "1.0.0" edition "v1" {
         braced = { "a" "b" }
         line = "c" "d"
         both = braced line
@@ -71,7 +71,7 @@ RSpec.describe "PARG brace bodies" do
 
   it "lets alternatives and captures sit on their own lines inside the body" do
     source = <<~PARG
-      grammar Demo version "1.0.0" mode "v1" {
+      grammar Demo version "1.0.0" edition "v1" {
         value =
           {
             number as value /
@@ -90,7 +90,7 @@ RSpec.describe "PARG brace bodies" do
 
   it "rejects an unclosed brace body" do
     source = <<~PARG
-      grammar Demo version "1.0.0" mode "v1" {
+      grammar Demo version "1.0.0" edition "v1" {
         broken = { "a"
         other = "b"
         entry document: other
@@ -104,7 +104,7 @@ RSpec.describe "PARG brace bodies" do
     # The brace form is additive: a grammar that never opens a brace at
     # a rule head parses exactly as before.
     source = <<~PARG
-      grammar Demo version "1.0.0" mode "v1" {
+      grammar Demo version "1.0.0" edition "v1" {
         pair = key "=" value
         key = 1*( ALPHA )
         digit = %x30-39

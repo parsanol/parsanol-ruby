@@ -268,8 +268,9 @@ The default edition is **1** (the legacy shapes): a grammar without an
 `edition` header keeps them, so runtime compiles stay compatible with
 consumers that froze tree shapes. `edition 2` opts a grammar into the
 named trees above; `edition 1` spells the default explicitly. The
-quoted forms (`edition "v2"`, and the deprecated `mode "v2"` keyword)
-remain accepted aliases. The envelope records the declared edition as
+quoted forms (`edition "v2"`) remain accepted aliases. The
+pre-1.3.113 `mode` keyword was removed: a grammar using it fails the
+parse with the fix named. The envelope records the declared edition as
 the number 1 or 2.
 
 ### Unicode position

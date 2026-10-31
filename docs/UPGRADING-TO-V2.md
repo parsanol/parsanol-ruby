@@ -16,7 +16,7 @@ grammar YourThing version "1.0.0" edition 2 {
 ```
 
 The bare number is the canonical spelling. The quoted forms
-(`edition "v2"`, and the deprecated `mode "v2"` keyword) remain
+(`edition "v2"`) remain; the pre-1.3.113 `mode` keyword was removed
 accepted aliases for grammars written before the numeric surface.
 
 Every grammar SHOULD pin its edition even while staying on edition 1:

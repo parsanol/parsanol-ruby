@@ -23,7 +23,7 @@ end
 RSpec.describe "PARG recovery (TODO.sota/1 R1)" do
   def artifact
     source = <<~PARG
-      grammar P version "1.0.0" mode "v1" {
+      grammar P version "1.0.0" edition "v1" {
         entry s: s
         s = ( 1*( u ) ) as us
         u = pa / g
