@@ -122,4 +122,26 @@ RSpec.describe "PARG conformance corpus" do
       expect(failures).to be_empty, "#{name}: Ruby failures: #{failures.inspect}"
     end
   end
+
+  # The cross-compiler semantics-hash pin (ruby#377) lives on the rs
+  # side: parg_compile_parity.rs re-bakes every case with the rs
+  # compiler and compares the hash against these committed artifacts.
+  # That pin is only meaningful while the committed bakes carry the
+  # field — this gate keeps the corpus from rotting back to pre-#377
+  # artifacts.
+  it "the corpus is baked by a semantics-hash compiler" do
+    skip unless corpus
+    # Dir.children, not Dir.glob: on Windows the corpus path carries
+    # backslashes, which Dir.glob treats as escapes (the compile-parity
+    # lesson above) — an empty glob here would fail the gate for the
+    # wrong reason.
+    artifacts = Dir.children(corpus.to_s)
+      .select { |f| f.end_with?(".json") }
+      .sort
+      .map { |f| JSON.parse(File.read(corpus.join(f))) }
+    expect(artifacts).not_to be_empty, "conformance corpus has no artifacts"
+    stale = artifacts.reject { |artifact| artifact["semantics_hash"] }
+    expect(stale).to be_empty,
+                     "the conformance corpus carries #{stale.size} pre-#377 artifacts — re-bake with parsanol >= 1.3.117"
+  end
 end
