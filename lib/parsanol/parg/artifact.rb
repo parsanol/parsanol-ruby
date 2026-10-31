@@ -86,6 +86,12 @@ module Parsanol
 
       def compiler_version = envelope["compiler_version"]
 
+      # The behavior fingerprint (ruby#377): stable across producer
+      # metadata, so freshness gates can tell "re-baked by a newer
+      # compiler" from "the grammar changed". nil on artifacts baked
+      # before the field existed.
+      def semantics_hash = envelope["semantics_hash"]
+
       def fresh_against?(source_text)
         return false if source_hash.nil?
 
