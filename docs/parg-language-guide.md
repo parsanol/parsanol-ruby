@@ -349,9 +349,25 @@ bindings iso_identifier {
 
 A binding is `capture -> field (type [, cardinality]) [preprocess: step]`.
 Types: `string`, `integer`, `float`, `boolean` (unknown types pass through —
-e.g. enum keys). Cardinalities: `1`, `0..1`, `1..*`, `0..*`. `[]` paths
-(grouping captures into arrays of objects) support **one** level; deeper
-nesting is binder code.
+e.g. enum keys), and `any` — the cross-engine passthrough: the capture
+reduces to the ONE plain shape on every engine (scalars and capture
+leaves render as their text, named groups as string-keyed plain hashes,
+repeats as arrays; parsanol-ruby#383). Cardinalities: `1`, `0..1`,
+`1..*`, `0..*`. `[]` paths (grouping captures into arrays of objects)
+support **one** level; deeper nesting is binder code.
+
+A capture whose body ends in a possibly-empty repetition binds an empty
+array when the repetition matches zero — `(... *( dash codes )) as
+suffix` binds `[]` for a single-code input. That is the repeated
+group's shape, not a lost match. To bind the whole multi-match run as
+ONE value, capture the repetition itself:
+
+```
+suffix = 1*( ( codes ) ( *( dash ( codes ) ) ) ) as suffix
+```
+
+(parsanol-ruby#382: the rep-capture idiom — the capture wraps the
+repetition, so the bound value is the full span.)
 
 ```
 preprocess stage_code {
