@@ -571,11 +571,16 @@ module Parsanol
 
       def parse_postfixed
         sign, behind = parse_guard_sign
-        node = capture_postfix(parse_primary)
+        node = parse_primary
         if sign.nil?
-          node
+          capture_postfix(node)
         else
-          Node.new(:pred, sign, node, behind ? :behind : nil)
+          # The capture binds the GUARD, not the guarded primary
+          # (parsanol-ruby#380): `!digit as year` is `( !digit ) as
+          # year` — a capture inside the lookahead would never bind
+          # (a negated guard consumes nothing), so `as` must wrap the
+          # pred, matching the rep path's postfix order (ruby#197).
+          capture_postfix(Node.new(:pred, sign, node, behind ? :behind : nil))
         end
       end
 
