@@ -136,9 +136,9 @@ RSpec.describe "PARG conformance corpus" do
     # lesson above) — an empty glob here would fail the gate for the
     # wrong reason.
     artifacts = Dir.children(corpus.to_s)
-                   .select { |f| f.end_with?(".json") }
-                   .sort
-                   .map { |f| JSON.parse(File.read(corpus.join(f))) }
+      .select { |f| f.end_with?(".json") }
+      .sort
+      .map { |f| JSON.parse(File.read(corpus.join(f))) }
     expect(artifacts).not_to be_empty, "conformance corpus has no artifacts"
     stale = artifacts.reject { |artifact| artifact["semantics_hash"] }
     expect(stale).to be_empty,
