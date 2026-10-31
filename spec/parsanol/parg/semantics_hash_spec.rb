@@ -30,7 +30,9 @@ RSpec.describe "the PARG envelope semantics hash (ruby#377)" do
   end
 
   it "is deterministic for the same source" do
-    expect(compile_envelope["semantics_hash"]).to eq(compile_envelope["semantics_hash"])
+    first = compile_envelope
+    second = compile_envelope
+    expect(first["semantics_hash"]).to eq(second["semantics_hash"])
   end
 
   it "survives producer-metadata churn that changes the checksum" do
