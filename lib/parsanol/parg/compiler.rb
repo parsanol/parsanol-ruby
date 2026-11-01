@@ -261,6 +261,10 @@ module Parsanol
         # the declaration means the tree never sees this subtree named,
         # inside or out.
         return atom if glue_rule?(rule_name)
+        # A capture spans the rules it references (ruby#400): their
+        # bodies compile unwrapped so the capture's value equals its
+        # edition-1 value.
+        return atom if captured_reachable?(rule_name)
 
         wrap_uncaptured(atom)
       end
@@ -271,6 +275,57 @@ module Parsanol
       # eat more than whitespace.
       def glue_rule?(name)
         @document.glue_rules.include?(name.to_s)
+      end
+
+      # The rules a text capture transitively spans (ruby#400): a
+      # capture on a reference captures the referenced rule's whole
+      # match, so every rule under a capture atom — the direct
+      # reference and everything its body transitively references —
+      # compiles unwrapped. Edition 2's Named leaves then attach only
+      # to non-captured structure, and a capture's value equals its
+      # edition-1 value (`{num: "123"}`, never a leaf array).
+      def captured_reachable?(name)
+        @capture_reachable ||= begin
+          seeds = []
+          @document.rules.each_value do |node|
+            collect_refs_under_captures(node, seeds)
+          end
+          reachable = []
+          until seeds.empty?
+            rule = seeds.pop
+            next if reachable.include?(rule) || !@document.rules.key?(rule)
+
+            reachable << rule
+            collect_all_refs(@document.rules[rule], seeds)
+          end
+          reachable
+        end
+        @capture_reachable.include?(name.to_s)
+      end
+
+      def collect_refs_under_captures(node, out)
+        walk = lambda do |n, in_capture|
+          case n.kind
+          when :ref then out << n.a if in_capture
+          when :cap then walk.call(n.b, true)
+          when :pred then walk.call(n.b, in_capture)
+          when :alt, :seq then n.a.each { |child| walk.call(child, in_capture) }
+          when :rep, :opt then walk.call(n.a, in_capture)
+          end
+        end
+        walk.call(node, false)
+      end
+
+      def collect_all_refs(node, out)
+        walk = lambda do |n|
+          case n.kind
+          when :ref then out << n.a
+          when :alt, :seq then n.a.each { |child| walk.call(child) }
+          when :cap, :pred then walk.call(n.b)
+          when :rep, :opt then walk.call(n.a)
+          end
+        end
+        walk.call(node)
       end
 
       def wrap_uncaptured(atom)
@@ -289,6 +344,7 @@ module Parsanol
           # agree by design.
           if trivia_only?(atom.rule_name.to_s, { atom.rule_name.to_s => true }) ||
               glue_rule?(atom.rule_name.to_s) ||
+              captured_reachable?(atom.rule_name.to_s) ||
               produces_capture?(atom.parslet)
             atom
           else
@@ -476,9 +532,12 @@ module Parsanol
         when Atoms::Named then nil
         when Atoms::Entity
           # Mirror wrap_uncaptured's verdicts: trivia glue, declared
-          # glue, and capture-producing refs all stay bare.
+          # glue, capture-reachable refs (ruby#400 — a capture spans
+          # them, so modern mode never names them), and
+          # capture-producing refs all stay bare.
           unless trivia_only?(atom.rule_name.to_s, { atom.rule_name.to_s => true }) ||
               glue_rule?(atom.rule_name.to_s) ||
+              captured_reachable?(atom.rule_name.to_s) ||
               produces_capture?(atom.parslet)
             lines << "rule #{site}: reference to #{atom.rule_name} produces no capture -- " \
                      "modern mode would name it #{atom.rule_name}"
