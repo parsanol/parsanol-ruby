@@ -97,9 +97,9 @@ RSpec.describe "PARG conformance corpus" do
       # The custom message keeps the case name; the heads carry the
       # drift itself (a bare eq message would hide it entirely).
       expect(generated).to eq(reference),
-                            "#{name}: compiler drift — recompilation differs from the committed artifact\n" \
-                            "  compiled:  #{generated[0, 400]}\n" \
-                            "  committed: #{reference[0, 400]}"
+                           "#{name}: compiler drift — recompilation differs from the committed artifact\n  " \
+                           "compiled:  #{generated[0, 400]}\n  " \
+                           "committed: #{reference[0, 400]}"
     end
   end
 
