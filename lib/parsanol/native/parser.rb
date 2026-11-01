@@ -178,13 +178,27 @@ module Parsanol
 
         def append_atom_structure(atom, visited = {}.compare_by_identity, output = +"")
           if visited[atom]
+            # An Entity's self-reference keeps its name in the
+            # fingerprint, mirroring the non-visited branch (ruby#404).
+            if atom.is_a?(Parsanol::Atoms::Entity)
+              return output << "[:entity, " << atom.rule_name.to_s.inspect << ", [:cycle, " << atom.class.name.inspect << "]]"
+            end
+
             return output << "[:cycle, " << atom.class.name.inspect << "]"
           end
 
           visited[atom] = true
           case atom
           when Parsanol::Atoms::Entity
-            append_atom_structure(atom.parslet, visited, output)
+            # The rule name belongs in the fingerprint (rs#404-class
+            # collision): Entity is transparent in the serialized graph's
+            # STRUCTURE only when the target is spelled out, but the JSON
+            # keeps the Entity node itself — two webs whose Entities point
+            # at different rules share a transparent fingerprint while
+            # serializing differently, and the serializer cache then
+            # serves one grammar's JSON for the other.
+            output << "[:entity, " << atom.rule_name.to_s.inspect << ", "
+            append_atom_structure(atom.parslet, visited, output) << "]"
           when Parsanol::Atoms::Str
             output << "[:str, " << atom.str.inspect << "]"
           when Parsanol::Atoms::Re

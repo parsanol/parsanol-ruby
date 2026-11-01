@@ -105,7 +105,10 @@ RSpec.describe Parsanol::Native::Parser do
       label = proc {}
       atoms = {
         literal >> literal => [:seq, [[:str, "建物\x00"], [:cycle, "Parsanol::Atoms::Str"]]],
-        recursive => [:seq, [[:str, "a"], [:rep, 0, 1, [:cycle, "Parsanol::Atoms::Entity"]]]],
+        # The Entity's rule name is part of the fingerprint (ruby#404:
+        # the serializer keeps the Entity node, so two webs whose
+        # Entities point at different rules must not share a key).
+        recursive => [:entity, "recursive", [:seq, [[:str, "a"], [:rep, 0, 1, [:entity, "recursive", [:cycle, "Parsanol::Atoms::Entity"]]]]]],
         Parsanol::Atoms::Str.new("\xFF".b).as(:binary) => [:named, "binary", [:str, "\xFF".b]],
         Parsanol::Atoms::TriviaCapture.new(literal, { "x" => label }) => [:trivia_capture, [["x", label]], [:str, "建物\x00"]],
       }
