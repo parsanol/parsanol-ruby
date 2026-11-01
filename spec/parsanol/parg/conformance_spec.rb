@@ -92,8 +92,14 @@ RSpec.describe "PARG conformance corpus" do
       document = Parsanol::PARG::Parser.new(File.read(parg)).parse
       Parsanol::PARG::Imports.merge!(document, [corpus.to_s])
       compiled = Parsanol::PARG::Compiler.new(document, corpus.to_s).compile.envelope
-      expect(JSON.generate(parity_view(compiled))).to eq(JSON.generate(parity_view(committed))),
-                                                      "#{name}: compiler drift — recompilation differs from the committed artifact"
+      generated = JSON.generate(parity_view(compiled))
+      reference = JSON.generate(parity_view(committed))
+      # The custom message keeps the case name; the heads carry the
+      # drift itself (a bare eq message would hide it entirely).
+      expect(generated).to eq(reference),
+                            "#{name}: compiler drift — recompilation differs from the committed artifact\n" \
+                            "  compiled:  #{generated[0, 400]}\n" \
+                            "  committed: #{reference[0, 400]}"
     end
   end
 
