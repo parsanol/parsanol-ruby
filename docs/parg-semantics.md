@@ -161,6 +161,13 @@ repetition nested inside a sequence never sees the named arm (the parslet
 `CanFlatten` contract). Rule references are transparent: capturing a rule
 captures what the rule produced.
 
+**Edition 2's compiler-introduced wrappers never enter a capture's
+value** (ruby#400): the wrap pass skips every rule a capture transitively
+spans, so the leaves of edition 2 attach only to non-captured structure
+and a capture's value equals its edition-1 value. Edition 2 is therefore
+purely additive: its tree is the edition-1 tree plus `Named` maps for
+references that produce no capture and sit outside every capture span.
+
 ---
 
 ## 3. Terminals

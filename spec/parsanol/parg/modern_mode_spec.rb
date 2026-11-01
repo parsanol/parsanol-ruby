@@ -18,6 +18,35 @@ RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edi
   end
 
   describe "the header and the envelope" do
+    it "a text capture over a reference-built rule stays the matched text (ruby#400)" do
+      v2 = compile(<<~PARG)
+        grammar T version "1.0.0" edition "v2" {
+          root = number as num
+          number = 1*digit
+          digit = %x30-39
+          entry main: root
+        }
+      PARG
+      # Edition 2 is purely additive: the capture's value equals its
+      # edition-1 value; no Named leaves inside a captured span.
+      expect(v2["entries"]["main"]["grammar"]["atoms"]).not_to include(
+        hash_including("Named" => hash_including("name" => "digit")),
+      )
+      artifact = Parsanol::PARG::Artifact.new(JSON.parse(JSON.generate(v2)), nil, nil)
+      expect(artifact.parse("main", "123", mode: :native)).to eq(num: "123")
+      expect(artifact.parse("main", "123", mode: :ruby)).to eq(num: "123")
+
+      v1 = compile(<<~PARG)
+        grammar T version "1.0.0" {
+          root = number as num
+          number = 1*digit
+          digit = %x30-39
+          entry main: root
+        }
+      PARG
+      expect(v1["entries"]["main"]["grammar"]["atoms"]).to eq(v2["entries"]["main"]["grammar"]["atoms"])
+    end
+
     it "defaults to edition 1: a grammar without a declaration keeps the legacy shapes (the owner's reversal)" do
       default = compile(<<~PARG)
         grammar D version "1.0.0" {
