@@ -82,7 +82,9 @@ module Parsanol
           # parsanol-rs#370).
           return if instances.empty?
 
-          list = (out[prefix.to_sym] ||= [])
+          return if instances.empty?
+
+          list = []
           instances.each do |instance|
             found = collect_captures(instance)
             element = {}
@@ -92,8 +94,16 @@ module Parsanol
 
               element[leaf_key(binding)] = finalize(artifact, binding, value)
             end
-            list << element
+            # A row exists only for an instance that binds at least one of
+            # the group's captures (parsanol-ruby#408): the bound map is
+            # built entirely from declared captures, so an instance that
+            # binds none of them is not a row of this group and the engine
+            # must not materialize an empty one. On a repetition-root entry
+            # every sibling subtree is an instance candidate, so without
+            # this skip the group sprouts {} rows for unrelated siblings.
+            list << element unless element.empty?
           end
+          out[prefix.to_sym] = list unless list.empty?
           return
         end
 

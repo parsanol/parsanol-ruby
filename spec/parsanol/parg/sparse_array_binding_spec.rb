@@ -87,3 +87,44 @@ RSpec.describe "sparse array-binding pairing" do
     )
   end
 end
+
+# parsanol-ruby#408: on a repetition-root entry the shape IS the sibling
+# array, so every sibling subtree is an instance candidate. A binding
+# group rows only the instances that bind one of its captures — the
+# engine never materializes empty {} rows, and binds no key at all when
+# no instance binds the group (the rs#370 absent reading).
+RSpec.describe "no empty rows for sibling instances" do
+  def artifact
+    source = <<~PARG
+      grammar Sibling version "1.0.0" edition 2 {
+        word = 1*( %x41-5A / %x61-7A )
+        digit = 1*( %x30-39 )
+        pub = ( word ) as publisher
+        plus = "+"
+        cop = ( plus ( word ) as copublisher )
+        num = ( digit ) as number
+        item = ( pub / cop / num )
+        identifier = 1*( item )
+        entry identifier: identifier
+        bindings identifier {
+          copublisher -> items[].copublisher (string)
+        }
+        test {
+          accept "IEC+ISO1234"
+        }
+      }
+    PARG
+    envelope = Parsanol::PARG::Compiler.compile(Parsanol::PARG::Parser.new(source).parse).envelope
+    Parsanol::PARG::Artifact.from_json(JSON.generate(envelope))
+  end
+
+  it "binds rows only for instances that carry the capture (#408)" do
+    bound = artifact.parse_and_bind("identifier", "IEC+ISO1234")
+    expect(bound).to eq(items: [{ copublisher: "ISO" }])
+  end
+
+  it "binds no key when no instance carries the capture (#408)" do
+    bound = artifact.parse_and_bind("identifier", "IEC1234")
+    expect(bound).to eq({})
+  end
+end
