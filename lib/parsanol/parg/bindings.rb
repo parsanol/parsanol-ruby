@@ -13,6 +13,10 @@ module Parsanol
       def apply(artifact, entry, shape)
         bindings = entry["bindings"] || []
         captures = collect_captures(shape)
+        # Snapshot before the assignment pass: reading a missing key off
+        # `captures` inserts it (default-proc hash), which would make the
+        # #413 lost-check below see phantom presence.
+        present = captures.keys
         out = {}
         scalar, arrays = bindings.partition { |binding| !binding["path"].to_s.include?("[]") }
         scalar.each do |binding|
@@ -22,7 +26,34 @@ module Parsanol
         arrays.group_by { |binding| binding["path"].split("[]").first }.each do |prefix, group|
           assign_array(out, artifact, prefix, group, captures, shape)
         end
+        # Every declared capture that the tree carries must reach the
+        # bound map (parsanol-ruby#413): a capture present in the parse
+        # but bound nowhere is silent data loss, the one case the
+        # binding layer's other checks miss. Absence in the TREE is
+        # legitimate optionality and never raises.
+        lost = bindings.select do |binding|
+          capture = binding["capture"].to_sym
+          present.include?(capture) && !bound?(out, binding)
+        end
+        raise BindError,
+              "entry #{entry['name'].inspect}: capture #{lost.map { |b| b['capture'].inspect }.join(', ')} " \
+              "is present in the parse tree but bound nowhere" unless lost.empty?
         out
+      end
+
+      # Did this binding contribute anything to the bound map? Scalars
+      # bind under their leaf key; array groups bind under their prefix.
+      def bound?(out, binding)
+        path = binding["path"].to_s
+        if path.include?("[]")
+          prefix = path.split("[]").first.to_sym
+          rows = out[prefix]
+          rows.is_a?(Array) && rows.any? do |row|
+            row.is_a?(Hash) && row.key?(leaf_key(binding))
+          end
+        else
+          out.key?(leaf_key(binding))
+        end
       end
 
       # Canonical test-value form: one equality surface for capture and
@@ -65,23 +96,27 @@ module Parsanol
 
       def assign_array(out, artifact, prefix, group, captures, shape = nil)
         # Position-aware pairing (parsanol-ruby#381): when the shape
-        # nests the group's instances under the prefix key, each
+        # nests the group's instances under the PREFIX KEY, each
         # instance's subtree owns its captures — pairing by OCCURRENCE
         # index landed a sparse capture (one that fires in only some
         # instances) on the wrong instance. Per-instance collection
         # fixes the pairing and is identical to the old flat pairing
-        # when every instance fires every capture. Captures outside
-        # any instance keep the legacy occurrence pairing.
+        # when every instance fires every capture.
+        #
+        # Identification is strictly keyed: the bare top array of a
+        # repetition-root entry is NOT claimed as instances
+        # (parsanol-ruby#408/#412 — that fallback claimed per-token rule
+        # siblings as group instances, splitting paired captures into
+        # single-field rows and sprouting phantom rows for unrelated
+        # siblings). A capture outside a keyed instance array keeps the
+        # legacy occurrence pairing. Phantom rows materialize as {}
+        # (the #408 contract: the engines agree by always emitting the
+        # row; the contracted phantom representation is {} , never nil).
         instances = shape && group_instances(shape, prefix)
         if instances
-          # The occurrence path's `return if count.zero?`: a repetition
-          # that fired zero iterations (the tree carries `parts: []`)
+          # parsanol-rs#370: a repetition that fired zero iterations
           # binds no key — the recorded native expectations and the
-          # pubid builders rely on the absent reading (the empty-array
-          # binding regression, caught by the pubid corpus gate; see
-          # parsanol-rs#370).
-          return if instances.empty?
-
+          # pubid builders rely on the absent reading.
           return if instances.empty?
 
           list = []
@@ -94,16 +129,9 @@ module Parsanol
 
               element[leaf_key(binding)] = finalize(artifact, binding, value)
             end
-            # A row exists only for an instance that binds at least one of
-            # the group's captures (parsanol-ruby#408): the bound map is
-            # built entirely from declared captures, so an instance that
-            # binds none of them is not a row of this group and the engine
-            # must not materialize an empty one. On a repetition-root entry
-            # every sibling subtree is an instance candidate, so without
-            # this skip the group sprouts {} rows for unrelated siblings.
-            list << element unless element.empty?
+            list << element
           end
-          out[prefix.to_sym] = list unless list.empty?
+          out[prefix.to_sym] = list
           return
         end
 
@@ -125,10 +153,12 @@ module Parsanol
         end
       end
 
-      # The `prefix[]` group's instance subtrees: the first array under
-      # a key naming the prefix, walked in collect_captures' BFS order.
-      # A repetition-root entry's shape IS the instances array (the wire
-      # has no key for it) — that is the fallback when no key matches.
+      # The `prefix[]` group's instance subtrees: the array under a key
+      # naming the prefix, walked in collect_captures' BFS order. There
+      # is deliberately NO fallback for a repetition-root entry — a bare
+      # top array cannot be told apart from per-token rule siblings
+      # (#408/#412), so claiming it is magic; those shapes pair by
+      # occurrence instead.
       def group_instances(shape, prefix)
         queue = [shape]
         until queue.empty?
@@ -143,7 +173,7 @@ module Parsanol
           when Array then queue.concat(node)
           end
         end
-        shape if shape.is_a?(Array) && shape.any?(Hash)
+        nil
       end
 
       def validate_path!(binding)

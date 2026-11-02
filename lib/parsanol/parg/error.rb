@@ -14,5 +14,9 @@ module Parsanol
 
     # Raised when an artifact envelope is corrupt or its checksum mismatches.
     class ArtifactError < Error; end
+
+    # A declared capture is present in the parse tree but reached the
+    # bound map nowhere (parsanol-ruby#413): silent data loss made loud.
+    class BindError < ArtifactError; end
   end
 end

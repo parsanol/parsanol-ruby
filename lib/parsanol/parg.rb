@@ -17,6 +17,7 @@ module Parsanol
     autoload :ParseError, "parsanol/parg/error"
     autoload :CompileError, "parsanol/parg/error"
     autoload :ArtifactError, "parsanol/parg/error"
+    autoload :BindError, "parsanol/parg/error"
     autoload :Node, "parsanol/parg/node"
     autoload :Export, "parsanol/parg/export"
     autoload :Lexer, "parsanol/parg/lexer"
