@@ -39,12 +39,22 @@ RSpec.describe "sparse array-binding pairing" do
     expect(bound).to eq(csa_code_part: [{ part_code: "ABC", part_series: "23" }])
   end
 
-  it "pairs a sparse capture to its own instance (#381)" do
+  # parsanol-ruby#412/#408: the repetition-root fallback that gave this
+  # grammar per-instance pairing claimed every repetition-root array as
+  # instances — for per-token shapes it split paired captures into
+  # single-field rows and sprouted phantom {} rows (the pubid iec/csa
+  # breaks). Claiming a bare top array is magic, so it is gone and a
+  # repetition-root shape pairs by occurrence — the long-standing
+  # baseline the fleet's 1.3.114 outputs were built on. The keyed
+  # instance path (the shape nesting the group's instances under the
+  # prefix key) keeps per-instance pairing; the DECLARATIVE instance
+  # mapping (bind assertions, parsanol-ruby#414) is its successor.
+  it "pairs a repetition-root shape by occurrence" do
     bound = artifact.parse_and_bind("identifier", "ABC DEF:23")
     expect(bound).to eq(
       csa_code_part: [
-        { part_code: "ABC" },
-        { part_code: "DEF", part_series: "23" },
+        { part_code: "ABC", part_series: "23" },
+        { part_code: "DEF" },
       ],
     )
   end
@@ -88,11 +98,10 @@ RSpec.describe "sparse array-binding pairing" do
   end
 
   describe "no empty rows for sibling instances" do
-    # parsanol-ruby#408: on a repetition-root entry the shape IS the sibling
-    # array, so every sibling subtree is an instance candidate. A binding
-    # group rows only the instances that bind one of its captures — the
-    # engine never materializes empty {} rows, and binds no key at all when
-    # no instance binds the group (the rs#370 absent reading).
+    # parsanol-ruby#408/#412: a repetition-root shape pairs by occurrence
+    # (the fallback that claimed the bare top array as instances is gone);
+    # phantom-free rows fall out naturally, and zero firing captures bind
+    # no key at all (the rs#370 absent reading).
     def artifact
       source = <<~PARG
         grammar Sibling version "1.0.0" edition 2 {
@@ -128,3 +137,8 @@ RSpec.describe "sparse array-binding pairing" do
     end
   end
 end
+
+# parsanol-ruby#413: a declared capture that the TREE carries but the
+# bound map receives nowhere is silent data loss — bind time raises
+# BindError naming the capture. Absence from the tree is legitimate
+# optionality and never raises.
