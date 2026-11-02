@@ -990,8 +990,12 @@ module Parsanol
         @memoize = memoize
       end
 
-      # The RE match's [char width, byte advance]: single-class
-      # patterns match one character; multi-character patterns (%i
+      # The RE match's [span length, byte advance], both in BYTES: the
+      # interpreter's packed value spans are byte-based (STR packs the
+      # literal's byte length; ANY and the RUN ops pack the char's
+      # UTF-8 byte width; materialize byteslices the span), so the RE
+      # span must count bytes too. Single-class patterns match one
+      # character (its byte width); multi-character patterns (%i
       # literals reach RE with no byte table) consume their full
       # length (ruby#357: advancing one character skipped the
       # pattern's remainder and let the parse re-match inside it).
@@ -1002,12 +1006,17 @@ module Parsanol
           [w, w]
         else
           len = scanner.skip(pattern)
-          [input.byteslice(pos, len).length, len]
+          [len, len]
         end
       end
 
-      # An RE instruction's match at pos: [matched?, char width, byte
-      # advance]. Single-class patterns match one character;
+      # An RE instruction's match at pos: [matched?, span length, byte
+      # advance], both lengths in BYTES (see #re_match_width: the
+      # interpreter's spans are byte-based; a character count here
+      # truncated every slice containing a multibyte character —
+      # ruby#407: "Class[éin]" lost é's second continuation byte
+      # because the span stored the run's char count and materialize
+      # bytesliced it). Single-class patterns match one character;
       # multi-character patterns (%i literals reach RE with no byte
       # table) consume their FULL length (ruby#357: advancing one
       # character skipped the pattern's remainder and let the parse
@@ -1030,7 +1039,7 @@ module Parsanol
           [true, w, w]
         else
           len = scanner.skip(pattern)
-          [true, input.byteslice(pos, len).length, len]
+          [true, len, len]
         end
       end
 
