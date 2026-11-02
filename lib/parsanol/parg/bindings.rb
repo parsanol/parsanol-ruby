@@ -15,8 +15,14 @@ module Parsanol
         captures = collect_captures(shape)
         # Snapshot before the assignment pass: reading a missing key off
         # `captures` inserts it (default-proc hash), which would make the
-        # #413 lost-check below see phantom presence.
-        present = captures.keys
+        # #413 lost-check below see phantom presence. Presence means a
+        # NON-NIL value somewhere in the tree: a fired-but-empty optional
+        # capture binds null in the parslet shape, and binding nothing for
+        # null is legitimate optionality, not loss (parsanol-ruby#418 —
+        # CIE trailing_lang, JIS reaffirmed).
+        present = captures.keys.select do |key|
+          captures[key].any? { |value| !value.nil? }
+        end
         out = {}
         scalar, arrays = bindings.partition { |binding| !binding["path"].to_s.include?("[]") }
         scalar.each do |binding|
