@@ -101,20 +101,29 @@ RSpec.describe "sparse array-binding pairing" do
     # (the fallback that claimed the bare top array as instances is
     # gone); phantom-free rows fall out naturally, and zero firing
     # captures bind no key at all (the rs#370 absent reading).
+    #
+    # parsanol-ruby#417: occurrence pairing is scoped to the BINDING'S
+    # OWN GROUP — the occurrence count that sizes the rows is the
+    # group's captures' occurrences, never the entry's total
+    # sibling-row count, and a group whose captures match nothing
+    # binds no key at all (no phantom slots from unrelated rows).
     def artifact
       source = <<~PARG
         grammar Sibling version "1.0.0" edition 2 {
           word = 1*( %x41-5A / %x61-7A )
           digit = 1*( %x30-39 )
-          pub = ( word ) as publisher
+          dash = "-"
           plus = "+"
+          pub = ( word ) as publisher
           cop = ( plus ( word ) as copublisher )
           num = ( digit ) as number
-          item = ( pub / cop / num )
+          supp = ( dash ( word ) as supplement_code )
+          item = ( pub / cop / num / supp )
           identifier = 1*( item )
           entry identifier: identifier
           bindings identifier {
             copublisher -> items[].copublisher (string)
+            supplement_code -> supps[].supplement_code (string)
           }
           test {
             accept "IEC+ISO1234"
@@ -128,6 +137,30 @@ RSpec.describe "sparse array-binding pairing" do
     it "binds rows for the instances that carry the capture (#408)" do
       bound = artifact.parse_and_bind("identifier", "IEC+ISO1234")
       expect(bound).to eq(items: [{ copublisher: "ISO" }])
+    end
+
+    it "does not turn unrelated sibling rows into phantom slots (#417)" do
+      # Three top-level rows (publisher, copublisher, number), one
+      # copublisher occurrence: the items group binds exactly one row.
+      bound = artifact.parse_and_bind("identifier", "IEC+ISO1234")
+      rows = bound[:items] || bound["items"]
+      expect(rows.length).to eq(1)
+    end
+
+    it "binds no key for a group whose captures match nothing (#417)" do
+      # No dash in the input: supplement_code has zero occurrences, so
+      # the supps group is absent entirely — not [{}], not [].
+      bound = artifact.parse_and_bind("identifier", "IEC+ISO1234")
+      expect(bound).not_to have_key(:supps)
+      expect(bound).not_to have_key("supps")
+    end
+
+    it "pairs each group independently when both fire (#417)" do
+      bound = artifact.parse_and_bind("identifier", "IEC+ISO12-AX")
+      expect(bound).to eq(
+        items: [{ copublisher: "ISO" }],
+        supps: [{ supplement_code: "AX" }],
+      )
     end
 
     it "binds no key when no instance carries the capture (#408)" do
