@@ -200,16 +200,17 @@ RSpec.describe "sparse array-binding pairing" do
     end
   end
 
-  describe "the loud-loss check (#413)" do
-    # A declared capture that the TREE carries but the bound map
-    # receives nowhere is silent data loss — bind time raises BindError
-    # naming the capture. In-language the path validator already
-    # forbids scoping a binding where the grammar never nests the
-    # capture, so this invariant is unit-tested directly on
-    # Bindings.apply with a crafted entry: `marker` fires at the top
-    # level while its binding targets the keyed items[] group, whose
-    # instances never carry it. Absence from the tree is legitimate
-    # optionality and never raises.
+  describe "the loud-loss check (#413, #418)" do
+    # A declared capture that the TREE carries with a VALUE but the
+    # bound map receives nowhere is silent data loss — bind time raises
+    # BindError naming the capture. In-language the path validator
+    # already forbids scoping a binding where the grammar never nests
+    # the capture, so this invariant is unit-tested directly on
+    # Bindings.apply with a crafted entry. Absence from the tree is
+    # legitimate optionality and never raises — and so is a capture
+    # whose value is null: a fired-but-empty optional binds null in the
+    # parslet shape, and binding nothing for null is optionality, not
+    # loss (parsanol-ruby#418 — CIE trailing_lang, JIS reaffirmed).
     def artifact
       source = <<~PARG
         grammar Lossy version "1.0.0" edition 2 {
@@ -244,6 +245,22 @@ RSpec.describe "sparse array-binding pairing" do
       shape = artifact.parse("identifier", "ABC")
       expect(artifact.apply_bindings("identifier", shape))
         .to eq(items: [{ code: "ABC" }])
+    end
+
+    it "does not raise for a null-valued capture (#418)" do
+      # The tree carries `trailing: null` — a fired-but-empty optional.
+      # Binding nothing for null is optionality, not loss.
+      shape = { "code" => { "value" => "ABC", "offset" => 0, "length" => 3,
+                            "line" => 1, "column" => 1 },
+                "trailing" => nil }
+      entry = {
+        "name" => "identifier",
+        "bindings" => [
+          { "capture" => "trailing", "path" => "trailing", "type" => "raw",
+            "card" => nil, "preprocess" => nil },
+        ],
+      }
+      expect(Parsanol::PARG::Bindings.apply(artifact, entry, shape)).to eq({})
     end
   end
 
