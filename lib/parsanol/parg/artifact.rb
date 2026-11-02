@@ -241,6 +241,7 @@ module Parsanol
               end
               "test #{hash['input'].inspect}: expected captures " \
                 "#{mismatched.transform_values(&:inspect).inspect}, got #{actuals.inspect}"
+            when "bind" then bind_mismatch(entry_name, shape, hash)
             end
           rescue Parsanol::ParseFailed
             unless hash["kind"] == "reject"
@@ -248,6 +249,20 @@ module Parsanol
             end
           end
         end
+      end
+
+      # parsanol-ruby#414: the whole bound map must equal the expectation
+      # exactly (not the partial `example` match) — the grammar author
+      # pins what the bindings produce, including absent keys and
+      # phantom rows.
+      def bind_mismatch(entry_name, shape, hash)
+        bound = apply_bindings(entry_name, shape)
+        actual = Bindings.canonical(bound)
+        expected = Bindings.canonical(hash["expect"])
+        return nil if actual == expected
+
+        "test #{hash['input'].inspect}: expected bound #{expected.inspect}, " \
+          "got #{actual.inspect}"
       end
 
       # Best-effort recovery (TODO.sota/1, R1): on success returns
