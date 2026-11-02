@@ -632,8 +632,8 @@ module Parsanol
               markers[literal] = node.a.to_sym if literal && !literal.strip.empty?
               collect.call(@document.rules[node.a]) if @document.rules.key?(node.a)
             when :alt, :seq then node.a.each { |b| collect.call(b) }
-            when :rep, :opt, :cap then collect.call(node.a)
-            when :pred then collect.call(node.b)
+            when :rep, :opt then collect.call(node.a)
+            when :cap, :pred then collect.call(node.b)
             end
           end
           collect.call(@document.skip_declaration)
@@ -652,7 +652,11 @@ module Parsanol
           case n.kind
           when :lit then literal = n.a
           when :seq, :alt then n.a.each { |c| walk.call(c) unless literal }
-          when :rep, :opt, :cap, :pred then walk.call(n.a || n.b) unless literal
+          # :cap stores the capture NAME in `a` (a plain String) and the
+          # captured node in `b`; :pred stores its flag in `a`. Walking
+          # `a` on either crashes — descend through `b`.
+          when :rep, :opt then walk.call(n.a) unless literal
+          when :cap, :pred then walk.call(n.b) unless literal
           end
         end
         walk.call(node)

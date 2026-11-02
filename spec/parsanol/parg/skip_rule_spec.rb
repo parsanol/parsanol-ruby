@@ -320,4 +320,24 @@ RSpec.describe "PARG skip rule" do
       end
     end
   end
+
+  it "accepts a capture-rooted rule in the skip declaration" do
+    # leading_literal and skip_capturer_markers walked the capture NAME
+    # (a String) instead of the captured node when collecting
+    # skip-capturer markers
+    envelope = compile_parg(<<~PARG)
+      grammar Skippy version "1" edition "v1" {
+        skip = trivia capture: space
+        trivia = 1*(ws / remark)
+        ws = 1*" "
+        remark = ( "//" ( *(!"\\n" ANY) ) [ "\\n" ] ) as remark
+        pair = ( word "," word ) as pair
+        word = ( 1*( ALPHA ) )
+        entry document: pair
+        test { accept "left,right" }
+      }
+    PARG
+    tree = parse_artifact(envelope, "// note\nleft , right")
+    expect(tree[:pair].to_s).to eq("left,right")
+  end
 end
