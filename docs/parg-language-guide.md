@@ -353,11 +353,14 @@ bindings iso_identifier {
 
 A binding is `capture -> field (type [, cardinality]) [preprocess: step]`.
 Types: `string`, `integer`, `float`, `boolean` (unknown types pass through —
-e.g. enum keys), and `any` — the cross-engine passthrough: the capture
+e.g. enum keys), `any` — the cross-engine passthrough: the capture
 reduces to the ONE plain shape on every engine (scalars and capture
 leaves render as their text, named groups as string-keyed plain hashes,
-repeats as arrays; parsanol-ruby#383). Cardinalities: `1`, `0..1`,
-`1..*`, `0..*`. `[]` paths (grouping captures into arrays of objects)
+repeats as arrays; parsanol-ruby#383) — and `text`: the capture's whole
+matched span as one String, even when its body carries inner captures
+(which still fire as their own bindings) — the no-shim answer for
+consumers that need both the span and the inner keys (parsanol-ruby#382).
+Cardinalities: `1`, `0..1`, `1..*`, `0..*`. `[]` paths (grouping captures into arrays of objects)
 support **one** level; deeper nesting is binder code.
 
 A capture whose body ends in a possibly-empty repetition binds an empty

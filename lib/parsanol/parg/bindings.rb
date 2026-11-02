@@ -241,8 +241,40 @@ module Parsanol
           # string-keyed hashes, repeats as arrays — so (any)-bound keys
           # survive a cross-engine gate without consumer shims.
           plain(value)
+        when "text"
+          # The matched span as text (ruby#382): a capture whose body
+          # carries inner captures binds a hash of them; (text) returns
+          # the span those captures jointly matched while the inner
+          # captures still fire as their own bindings.
+          span_text(value)
         else value
         end
+      end
+
+      # The matched span of a capture value: the byte range from the
+      # first to the last slice in the subtree, cut from the input the
+      # slices carry. A plain Slice or String is already its span.
+      def span_text(value)
+        return value.to_s if value.is_a?(Parsanol::Slice) || value.is_a?(String)
+
+        slices = []
+        walk = lambda do |node|
+          case node
+          when Parsanol::Slice then slices << node
+          when Hash then node.each_value { |item| Array(item).each(&walk) }
+          when Array then node.each(&walk)
+          end
+        end
+        walk.call(value)
+        return plain(value) if slices.empty?
+
+        start = slices.map(&:offset).min
+        stop = slices.map { |slice| slice.offset + slice.content.bytesize }.max
+        input = slices.first.input
+        return plain(value) unless input
+
+        span = input.byteslice(start, stop - start)
+        span&.force_encoding(Encoding::UTF_8)
       end
 
       # The engine-neutral reduction behind (any): capture leaves
