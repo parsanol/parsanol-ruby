@@ -45,7 +45,7 @@ RSpec.describe "VM multibyte spans" do
     ["标文本", "pkg[标文本]"],
     ["🙂", "pkg[🙂]"],
     ["éü标🙂in", "pkg[éü标🙂in]"],
-    ["éü标🙂", "cléü标🙂[éü标🙂]"]
+    ["éü标🙂", "cléü标🙂[éü标🙂]"],
   ].each do |inner, input|
     it "round-trips #{inner.inspect} through the VM byte-exactly" do
       parser = segment_parser_class.new
