@@ -35,9 +35,11 @@ module Parsanol
           capture = binding["capture"].to_sym
           present.include?(capture) && !bound?(out, binding)
         end
-        raise BindError,
-              "entry #{entry['name'].inspect}: capture #{lost.map { |b| b['capture'].inspect }.join(', ')} " \
-              "is present in the parse tree but bound nowhere" unless lost.empty?
+        unless lost.empty?
+          raise BindError,
+                "entry #{entry['name'].inspect}: capture #{lost.map { |b| b['capture'].inspect }.join(', ')} " \
+                "is present in the parse tree but bound nowhere"
+        end
         out
       end
 
