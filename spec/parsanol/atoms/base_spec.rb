@@ -99,25 +99,25 @@ describe Parsanol::Atoms::Base do
 
   describe ":reporter option" do
     let(:parslet) { Parsanol.str("test") >> Parsanol.str("ing") }
-    let(:reporter) { double(:reporter) }
 
     it "replaces the default reporter" do
-      cause = double(:cause)
+      events = []
 
-      # Two levels of the parse, calling two different error reporting
-      # methods.
-      expect(reporter).to receive(:err_at).once
-      expect(reporter).to receive(:err).and_return(cause).once
-      expect(reporter).to receive(:succ).once
+      # A supplied reporter observes the failure events in place of
+      # the #265 default; when its #err hands back a real Cause, that
+      # cause is raised directly (cause in, cause out).
+      reporter = Class.new(Parsanol::ErrorReporter::Base) do
+        define_method(:err_at) { |*_args| events << :err_at }
+        define_method(:err) do |*_args|
+          events << :err
+          Parsanol::Cause.new("custom cause", Parsanol::Source.new("testung"), 4)
+        end
+      end.new
 
-      # The final cause will be sent the #raise method.
-      expect(cause).to receive(:raise).once.and_throw(:raise)
+      expect { parslet.parse("testung", reporter: reporter) }
+        .to raise_error(Parsanol::ParseFailed, /custom cause/)
 
-      catch(:raise) do
-        parslet.parse("testung", reporter: reporter)
-
-        raise "NEVER REACHED"
-      end
+      expect(events).to include(:err_at, :err)
     end
   end
 end
