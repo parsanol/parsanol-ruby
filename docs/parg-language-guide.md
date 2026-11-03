@@ -965,6 +965,14 @@ tree-sitter/ANTLR (artifact compilation model), GrammarBuilder
 
 - `render:` / `derive:` sections in the envelope (string output side).
 - Multi-`[]`-level binding paths (or explicit binder hooks).
-- Rule parameters / module imports between `.parg` files.
-- Self-hosting: parse PARG with PARG.
+- Rule parameters (module imports between `.parg` files shipped: `use <name>`
+  resolves `<name>.parg` from the import dirs, prefixes every rule
+  `<name>.`, and the artifact bakes the expansion — in the fleet since
+  1.3.130, I1; the pubid-grammar iso/idf/bipm grammars import today).
+- Self-hosting: parse PARG with PARG (live — the pubid-grammar PgMeta
+  artifact gates every grammar's front end; see SelfHost).
+- Declared per-target binding artifacts (`compile --bindings TARGET|all`;
+  parsanol-ruby#432).
+- Inline artifact integrity: `byte_checksum` (the bake's byte-exact file
+  digest, load-time fast tier) and the `validated` bake receipt.
 - Export to constrained-decoding backends (XGrammar/llguidance formats).
