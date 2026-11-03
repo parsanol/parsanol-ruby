@@ -46,6 +46,12 @@ module Parsanol
 
           document.rules[qualified] = copy(node, prefix)
         end
+        # The `atomic` exemption rides the rule name: a component's
+        # atomic rules qualify with everything else, or the exemption
+        # never matches post-merge.
+        used.atomic_rules.each do |name|
+          document.atomic_rules << "#{prefix}#{name}"
+        end
         used.entries.each do |entry, rule|
           document.entries["#{prefix}#{entry}"] = "#{prefix}#{rule}"
         end
