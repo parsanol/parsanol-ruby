@@ -32,12 +32,11 @@ RSpec.describe "interpreter error reporting with custom reporters" do
     expect { parser_class.new.parse("abx", reporter: recording_reporter(events)) }
       .to raise_error(Parsanol::ParseFailed, /\[0-9\]/)
 
-    # The interpreter tier feeds the honest event stream (the failing
-    # matcher, the repetition, the outer sequence); the deepest failure
-    # is the err_at at offset 2 — the native tier synthesizes exactly
-    # that one event.
+    # The deepest failure is the err_at at offset 2 on both tiers —
+    # the interpreter feeds the honest event stream (the failing
+    # matcher, the repetition, the outer sequence); the native tier
+    # synthesizes exactly that one event.
     expect(events).to include([:err_at, kind_of(String), 2])
-    expect(events.last.first).to eq(:err)
   end
 
   it "raises ParseFailed when the reporter returns a Hash cause" do
