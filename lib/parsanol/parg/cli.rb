@@ -22,7 +22,12 @@ module Parsanol
                                             compile to an artifact envelope;
                                             --bindings also writes one
                                             checksummed per-target binding
-                                            artifact beside it (#432)
+                                            artifact beside it (#432);
+                                            --model-bindings FILE embeds a
+                                            rule -> model sidecar (JSON/YAML)
+                                            in the artifact
+          bindings <artifact.json>          dump the embedded rule -> model
+                                            binding table as JSON (coradoc#307)
           test    <file.parg|artifact.json>   run the grammar's test section
           parse   <file> [--entry E] INPUT  parse one input; prints the tree
                                             and the bound captures
@@ -75,6 +80,7 @@ module Parsanol
         when "lint" then lint
         when "export" then export_grammar
         when "diff" then diff_artifacts
+        when "bindings" then dump_bindings
         when "lsp" then Lsp.new.run && 0
         else
           warn USAGE
@@ -145,6 +151,9 @@ module Parsanol
         source = @argv.shift
         out = flag_value("-o") || default_artifact_name(source)
         envelope = compile_source(source).envelope
+        if (sidecar = flag_value("--model-bindings"))
+          envelope = ModelBindings.embed(envelope, ModelBindings.load(sidecar))
+        end
         # Seal: the exact text written is the exact text the byte-level
         # checksum covers (Compiler.seal_json includes the trailing
         # newline).
@@ -159,6 +168,18 @@ module Parsanol
           File.write(path, "#{artifact.bindings_artifact_json(target)}\n", encoding: Encoding::UTF_8)
           puts "#{path}  #{artifact.bindings_artifact(target).payload['checksum']}"
         end
+        0
+      end
+
+      # `parg bindings ARTIFACT`: the embedded rule -> model table as JSON.
+      def dump_bindings
+        path = @argv.shift
+        unless path
+          warn "usage: parsanol parg bindings ARTIFACT.json"
+          return 2
+        end
+        envelope = ModelBindings.read_envelope(path)
+        puts ModelBindings.dump(envelope)
         0
       end
 

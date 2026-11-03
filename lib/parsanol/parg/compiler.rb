@@ -61,7 +61,8 @@ module Parsanol
       # unicode_tables — is byte-stable when the grammar's behavior is
       # unchanged. Mirrors the cross-engine parity view.
       SEMANTICS_EXCLUDED = %w[checksum byte_checksum compiler_version
-                              unicode_tables semantics_hash validated].freeze
+                              unicode_tables semantics_hash validated
+                              model_bindings].freeze
 
       def self.semantics_hash(envelope)
         payload = envelope.except(*SEMANTICS_EXCLUDED)
