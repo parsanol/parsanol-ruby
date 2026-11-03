@@ -79,7 +79,17 @@ module Parsanol
         when :pred
           Node.new(:pred, node.a, copy(node.b, prefix), node.c)
         when :cap then Node.new(:cap, node.a, copy(node.b, prefix))
-        when :ref then Node.new(:ref, "#{prefix}#{node.a}")
+        # A qualified reference (`other.rule`) already names its own
+        # imported grammar — prefixing would double-qualify it
+        # (cross-import references compose: the other grammar's rules
+        # are prefixed by their own merge).
+        when :ref
+          name = node.a.to_s
+          if name.include?(".")
+            Node.new(:ref, name)
+          else
+            Node.new(:ref, "#{prefix}#{name}")
+          end
         else node
         end
       end
