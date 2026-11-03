@@ -26,15 +26,14 @@ module Parsanol
 
       SUPPORTED_SHAPE = "parsanol-tree/v2"
 
-      # The editions this runtime parses (ruby#357's consolidation):
-      # 1 = the legacy shapes; 2 = named trees + explicit spans.
-      SUPPORTED_EDITIONS = [1, 2].freeze
+      # Edition 2 (named trees + explicit spans) is the only edition —
+      # edition-1 artifacts are rejected with the fix named.
+      SUPPORTED_EDITIONS = [2].freeze
 
       # The header and envelope spellings that have shipped: the quoted
-      # v-forms stay loadable so artifacts baked before the numeric
+      # v-form stays loadable so artifacts baked before the numeric
       # surface remain readable.
       EDITION_ALIASES = {
-        1 => 1, "1" => 1, "v1" => 1, "classic" => 1,
         2 => 2, "2" => 2, "v2" => 2
       }.freeze
 
@@ -50,14 +49,13 @@ module Parsanol
         bindings = envelope["bindings"]
         validate_bindings!(bindings) unless bindings.nil?
         @envelope = envelope
-        # The declared edition must be one this runtime understands
-        # (ruby#357's consolidation: one axis, `edition`). Absent field
-        # = the pre-1.3.109 artifacts, whose trees are edition 1.
-        edition = EDITION_ALIASES[envelope.fetch("edition", 1)]
+        # The declared edition must be one this runtime understands.
+        # Absent field = a pre-1.3.109 edition-1 artifact — rejected.
+        edition = EDITION_ALIASES[envelope.fetch("edition", 2)]
         unless SUPPORTED_EDITIONS.include?(edition)
           raise ArtifactError,
-                "artifact declares edition #{envelope['edition'].inspect}; this " \
-                "runtime supports #{SUPPORTED_EDITIONS.map(&:inspect).join(', ')}"
+                "artifact declares edition #{envelope['edition'].inspect}; edition 1 " \
+                "was removed — recompile the grammar with edition \"v2\""
         end
         @path = path
         @tables_dir = tables_dir
@@ -71,11 +69,10 @@ module Parsanol
 
       def version = envelope["version"]
 
-      # The edition the artifact's trees carry: 1 = the legacy shapes,
-      # 2 = fully named trees. Legacy artifacts that spell the field
-      # "v2" (or omit it) normalize here.
+      # The edition the artifact's trees carry (always 2). Legacy
+      # artifacts that spell the field "v2" normalize here.
       def edition
-        EDITION_ALIASES.fetch(envelope.fetch("edition", 1))
+        EDITION_ALIASES.fetch(envelope.fetch("edition", 2))
       end
 
       # Freshness (parsanol-ruby#209): what source revision and compiler

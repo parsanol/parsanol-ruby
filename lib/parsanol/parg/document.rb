@@ -35,11 +35,9 @@ module Parsanol
 
       def initialize
         @grammar_name = nil
-        # The default capture dialect is v1 (the owner's reversal,
-        # 2026-10-28): runtime compiles of unpinned sources keep the
-        # legacy shapes — the pubid fleet froze against them. edition
-        # "v2" is the named-trees opt-in via the grammar header.
-        @edition = "v1"
+        # Edition 2 (named trees + explicit spans) is the only edition —
+        # edition 1 was removed. Header declaration stays optional.
+        @edition = "v2"
         @version = "0.0.0"
         @source = nil
         @rules = {}

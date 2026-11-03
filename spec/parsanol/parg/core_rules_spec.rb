@@ -16,7 +16,7 @@ RSpec.describe "PARG core rules" do
 
   it "serves the class core rules without local definitions" do
     source = <<~PARG
-      grammar Core version "1.0.0" edition "v1" {
+      grammar Core version "1.0.0" edition "v2" {
         line = word SP number CRLF
         word = 1*( ALPHA )
         digit = %x30-39
@@ -25,12 +25,14 @@ RSpec.describe "PARG core rules" do
       }
     PARG
     tree = artifact_for(source).parse("document", "abc 42\r\n")
-    expect(tree).to eq("abc 42\r\n")
+    # edition 2: named captures, not folded strings
+    expect(tree.to_s).to include('word: "abc"@0')
+    expect(tree.to_s).to include('digit: "2"@5')
   end
 
   it "serves HEXDIG and HTAB" do
     source = <<~PARG
-      grammar Core version "1.0.0" edition "v1" {
+      grammar Core version "1.0.0" edition "v2" {
         hex = 2HEXDIG HTAB "x"
         entry document: hex
       }
@@ -41,7 +43,7 @@ RSpec.describe "PARG core rules" do
 
   it "lets a local rule shadow the prelude" do
     source = <<~PARG
-      grammar Shadow version "1.0.0" edition "v1" {
+      grammar Shadow version "1.0.0" edition "v2" {
         # local DIGIT: only "7" is a digit here
         DIGIT = "7"
         code = 2DIGIT
@@ -55,7 +57,7 @@ RSpec.describe "PARG core rules" do
 
   it "injects CRLF and LWSP only when referenced" do
     source = <<~PARG
-      grammar Core version "1.0.0" edition "v1" {
+      grammar Core version "1.0.0" edition "v2" {
         folded = "a" LWSP "b"
         entry document: folded
       }
@@ -68,7 +70,7 @@ RSpec.describe "PARG core rules" do
 
   it "injects CRLF transitively for LWSP" do
     source = <<~PARG
-      grammar Core version "1.0.0" edition "v1" {
+      grammar Core version "1.0.0" edition "v2" {
         gap = "a" LWSP LWSP "b"
         entry document: gap
       }
@@ -78,7 +80,7 @@ RSpec.describe "PARG core rules" do
 
   it "does not touch grammars that define their own everything" do
     source = <<~PARG
-      grammar Core version "1.0.0" edition "v1" {
+      grammar Core version "1.0.0" edition "v2" {
         CRLF = "\r\n"
         line = "x" CRLF
         entry document: line

@@ -6,7 +6,7 @@ require "parsanol"
 require "parsanol/parg"
 require "json"
 
-RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edition 2 opt-in)" do
+RSpec.describe "the capture edition (ruby#304, ruby#357; edition 2 is the only edition)" do
   def compile(source)
     document = Parsanol::PARG::Parser.new(source).parse
     Parsanol::PARG::Compiler.compile(document).envelope
@@ -47,7 +47,7 @@ RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edi
       expect(v1["entries"]["main"]["grammar"]["atoms"]).to eq(v2["entries"]["main"]["grammar"]["atoms"])
     end
 
-    it "defaults to edition 1: a grammar without a declaration keeps the legacy shapes (the owner's reversal)" do
+    it "defaults to edition 2: a grammar without a declaration gets the named trees" do
       default = compile(<<~PARG)
         grammar D version "1.0.0" {
           entry main: main
@@ -56,10 +56,10 @@ RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edi
           pair = ( 1*( %x61-7A ) ) as k "="
         }
       PARG
-      expect(default["edition"]).to eq(1)
+      expect(default["edition"]).to eq(2)
       names = default.dig("entries", "main", "grammar", "atoms")
         .filter_map { |atom| atom.dig("Named", "name") }
-      expect(names).not_to include("sep")
+      expect(names).to include("sep")
       expect(names).to include("k")
     end
 
@@ -79,7 +79,7 @@ RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edi
       expect(names).to include("k")
     end
 
-    it "rejects the removed mode keyword; the quoted edition aliases canonicalize" do
+    it "rejects the removed mode keyword; the quoted edition alias canonicalizes" do
       expect do
         compile(<<~PARG)
           grammar M version "1.0.0" mode "v2" {
@@ -97,13 +97,14 @@ RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edi
       PARG
       expect(quoted["edition"]).to eq(2)
 
-      classic = compile(<<~PARG)
-        grammar C version "1.0.0" edition "classic" {
-          entry main: w
-          w = 1*( %x61-7A )
-        }
-      PARG
-      expect(classic["edition"]).to eq(1)
+      expect do
+        compile(<<~PARG)
+          grammar C version "1.0.0" edition "classic" {
+            entry main: w
+            w = 1*( %x61-7A )
+          }
+        PARG
+      end.to raise_error(Parsanol::PARG::ParseError, /edition 1 was removed/)
     end
 
     it "loads artifacts that spell the edition with the legacy quoted form" do
@@ -178,20 +179,17 @@ RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edi
       expect(names).to include("digit")
     end
 
-    it "records edition 1 for grammars that pin the legacy shape" do
-      classic = compile(<<~PARG)
-        grammar C version "1.0.0" edition 1 {
-          entry main: main
-          main = sep pair
-          sep = ","
-          pair = ( 1*( %x61-7A ) ) as k "="
-        }
-      PARG
-      expect(classic["edition"]).to eq(1)
-      names = classic.dig("entries", "main", "grammar", "atoms")
-        .filter_map { |atom| atom.dig("Named", "name") }
-      expect(names).to include("k")
-      expect(names).not_to include("sep")
+    it "rejects grammars that pin the removed edition 1" do
+      expect do
+        compile(<<~PARG)
+          grammar C version "1.0.0" edition 1 {
+            entry main: main
+            main = sep pair
+            sep = ","
+            pair = ( 1*( %x61-7A ) ) as k "="
+          }
+        PARG
+      end.to raise_error(Parsanol::PARG::ParseError, /edition 1 was removed/)
     end
 
     it "rejects unknown editions" do
@@ -202,7 +200,7 @@ RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edi
             w = "x"
           }
         PARG
-      end.to raise_error(Parsanol::PARG::ParseError, /supported editions/)
+      end.to raise_error(Parsanol::PARG::ParseError, /edition 1 was removed|edition "future" is not supported/)
 
       expect do
         compile(<<~PARG)
@@ -211,7 +209,7 @@ RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edi
             w = "x"
           }
         PARG
-      end.to raise_error(Parsanol::PARG::ParseError, /supported editions/)
+      end.to raise_error(Parsanol::PARG::ParseError, /edition 1 was removed|edition 3 is not supported/)
     end
   end
 
@@ -333,9 +331,9 @@ RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edi
       expect(names).not_to include("any_char")
     end
 
-    it "is a no-op in edition 1 and adds no envelope field" do
+    it "adds no envelope field (the wrap is unconditional)" do
       envelope = compile(<<~PARG)
-        grammar G version "1.0.0" edition 1 {
+        grammar G version "1.0.0" edition 2 {
           glue ws
           entry main: main
           ws = 1*( %x20 / ";" / %x0A )
@@ -358,60 +356,6 @@ RSpec.describe "the capture editions (ruby#304, ruby#357; edition 1 default, edi
         PARG
       end.to raise_error(Parsanol::PARG::ParseError, /glue must name/)
     end
-  end
-end
-
-describe "the migration radar (parg lint --captures)" do
-  it "reports nothing on an edition-2 grammar (already named)" do
-    source = <<~PARG
-      grammar M version "1.0.0" edition 2 {
-        entry main: main
-        main = sep pair
-        sep = ","
-        pair = ( 1*( %x61-7A ) ) as k "="
-      }
-    PARG
-    document = Parsanol::PARG::Parser.new(source).parse
-    compiler = Parsanol::PARG::Compiler.new(document, nil)
-    document.rules.each_key { |rule| compiler.atom_for(rule) }
-    expect(compiler.modern_radar).to be_empty
-  end
-
-  it "lists the would-be-wrapped references on a classic grammar" do
-    source = <<~PARG
-      grammar L version "1.0.0" edition 1 {
-        entry main: main
-        main = sep pair
-        sep = ","
-        pair = ( 1*( %x61-7A ) ) as k "="
-      }
-    PARG
-    document = Parsanol::PARG::Parser.new(source).parse
-    compiler = Parsanol::PARG::Compiler.new(document, nil)
-    document.rules.each_key { |rule| compiler.atom_for(rule) }
-    radar = compiler.modern_radar
-    expect(radar.join("\n")).to include("reference to sep produces no capture")
-    expect(radar.join("\n")).not_to include("reference to pair")
-  end
-
-  it "does not report whitespace glue, which the wrap exempts" do
-    source = <<~PARG
-      grammar L version "1.0.0" edition 1 {
-        entry main: main
-        ws = %x20 / %x09
-        spaces = 1*ws
-        main = word spaces word2
-        word = 1*( %x61-7A )
-        word2 = 1*( %x61-7A )
-      }
-    PARG
-    document = Parsanol::PARG::Parser.new(source).parse
-    compiler = Parsanol::PARG::Compiler.new(document, nil)
-    document.rules.each_key { |rule| compiler.atom_for(rule) }
-    radar = compiler.modern_radar.join("\n")
-    expect(radar).not_to include("reference to ws")
-    expect(radar).not_to include("reference to spaces")
-    expect(radar).to include("reference to word produces no capture")
   end
 end
 

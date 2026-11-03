@@ -123,12 +123,13 @@ module Parsanol
           document.grammar_name = Regexp.last_match(1)
           document.version = Regexp.last_match(2)
           tail = stripped.match(EDITION_TAIL)
-          document.edition = if tail.nil?
-                               "v1"
-                             else
-                               level = tail[:number] || tail[:quoted] || tail[:mode]
-                               ["2", "v2"].include?(level) ? "v2" : "v1"
-                             end
+          level = tail.nil? ? "2" : (tail[:number] || tail[:quoted] || tail[:mode])
+          unless ["2", "v2"].include?(level)
+            raise ParseError,
+                  "edition #{level.inspect} is not supported -- edition 1 was " \
+                  "removed; write edition \"v2\" (named trees + spans)"
+          end
+          document.edition = "v2"
           doc_comments = []
         when NAMED_SECTION
           state[:section] = Regexp.last_match(1)
