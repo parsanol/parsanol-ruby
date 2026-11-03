@@ -721,6 +721,18 @@ every alternative and reports:
 - `checksum` = sha256 over the canonicalized envelope (sorted keys,
   checksum excluded). `Artifact.load` verifies it and **fails loudly on
   mismatch** — never silently falls back.
+- `byte_checksum` = SHA-256 over the **exact file bytes** with the digest's
+  own 64-hex region zeroed, written by `Compiler.seal_json` (the compile
+  CLI seals automatically — the text it writes is the text it hashed). The
+  load-time fast tier: one hash pass over the raw bytes, no parse, no
+  canonicalization. Byte-exact: a CRLF-mangled checkout or a hand edit is
+  rejected. Producer-serialization-specific, hence excluded from the
+  canonical payload and from compile parity (see parg-semantics.md §E3.1).
+- `validated` = the bake receipt: `lint_errors` (0 — the compiler refuses
+  to emit otherwise), `lint_warnings`, `tests_total` / `tests_failures`
+  (the embedded tests replay green at bake or the bake fails), and
+  `self_test` (the native whole-envelope replay ran). "Is this grammar
+  valid" is an inspectable field, covered by both checksums.
 - Semver: capture renames/removals → major; new alternatives → minor;
   literal fixes → patch. `version` and `binding_version` move separately:
   model-side-only changes bump `binding_version`.

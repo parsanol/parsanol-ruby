@@ -25,11 +25,34 @@ module Parsanol
         new(document, tables_dir).compile
       end
 
-      # Canonical checksum over an envelope (everything except the checksum
-      # itself). Used both when building an artifact and when verifying one.
+      # Canonical checksum over an envelope (everything except the
+      # checksum itself and the byte-level checksum — the byte digest
+      # attests the FILE serialization, which is producer-specific and
+      # must never enter the cross-engine canonical payload). Used both
+      # when building an artifact and when verifying one.
       def self.checksum(envelope)
-        payload = envelope.except("checksum")
+        payload = envelope.except("checksum", "byte_checksum")
         "sha256:#{Digest::SHA256.hexdigest(JSON.generate(canonicalize(payload)))}"
+      end
+
+      # The byte-level checksum's placeholder: a fixed-width zero region,
+      # so the sealed bytes and the verification bytes differ only inside
+      # that region (sha256 hex is 64 chars — same width).
+      BYTE_CHECKSUM_PLACEHOLDER = ("0" * 64).freeze
+      BYTE_CHECKSUM_TRAILING = "\n"
+
+      # Seal an envelope for writing: stamp the byte-level checksum over
+      # the exact file bytes (the final serialization with a trailing
+      # newline and the digest's own region zeroed) and return the exact
+      # text to write. No sidecar — the integrity travels inside the
+      # artifact. The canonical `checksum` is untouched: it attests
+      # content, `byte_checksum` attests bytes.
+      def self.seal_json(envelope)
+        sealed = envelope.merge("byte_checksum" => BYTE_CHECKSUM_PLACEHOLDER)
+        text = JSON.generate(sealed) + BYTE_CHECKSUM_TRAILING
+        digest = Digest::SHA256.hexdigest(text)
+        sealed["byte_checksum"] = "sha256:#{digest}"
+        JSON.generate(sealed) + BYTE_CHECKSUM_TRAILING
       end
 
       # Producer metadata: the checksum pins the exact producer, but the
@@ -37,7 +60,8 @@ module Parsanol
       # newer compiler — or a different Ruby patch stamping
       # unicode_tables — is byte-stable when the grammar's behavior is
       # unchanged. Mirrors the cross-engine parity view.
-      SEMANTICS_EXCLUDED = %w[checksum compiler_version unicode_tables semantics_hash].freeze
+      SEMANTICS_EXCLUDED = %w[checksum byte_checksum compiler_version
+                              unicode_tables semantics_hash validated].freeze
 
       def self.semantics_hash(envelope)
         payload = envelope.except(*SEMANTICS_EXCLUDED)
@@ -128,6 +152,18 @@ module Parsanol
         envelope = build_envelope
         failures = self.class.self_test(envelope, tables_dir: @tables_dir)
         raise CompileError, failures.join("\n") unless failures.empty?
+
+        # The validation receipt: what this bake actually checked, inside
+        # the envelope the checksums cover. "valid/validated" is then an
+        # inspectable field of the artifact, not an out-of-band claim.
+        envelope["validated"] = {
+          "lint_errors" => 0, # compile raises on lint errors before this
+          "lint_warnings" => @envelope_warnings.size,
+          "tests_total" => @document.tests.size,
+          "tests_failures" => 0, # run_tests raises on failures before this
+          "self_test" => Native.available?,
+        }
+        envelope["checksum"] = Compiler.checksum(envelope)
 
         Result.new(@atom_cache, @warnings, envelope)
       end

@@ -15,13 +15,15 @@ module Parsanol
       attr_reader :envelope, :path, :tables_dir, :imports_dir
 
       def self.load(path, tables_dir: nil, imports_dir: nil)
-        envelope = JSON.parse(PARG.read_utf8(path))
+        text = PARG.read_utf8(path)
+        envelope = JSON.parse(text)
         new(envelope, path, tables_dir || File.dirname(path),
-            imports_dir: imports_dir)
+            imports_dir: imports_dir, raw_text: text)
       end
 
       def self.from_json(text, tables_dir: nil, imports_dir: nil)
-        new(JSON.parse(text), nil, tables_dir, imports_dir: imports_dir)
+        new(JSON.parse(text), nil, tables_dir, imports_dir: imports_dir,
+                                               raw_text: text)
       end
 
       SUPPORTED_SHAPE = "parsanol-tree/v2"
@@ -37,7 +39,7 @@ module Parsanol
         2 => 2, "2" => 2, "v2" => 2
       }.freeze
 
-      def initialize(envelope, path, tables_dir, imports_dir: nil)
+      def initialize(envelope, path, tables_dir, imports_dir: nil, raw_text: nil)
         unless envelope["shape"] == SUPPORTED_SHAPE
           raise ArtifactError,
                 "unsupported artifact shape #{envelope['shape'].inspect} " \
@@ -63,6 +65,7 @@ module Parsanol
         # sources when the pure-Ruby path recompiles the embedded source;
         # in-memory artifacts (path nil) pass the directory explicitly.
         @imports_dir = imports_dir
+        @raw_text = raw_text
         verify_checksum!
         @compiler = nil
       end
@@ -655,7 +658,16 @@ module Parsanol
         @compiled[rule] ||= compiler.atom_for(rule)
       end
 
+      # Two tiers. FAST: when the bake sealed the file, a zero-hole
+      # sha256 over the raw bytes proves byte integrity without parsing
+      # semantics — O(bytes), no canonicalization. DEEP: the canonical
+      # checksum (cross-engine content equality), which also covers
+      # artifacts baked before byte_checksum existed. A sealed artifact
+      # loaded with its raw text verifies BOTH; a bare envelope (direct
+      # construction) verifies canonical only.
       def verify_checksum!
+        verify_byte_checksum! if envelope["byte_checksum"]
+
         stored = envelope["checksum"]
         computed = Compiler.checksum(envelope)
         return if stored == computed
@@ -663,6 +675,26 @@ module Parsanol
         raise ArtifactError,
               "artifact checksum mismatch: stored #{stored.inspect}, " \
               "computed #{computed.inspect}"
+      end
+
+      # The bake computed the digest over the file bytes with the
+      # digest's own 64-hex region zeroed (Compiler.seal_json). Any
+      # flipped bit anywhere else in the file mismatches — corrupted
+      # distribution, wrong file, hand-edited payload: all rejected
+      # before any parse work.
+      def verify_byte_checksum!
+        stored = envelope["byte_checksum"]
+        return if stored.nil? || @raw_text.nil?
+
+        placeholder = Compiler::BYTE_CHECKSUM_PLACEHOLDER
+        zeroed = @raw_text.sub(stored.to_s, placeholder)
+        computed = "sha256:#{Digest::SHA256.hexdigest(zeroed)}"
+        return if stored == computed
+
+        raise ArtifactError,
+              "artifact byte checksum mismatch: stored #{stored.inspect}, " \
+              "computed #{computed.inspect} — the file bytes are not the " \
+              "sealed bake output"
       end
     end
   end

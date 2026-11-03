@@ -738,15 +738,60 @@ journal's exact rollback point is not normative, but the offset and
 An artifact is `parsanol-tree/v2`: `entries` (root, portable grammar, bindings),
 `bindings`, `preprocess`, `tables`, `tests`, `skip`, optional `customs`/
 `states`/`dynamic`, `source`, `source_hash` = SHA-256 of the source text,
-`compiler_version`, and `checksum` over the envelope. `source_hash` binds the
-artifact to the exact `.parg` text (comments included).
+`compiler_version`, `validated` (the bake receipt), and `checksum` over the
+envelope. `source_hash` binds the artifact to the exact `.parg` text
+(comments included).
 
 Compile parity compares envelopes produced from the same source **excluding
-`compiler_version` and `checksum`** (those legitimately vary by compiler
-build). Everything else, including `source_hash`, is normative. Engines MUST
-parse the embedded portable grammar, never re-derive it from `source` (the
-source is carried for dynamic/native-abort fallback, not as the runtime
-contract).
+`compiler_version`, `checksum`, `byte_checksum`, and `validated`** (those
+legitimately vary by compiler build and bake). Everything else, including
+`source_hash`, is normative. Engines MUST parse the embedded portable
+grammar, never re-derive it from `source` (the source is carried for
+dynamic/native-abort fallback, not as the runtime contract).
+
+#### E3.1 — Integrity: `checksum`, `byte_checksum`, `validated`
+
+Two digests travel inside the artifact; no sidecar file exists.
+
+- **`checksum`** (canonical, content): SHA-256 over the canonical JSON form
+  of the envelope — recursively key-sorted, JSON-gem float notation — with
+  `checksum` AND `byte_checksum` excluded from the payload. It is the
+  cross-engine content contract: every engine re-derives the same digest
+  for the same envelope. Recomputed and compared on load (the deep tier),
+  and always computed at bake.
+- **`byte_checksum`** (byte-exact, file): written at bake by
+  `Compiler.seal_json`. The bake serializes the final envelope, computes
+  SHA-256 over those exact bytes **with the digest's own 64-hex region
+  replaced by 64 zeros**, and stores `sha256:<hex>` in that region — the
+  zeroed and real forms are the same width, so the substituted bytes and
+  the written bytes differ only inside the digest itself. Loaders that
+  receive the raw text re-verify with the same substitution: one O(bytes)
+  hash pass, no JSON parse, no canonicalization. This is the fast tier;
+  any flipped bit, wrong file, or hand edit anywhere outside the zeroed
+  region is rejected before parse work. The digest is
+  **producer-serialization-specific** (a rust bake and a ruby bake produce
+  different bytes and different `byte_checksum`s for the same canonical
+  envelope) and is therefore excluded from the canonical payload and from
+  compile parity. Loaders that receive only a parsed envelope (no raw
+  text) skip this tier and fall back to `checksum`.
+
+- **`validated`** (the bake receipt): what the bake actually checked —
+  `lint_errors` (0: the compiler refuses to emit with lint errors),
+  `lint_warnings` (the advisory count also visible under `lint`),
+  `tests_total`/`tests_failures` (the embedded test section replays green
+  or the bake fails), and `self_test` (whether the native engine was
+  available for the bake-time whole-envelope replay). "Is this grammar
+  valid/validated" is thus an inspectable envelope field covered by both
+  digests, not an out-of-band claim. Artifacts baked before the receipt
+  existed simply lack the field; loaders treat its absence as
+  unattested-but-loadable.
+
+Verification order at load: parse → `byte_checksum` (fast tier, when both
+the field and the raw text are available) → `checksum` (canonical, always).
+Old artifacts without `byte_checksum` load through the canonical path
+unchanged. `semantics_hash` excludes both digests and the producer stamps
+(`compiler_version`, `unicode_tables`) — it remains the behavior
+fingerprint stable across re-bakes.
 
 ---
 
