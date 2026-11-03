@@ -66,9 +66,10 @@ RSpec.describe "PARG brace bodies" do
       }
     PARG
     tree = artifact_for(source).parse("document", "abcd")
-    # edition 2: named captures, not folded strings
-    expect(tree.to_s).to include('braced: "ab"@0')
-    expect(tree.to_s).to include('line: "cd"@2')
+    # edition 2: named captures, not folded strings (structure, not
+    # inspect text - hash rendering differs across Ruby versions)
+    expect(tree.map { |node| node[:braced].to_s }).to eq(%w[ab])
+    expect(tree.map { |node| node[:line].to_s }).to eq(%w[cd])
   end
 
   it "lets alternatives and captures sit on their own lines inside the body" do
@@ -116,7 +117,7 @@ RSpec.describe "PARG brace bodies" do
     PARG
     tree = artifact_for(source).parse("document", "abc=42")
     # edition 2: named captures, not folded strings
-    expect(tree.to_s).to include('key: "abc"@0')
-    expect(tree.to_s).to include('digit: "2"@5')
+    expect(tree.map { |node| node[:key].to_s }).to eq(%w[abc])
+    expect(tree.map { |node| node[:digit].to_s }).to eq(%w[4 2])
   end
 end
