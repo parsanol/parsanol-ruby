@@ -145,7 +145,10 @@ module Parsanol
         source = @argv.shift
         out = flag_value("-o") || default_artifact_name(source)
         envelope = compile_source(source).envelope
-        File.write(out, "#{JSON.generate(envelope)}\n", encoding: Encoding::UTF_8)
+        # Seal: the exact text written is the exact text the byte-level
+        # checksum covers (Compiler.seal_json includes the trailing
+        # newline).
+        File.write(out, Compiler.seal_json(envelope), encoding: Encoding::UTF_8)
         puts "#{out}  #{envelope['checksum']}  warnings=#{envelope['lint']['order_warnings'].size}"
         bindings_targets.each do |target|
           # The declared per-target binding artifacts (#432): one

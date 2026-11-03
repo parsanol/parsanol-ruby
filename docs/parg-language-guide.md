@@ -721,6 +721,18 @@ every alternative and reports:
 - `checksum` = sha256 over the canonicalized envelope (sorted keys,
   checksum excluded). `Artifact.load` verifies it and **fails loudly on
   mismatch** — never silently falls back.
+- `byte_checksum` = SHA-256 over the **exact file bytes** with the digest's
+  own 64-hex region zeroed, written by `Compiler.seal_json` (the compile
+  CLI seals automatically — the text it writes is the text it hashed). The
+  load-time fast tier: one hash pass over the raw bytes, no parse, no
+  canonicalization. Byte-exact: a CRLF-mangled checkout or a hand edit is
+  rejected. Producer-serialization-specific, hence excluded from the
+  canonical payload and from compile parity (see parg-semantics.md §E3.1).
+- `validated` = the bake receipt: `lint_errors` (0 — the compiler refuses
+  to emit otherwise), `lint_warnings`, `tests_total` / `tests_failures`
+  (the embedded tests replay green at bake or the bake fails), and
+  `self_test` (the native whole-envelope replay ran). "Is this grammar
+  valid" is an inspectable field, covered by both checksums.
 - Semver: capture renames/removals → major; new alternatives → minor;
   literal fixes → patch. `version` and `binding_version` move separately:
   model-side-only changes bump `binding_version`.
@@ -953,6 +965,14 @@ tree-sitter/ANTLR (artifact compilation model), GrammarBuilder
 
 - `render:` / `derive:` sections in the envelope (string output side).
 - Multi-`[]`-level binding paths (or explicit binder hooks).
-- Rule parameters / module imports between `.parg` files.
-- Self-hosting: parse PARG with PARG.
+- Rule parameters (module imports between `.parg` files shipped: `use <name>`
+  resolves `<name>.parg` from the import dirs, prefixes every rule
+  `<name>.`, and the artifact bakes the expansion — in the fleet since
+  1.3.130, I1; the pubid-grammar iso/idf/bipm grammars import today).
+- Self-hosting: parse PARG with PARG (live — the pubid-grammar PgMeta
+  artifact gates every grammar's front end; see SelfHost).
+- Declared per-target binding artifacts (`compile --bindings TARGET|all`;
+  parsanol-ruby#432).
+- Inline artifact integrity: `byte_checksum` (the bake's byte-exact file
+  digest, load-time fast tier) and the `validated` bake receipt.
 - Export to constrained-decoding backends (XGrammar/llguidance formats).
