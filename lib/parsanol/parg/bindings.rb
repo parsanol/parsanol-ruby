@@ -36,11 +36,14 @@ module Parsanol
         # bound map (parsanol-ruby#413): a capture present in the parse
         # but bound nowhere is silent data loss, the one case the
         # binding layer's other checks miss. Absence in the TREE is
-        # legitimate optionality and never raises. Coverage is checked
-        # against every hash key anywhere in the bound map, not just the
-        # binding's own leaf: a `(raw)` binding carries its entire
+        # legitimate optionality and never raises. Delivery is EITHER
+        # the binding's own leaf/prefix reaching the map (the capture
+        # may rename on the way — capture "doc_year" binds under path
+        # "year", parsanol-ruby#434) OR the capture name appearing as a
+        # key anywhere in the map: a `(raw)` binding carries its entire
         # subtree, so captures nested inside a raw-bound ancestor are
-        # delivered through it (parsanol-ruby#427 — BS 9113 bundled_list).
+        # delivered through it (parsanol-ruby#427 — BS 9113
+        # bundled_list).
         bound_keys = {}
         walk_keys = lambda do |node|
           case node
@@ -53,7 +56,7 @@ module Parsanol
         walk_keys.call(out)
         lost = bindings.select do |binding|
           capture = binding["capture"].to_sym
-          present.include?(capture) && !bound_keys.key?(capture)
+          present.include?(capture) && !bound?(out, binding) && !bound_keys.key?(capture)
         end
         unless lost.empty?
           raise BindError,
@@ -61,6 +64,23 @@ module Parsanol
                 "is present in the parse tree but bound nowhere"
         end
         out
+      end
+
+      # Did this binding contribute anything to the bound map? Scalars
+      # bind under their leaf key; array groups bind under their prefix.
+      # The leaf is the PATH's tail, so a capture-to-path rename reads
+      # as delivered when its own path landed (parsanol-ruby#434).
+      def bound?(out, binding)
+        path = binding["path"].to_s
+        if path.include?("[]")
+          prefix = path.split("[]").first.to_sym
+          rows = out[prefix]
+          rows.is_a?(Array) && rows.any? do |row|
+            row.is_a?(Hash) && row.key?(leaf_key(binding))
+          end
+        else
+          out.key?(leaf_key(binding))
+        end
       end
 
       # Canonical test-value form: one equality surface for capture and
