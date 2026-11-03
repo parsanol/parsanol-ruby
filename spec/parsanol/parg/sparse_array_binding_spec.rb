@@ -228,6 +228,23 @@ RSpec.describe "sparse array-binding pairing" do
       Parsanol::PARG::Artifact.from_json(JSON.generate(envelope))
     end
 
+    it "does not raise when the capture renames onto its bound path (#434)" do
+      # 1.3.127's coverage walk matched the capture NAME against the
+      # bound map, so a capture-to-path RENAME (tree key "doc_year",
+      # path "year" — the pubid OIML frozen artifact) false-positived:
+      # the name never lands in the map, its PATH's leaf does. Own-path
+      # delivery is the OR-alternative the check must honor.
+      shape = { "publisher" => "OIML", "doc_year" => "1960" }
+      entry = {
+        "name" => "identifier",
+        "bindings" => [
+          { "capture" => "doc_year", "path" => "year", "type" => "string",
+            "card" => nil, "preprocess" => nil },
+        ],
+      }
+      expect(Parsanol::PARG::Bindings.apply(artifact, entry, shape)).to eq(year: "1960")
+    end
+
     it "raises BindError naming the tree-present capture that binds nowhere" do
       shape = artifact.parse("identifier", "!ABC")
       entry = {
