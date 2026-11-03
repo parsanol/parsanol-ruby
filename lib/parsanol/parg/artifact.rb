@@ -95,6 +95,18 @@ module Parsanol
         source_hash == Digest::SHA256.hexdigest(source_text.to_s)
       end
 
+      # The declared per-target binding artifact for this parse artifact
+      # (parsanol-ruby#432): the entry binding records extracted into
+      # their own checksummed artifact, pinned to this grammar by source
+      # hash. Targets: ruby, rs, ts, python.
+      def bindings_artifact(target)
+        Bindings::Artifact.emit(envelope, target)
+      end
+
+      def bindings_artifact_json(target)
+        Bindings::Artifact.emit_json(envelope, target)
+      end
+
       def entries = envelope["entries"].keys
 
       def entry(name)

@@ -8,6 +8,9 @@ module Parsanol
     # producing the attribute hash that fills a lutaml-model class:
     # capture collection -> preprocessing -> type cast -> path assignment.
     module Bindings
+      # The declared per-target binding artifact (parsanol-ruby#432).
+      autoload :Artifact, "parsanol/parg/bindings/artifact"
+
       module_function
 
       def apply(artifact, entry, shape)
