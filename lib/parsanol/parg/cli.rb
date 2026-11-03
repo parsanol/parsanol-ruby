@@ -18,7 +18,11 @@ module Parsanol
         usage: parsanol parg <command> <grammar> [arguments]
 
         commands:
-          compile <file.parg> [-o out.json]   compile to an artifact envelope
+          compile <file.parg> [-o out.json] [--bindings TARGET|all]
+                                            compile to an artifact envelope;
+                                            --bindings also writes one
+                                            checksummed per-target binding
+                                            artifact beside it (#432)
           test    <file.parg|artifact.json>   run the grammar's test section
           parse   <file> [--entry E] INPUT  parse one input; prints the tree
                                             and the bound captures
@@ -143,7 +147,26 @@ module Parsanol
         envelope = compile_source(source).envelope
         File.write(out, "#{JSON.generate(envelope)}\n", encoding: Encoding::UTF_8)
         puts "#{out}  #{envelope['checksum']}  warnings=#{envelope['lint']['order_warnings'].size}"
+        bindings_targets.each do |target|
+          # The declared per-target binding artifacts (#432): one
+          # checksummed bindings payload per target, written beside the
+          # artifact. `--bindings all` expands to the full target set.
+          artifact = Artifact.from_json(JSON.generate(envelope))
+          path = out.sub(/\.json\z/i, ".bindings.#{target}.json")
+          File.write(path, "#{artifact.bindings_artifact_json(target)}\n", encoding: Encoding::UTF_8)
+          puts "#{path}  #{artifact.bindings_artifact(target).payload['checksum']}"
+        end
         0
+      end
+
+      # Every --bindings flag value, `all` expanded to the target set.
+      # Empty when the flag is absent (compile emits no binding artifacts).
+      def bindings_targets
+        values = []
+        while (value = flag_value("--bindings"))
+          values.concat(value == "all" ? Bindings::Artifact::TARGETS.dup : [value])
+        end
+        values.uniq
       end
 
       # Freshness (parsanol-ruby#209): verify an artifact was compiled
