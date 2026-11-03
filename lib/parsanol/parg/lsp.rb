@@ -524,8 +524,10 @@ module Parsanol
           if SelfHost.available?
             begin
               SelfHost.validate(source)
-            rescue Parsanol::ParseFailed
-              # fall through to line 0
+            rescue Parsanol::ParseFailed, ArtifactError
+              # a stale artifact (e.g. a sibling baked at a removed
+              # edition) must not break diagnostics — fall through to
+              # line 0
             end
           end
           diagnostics << diagnostic(line, e.message)

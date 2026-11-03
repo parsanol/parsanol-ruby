@@ -37,17 +37,21 @@ RSpec.describe "PARG diff" do
     expect(diff_levels(base_grammar, base_grammar)).to eq([:none, []])
   end
 
-  it "classifies an edition change as major and normalizes legacy spellings" do
+  it "normalizes the quoted spelling; a removed edition spelling still diffs as major" do
     source = base_grammar.sub('version "1.0.0" {', 'version "1.0.0" edition 2 {')
     one = JSON.parse(envelope_for(base_grammar))
     two = JSON.parse(envelope_for(source))
 
-    findings = Parsanol::PARG::Diff.diff(one, two)
+    # header-less and explicit edition 2 are the same edition now
+    expect(Parsanol::PARG::Diff.diff(one, two)).to eq([])
+
+    quoted = two.merge("edition" => "v2")
+    expect(Parsanol::PARG::Diff.diff(quoted, two)).to eq([])
+
+    legacy = two.merge("edition" => 1)
+    findings = Parsanol::PARG::Diff.diff(legacy, two)
     expect(Parsanol::PARG::Diff.level(findings)).to eq(:major)
     expect(findings.map(&:kind)).to include(:edition_changed)
-
-    legacy = two.merge("edition" => "v2")
-    expect(Parsanol::PARG::Diff.diff(legacy, two)).to eq([])
   end
 
   it "classifies a literal fix as patch" do
@@ -75,10 +79,15 @@ RSpec.describe "PARG diff" do
     expect(findings.map(&:kind)).to include(:branch_removed)
   end
 
-  it "classifies an added capture as minor" do
+  it "classifies an added capture as major (the wrap unwraps the newly captured refs)" do
+    # Edition 2 is the only edition: adding a capture also removes the
+    # modern-wrap Named layers around the newly captured references,
+    # so consumers' tree shape changes and the diff stays conservative.
+    # A wrap-aware diff refinement is a follow-up for the owners.
     new_source = base_grammar.sub('pair = word "=" word', 'pair = word as left "=" word')
-    level, _findings = diff_levels(base_grammar, new_source)
-    expect(level).to eq(:minor)
+    level, findings = diff_levels(base_grammar, new_source)
+    expect(level).to eq(:major)
+    expect(findings.map(&:kind)).to include(:capture_added)
   end
 
   it "classifies a removed capture as major" do

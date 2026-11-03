@@ -181,9 +181,12 @@ module Parsanol
       end
 
       # Artifacts baked before the numeric surface spell the edition
-      # "v1"/"v2"; they mean the same levels, not a change.
+      # Edition 2 is the only edition; envelopes that omit the field or
+      # spell it "v2" normalize to 2. Removed spellings (1/"v1"/"classic")
+      # pass through, so a legacy envelope still diffs as an edition
+      # change.
       def edition_level(envelope)
-        declared = envelope.fetch("edition", 1)
+        declared = envelope.fetch("edition", 2)
         Artifact::EDITION_ALIASES.fetch(declared, declared)
       end
 

@@ -18,11 +18,11 @@ module Parsanol
 
       IN_BLOCK_SECTIONS = %w[entry bindings preprocess test].freeze
 
-      # The header's edition spellings: the bare numbers are canonical
-      # (Rust's Cargo.toml model); the quoted forms stay accepted as
-      # aliases for grammars written before the numeric surface.
+      # The header's edition spellings: the bare number is canonical
+      # (Rust's Cargo.toml model); the quoted form stays accepted as an
+      # alias. Edition 1 was removed — grammars declaring it fail with
+      # the fix named.
       EDITIONS = {
-        "1" => "v1", "v1" => "v1", "classic" => "v1",
         "2" => "v2", "v2" => "v2"
       }.freeze
 
@@ -242,13 +242,12 @@ module Parsanol
               when :str then unquote(token.value)
               else
                 raise ParseError,
-                      "edition must be a number (1 or 2) or a quoted alias " \
-                      "(\"v1\", \"v2\", \"classic\")"
+                      "edition must be the number 2 or the quoted alias \"v2\""
               end
         EDITIONS.fetch(raw) do
           raise ParseError,
-                "unknown edition #{raw.inspect} -- supported editions are " \
-                "1 (default) and 2 (named trees)"
+                "edition #{raw.inspect} is not supported -- edition 1 was " \
+                "removed; write edition \"v2\" (named trees + spans)"
         end
       end
 
@@ -258,11 +257,9 @@ module Parsanol
         document.version = unquote(expect(:str).value)
         # `edition` — the language edition (ruby#304, ruby#357's
         # consolidation; Rust's Cargo.toml `edition` is the model):
-        # the author declares, per grammar, which tree semantics the
-        # grammar means. THE DEFAULT IS 1 (the legacy shapes — the
-        # owner's 2026-10-28 reversal). 2 = fully named trees +
-        # explicit spans. The edition is canonicalized here —
-        # everything downstream only ever sees "v1"/"v2". The
+        # edition 2 = fully named trees + explicit spans, and the ONLY
+        # edition (edition 1 was removed). The edition is canonicalized
+        # here — everything downstream only ever sees "v2". The
         # pre-1.3.113 `mode` alias was removed (the owner's
         # 2026-10-31 ruling): the header fails with the fix named.
         if peek&.type == :ident && peek.value == "edition"
@@ -270,7 +267,7 @@ module Parsanol
           document.edition = edition_value
         elsif peek&.type == :ident && peek.value == "mode"
           raise ParseError,
-                'the grammar header keyword is edition; mode (the pre-1.3.113 alias) was removed — write edition "v1" or edition "v2"'
+                'the grammar header keyword is edition; mode (the pre-1.3.113 alias) was removed — write edition "v2"'
         end
         punct("{")
         skip_newlines

@@ -22,7 +22,7 @@ RSpec.describe "compile isolation across grammars (ruby#404)" do
 
   def v1_source
     <<~PARG
-      grammar ConformanceEntries version "1.0.0" edition "v1" {
+      grammar ConformanceEntries version "1.0.0" edition "v2" {
         word = 1*%x61-7A as word
         num = 1*%x30-39 as num
         entry word: word

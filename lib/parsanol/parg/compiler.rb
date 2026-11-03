@@ -252,18 +252,17 @@ module Parsanol
 
       # Modern mode (ruby#304, the #315 spec): every rule reference
       # that produces no capture is wrapped in Named(rule_name) at
-      # compile time — the tree shape consumers read, opt-in via
-      # `mode` in the grammar header. Engines see ordinary
-      # Named atoms; identity rides the differential corpus.
+      # compile time — the tree shape consumers read. Edition 2 is the
+      # only edition, so the wrap is unconditional. Engines see
+      # ordinary Named atoms; identity rides the differential corpus.
       def apply_modern_captures(atom, rule_name)
-        return atom if @document.edition == "v1"
         # A glue rule's own body compiles unwrapped (parsanol-ruby#364):
         # the declaration means the tree never sees this subtree named,
         # inside or out.
         return atom if glue_rule?(rule_name)
         # A capture spans the rules it references (ruby#400): their
         # bodies compile unwrapped so the capture's value equals its
-        # edition-1 value.
+        # span-joined value.
         return atom if captured_reachable?(rule_name)
 
         wrap_uncaptured(atom)
@@ -502,52 +501,6 @@ module Parsanol
           produces_capture?(atom.parslet, seen)
         else
           false
-        end
-      end
-
-      # The migration radar (ruby#304 `parg lint --captures`): for a
-      # LEGACY grammar, every rule reference modern mode would wrap —
-      # reference site, target rule. The compiler's state is warm
-      # (all rules built) when the lint calls this.
-      def modern_radar
-        # The radar is the classic dialect's migration tool: on a v2
-        # grammar every reference is already named.
-        return [] if @document.edition != "v1"
-
-        lines = []
-        @document.rules.each_key do |name|
-          atom = @atom_cache[name]
-          next unless atom
-
-          radar_walk(atom, name, lines, [])
-        end
-        lines
-      end
-
-      def radar_walk(atom, site, lines, seen)
-        return if seen.include?(atom.object_id)
-
-        seen << atom.object_id
-        case atom
-        when Atoms::Named then nil
-        when Atoms::Entity
-          # Mirror wrap_uncaptured's verdicts: trivia glue, declared
-          # glue, capture-reachable refs (ruby#400 — a capture spans
-          # them, so modern mode never names them), and
-          # capture-producing refs all stay bare.
-          unless trivia_only?(atom.rule_name.to_s, { atom.rule_name.to_s => true }) ||
-              glue_rule?(atom.rule_name.to_s) ||
-              captured_reachable?(atom.rule_name.to_s) ||
-              produces_capture?(atom.parslet)
-            lines << "rule #{site}: reference to #{atom.rule_name} produces no capture -- " \
-                     "modern mode would name it #{atom.rule_name}"
-          end
-          radar_walk(atom.parslet, site, lines, seen)
-        when Atoms::Sequence, Atoms::Alternative
-          kids = atom.respond_to?(:alternatives) ? atom.alternatives : atom.parslets
-          kids.each { |child| radar_walk(child, site, lines, seen) }
-        when Atoms::Repetition
-          radar_walk(atom.parslet, site, lines, seen)
         end
       end
 
@@ -1424,9 +1377,9 @@ module Parsanol
         }
         # ruby#304: the envelope always names the capture edition —
         # consumers read the tree-shape contract before parsing. The
-        # numeric form is canonical: 1 = the legacy shapes, 2 = fully
-        # named trees + explicit spans.
-        envelope["edition"] = @document.edition == "v2" ? 2 : 1
+        # numeric form is canonical: 2 = fully named trees + explicit
+        # spans, the only edition.
+        envelope["edition"] = 2
         if @document.skip_declaration
           # parsanol-ruby#134: declared trivia rule. Injection is baked
           # into the compiled trees (plain atom kinds), so consumers
