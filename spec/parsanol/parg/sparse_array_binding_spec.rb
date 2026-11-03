@@ -4,8 +4,8 @@ require "parsanol"
 require "json"
 
 # Binding-harvest guards: the pairing semantics, the phantom contract,
-# the loud-loss check and the (text) span type — parsanol-ruby
-# #381/#408/#412/#413/#382.
+# the loud-loss check, the (text) span type and raw-ancestor coverage —
+# parsanol-ruby #381/#408/#412/#413/#382/#427.
 RSpec.describe "sparse array-binding pairing" do
   # parsanol-ruby#412/#408: the repetition-root fallback that gave this
   # grammar per-instance pairing claimed every repetition-root array as
@@ -261,6 +261,69 @@ RSpec.describe "sparse array-binding pairing" do
         ],
       }
       expect(Parsanol::PARG::Bindings.apply(artifact, entry, shape)).to eq({})
+    end
+  end
+
+  describe "raw-ancestor coverage (#427)" do
+    # A `(raw)` binding carries its ENTIRE subtree, so captures nested
+    # inside a raw-bound ancestor are delivered through it — even when
+    # the ancestor's subtree traverses a repetition array (the BS 9113
+    # `bundled_list` shape: `part` declared scalar + `parts[].part`, its
+    # occurrences living only inside the raw `bundled_list` array, while
+    # the shape's keyed `parts` instances carry nothing). Coverage is
+    # every hash key anywhere in the bound map, not per-binding leaf
+    # reach: the capture name reaching the map through ANY binding (a
+    # raw ancestor, a scalar, another path) is delivery. A capture name
+    # appearing NOWHERE in the bound map still raises — the true-loss
+    # class the #413 check exists for.
+    def artifact
+      source = <<~PARG
+        grammar RawCover version "1.0.0" edition 2 {
+          word = 1*( %x41-5A / %x61-7A )
+          digit = 1*( %x30-39 )
+          item_word = ( word ) as item_word
+          item_num = ( digit ) as item_num
+          item = ( item_word )
+          number = ( item_num )
+          bundle = ( ( 1*( item ) ) as bundled_items )
+          tail = ( ( 1*( number ) ) as items )
+          identifier = ( bundle [ ( tail ) ] )
+          entry identifier: identifier
+        }
+      PARG
+      envelope = Parsanol::PARG::Compiler.compile(Parsanol::PARG::Parser.new(source).parse).envelope
+      Parsanol::PARG::Artifact.from_json(JSON.generate(envelope))
+    end
+
+    def binding(capture, path, type = "string")
+      { "capture" => capture, "path" => path, "type" => type,
+        "card" => nil, "preprocess" => nil }
+    end
+
+    it "does not raise when the capture is nested inside a raw-bound repetition array" do
+      shape = artifact.parse("identifier", "AB12")
+      entry = {
+        "name" => "identifier",
+        "bindings" => [
+          binding("item_word", "item_word"),
+          binding("item_word", "items[].item_word"),
+          binding("bundled_items", "bundled_items", "raw"),
+        ],
+      }
+      expect { Parsanol::PARG::Bindings.apply(artifact, entry, shape) }
+        .not_to raise_error
+    end
+
+    it "still raises when nothing delivers the capture to the bound map" do
+      shape = artifact.parse("identifier", "AB12")
+      entry = {
+        "name" => "identifier",
+        "bindings" => [
+          binding("item_word", "items[].item_word"),
+        ],
+      }
+      expect { Parsanol::PARG::Bindings.apply(artifact, entry, shape) }
+        .to raise_error(Parsanol::PARG::BindError, /item_word.*present in the parse tree/m)
     end
   end
 
