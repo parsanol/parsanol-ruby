@@ -28,7 +28,7 @@ rb-sys = { version = "0.9.124", features = ["global-allocator"] }
 magnus = { version = "0.9" }
 
 # Native legacy compatibility and compact recursive parser results.
-parsanol = { version = "0.19.12", features = ["ruby"] }
+parsanol = { version = "0.20.0", features = ["ruby"] }
 
 # Logging
 log = "0.4"
