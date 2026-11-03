@@ -34,8 +34,8 @@ RSpec.describe Parsanol::PARG::Import do
       atom = result.atoms.fetch("identifier")
       parsed = atom.parse("ISO 1234")
       # edition 2: named captures, not folded strings
-      expect(parsed.map { |node| node[:publisher].to_s }).to eq(["ISO"])
-      expect(parsed.map { |node| node[:digit].to_s }).to eq(%w[1 2 3 4])
+      expect(parsed.filter_map { |node| node[:publisher].to_s if node[:publisher] }).to eq(["ISO"])
+      expect(parsed.filter_map { |node| node[:digit].to_s if node[:digit] }).to eq(%w[1 2 3 4])
     end
 
     it "keeps ABNF core rules available" do
@@ -77,8 +77,8 @@ RSpec.describe Parsanol::PARG::Import do
       result = compile_source(src)
       parsed = result.atoms.fetch("identifier").parse("iso-42")
       # edition 2: named captures, not folded strings
-      expect(parsed.map { |node| node[:publisher].to_s }).to eq(["iso"])
-      expect(parsed.map { |node| node[:digit].to_s }).to eq(%w[4 2])
+      expect(parsed.filter_map { |node| node[:publisher].to_s if node[:publisher] }).to eq(["iso"])
+      expect(parsed.filter_map { |node| node[:digit].to_s if node[:digit] }).to eq(%w[4 2])
     end
 
     it "approximates syntactic exceptions with lookahead" do

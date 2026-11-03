@@ -26,8 +26,8 @@ RSpec.describe "PARG core rules" do
     PARG
     tree = artifact_for(source).parse("document", "abc 42\r\n")
     # edition 2: named captures, not folded strings
-    expect(tree.map { |node| node[:word].to_s }).to eq(%w[abc])
-    expect(tree.map { |node| node[:digit].to_s }).to eq(%w[4 2])
+    expect(tree.filter_map { |node| node[:word].to_s if node[:word] }).to eq(%w[abc])
+    expect(tree.filter_map { |node| node[:digit].to_s if node[:digit] }).to eq(%w[4 2])
   end
 
   it "serves HEXDIG and HTAB" do
