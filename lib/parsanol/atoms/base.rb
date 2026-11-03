@@ -253,6 +253,14 @@ module Parsanol
       # consumer's file:line:col degrades to "line 1 char 1" when the
       # interpreter raises the outermost sequence instead. Explicit
       # reporters (Tree for full cause trees) are honored unchanged.
+      #
+      # A CUSTOM reporter's #err/#err_at return value is
+      # "implementation-specific" (ErrorReporter::Base) — it observes
+      # the failure events but is not obliged to hand back a Cause. The
+      # raise-able cause is then derived by re-parsing with the #265
+      # default, so the raised ParseFailed still carries the
+      # deepest-failure diagnostics (the interpreter tier crashed with
+      # NoMethodError on the reporter's raw return value before).
       def report_detailed_error(input, consume_all, reporter, _initial_error, compatibility: :strict)
         input.bytepos = 0
         error_reporter = reporter ||
@@ -262,6 +270,13 @@ module Parsanol
 
         # Second parse should also fail
         raise "Invariant violation: parse succeeded during error reporting" if success
+
+        unless cause.is_a?(Parsanol::Cause)
+          input.bytepos = 0
+          success, cause = run_with_context(input, Parsanol::ErrorReporter::Deepest.new,
+                                            consume_all, **context_options)
+          raise "Invariant violation: parse succeeded during error reporting" if success
+        end
 
         cause.raise
       end
