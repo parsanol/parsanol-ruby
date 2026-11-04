@@ -179,6 +179,42 @@ RSpec.describe "Native compatibility" do
       expect(body_copies.call(Parsanol::GrammarSerializer.serialize(grammar))).to eq(2)
     end
 
+    it "raises RecursionLimitExceeded, still a ParseFailed, for the native recursion-limit abort" do
+      parser = choice_parser
+      allow(Parsanol::Native).to receive(:_parse_handle_with_compatibility)
+        .and_raise(RuntimeError, "Recursion limit exceeded: depth 1001 exceeds limit of 1000")
+
+      expect { Parsanol::Native.parse(parser.root, "ab", compatibility: :parslet) }
+        .to raise_error(Parsanol::RecursionLimitExceeded, /\ARecursion limit exceeded/) { |error|
+          expect(error).to be_a(Parsanol::ParseFailed)
+          expect(error.parse_failure_cause.pos).to eq(0)
+        }
+    end
+
+    # The engine's recursion limit sits above the machine stack of
+    # Windows' main thread, so the real deep parse runs elsewhere.
+    it "raises RecursionLimitExceeded when nesting exceeds the native limit",
+       if: !/mingw|mswin|windows/.match?(Gem::Platform.local.os) do
+      parser = Class.new(Parsanol::Parser) do
+        rule(:group) { str("(") >> group.maybe >> str(")") }
+        root(:group)
+      end.new
+      input = ("(" * 1500) + (")" * 1500)
+
+      expect { Parsanol::Native.parse(parser.root, input, compatibility: :parslet) }
+        .to raise_error(Parsanol::RecursionLimitExceeded)
+      expect(Parsanol::Native.parse(parser.root, "(())", compatibility: :parslet).to_s).to eq("(())")
+    end
+
+    it "keeps an ordinary native refusal a plain ParseFailed" do
+      parser = choice_parser
+
+      expect { Parsanol::Native.parse(parser.root, "ax", compatibility: :parslet) }
+        .to raise_error(Parsanol::ParseFailed) { |error|
+          expect(error).not_to be_a(Parsanol::RecursionLimitExceeded)
+        }
+    end
+
     it "preserves the reference raw failure for a shared optional atom" do
       parser = Class.new(Parsanol::Parser) do
         rule(:document) do

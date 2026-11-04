@@ -402,12 +402,22 @@ module Parsanol
         BatchDecoder.decode_and_flatten(raw, input, Parsanol::Slice)
       end
 
+      # The native engine's recursion-limit abort (ParseError::
+      # RecursionLimitExceeded in parsanol-rs). It carries no position
+      # marker: it is a resource limit, not a refusal of the input.
+      NATIVE_RECURSION_LIMIT = /\A(?:Recursion limit exceeded\b|Maximum recursion depth \(\d+\) exceeded)/
+
       def raise_compatible_parse_error(error, input)
         message = error.message
         position = message[NATIVE_POS_MARKER, 1].to_i
         cause = Parsanol::Cause.new(message.sub(NATIVE_POS_MARKER, ""),
                                     Parsanol::Source.new(input), position)
-        raise Parsanol::ParseFailed.new(cause.to_s, cause), cause: nil
+        failure = if !message.match?(NATIVE_POS_MARKER) && message.match?(NATIVE_RECURSION_LIMIT)
+                    Parsanol::RecursionLimitExceeded
+                  else
+                    Parsanol::ParseFailed
+                  end
+        raise failure.new(cause.to_s, cause), cause: nil
       end
 
       # Reference-walker path (TODO.sota/8 B1): the plain recursive
