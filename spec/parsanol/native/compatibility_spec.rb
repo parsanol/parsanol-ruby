@@ -137,6 +137,48 @@ RSpec.describe "Native compatibility" do
         .to raise_error(Parsanol::ParseFailed)
     end
 
+    it "keeps one memo entry for a rule body shared by two references through recursion" do
+      # Two Entity objects over one body, as the PARG compiler emits per
+      # rule reference. The second reference is reached again inside the
+      # body. Parslet replays the first reference's prefix answer for the
+      # second, so the consume-all check refuses "ab"; a duplicated wire
+      # atom made the native engine re-run it and accept {long: "ab"}.
+      second = nil
+      body = Parsanol::Atoms::Alternative.new(
+        Parsanol::Atoms::Str.new("a").as(:short),
+        (Parsanol::Atoms::Str.new("a") >> Parsanol::Atoms::Str.new("b")).as(:long),
+        (Parsanol::Atoms::Str.new("(") >> Parsanol::Atoms::Entity.new("ref") { second } >>
+          Parsanol::Atoms::Str.new(")")).as(:paren),
+      )
+      first = Parsanol::Atoms::Entity.new("body") { body }
+      second = Parsanol::Atoms::Entity.new("body") { body }
+      grammar = (first >> Parsanol::Atoms::Str.new("x")) | second
+
+      expect { grammar.parse("ab", compatibility: :parslet) }.to raise_error(Parsanol::ParseFailed)
+      expect { Parsanol::Native.parse(grammar, "ab", compatibility: :parslet) }
+        .to raise_error(Parsanol::ParseFailed)
+      expect(plain(Parsanol::Native.parse(grammar, "(a)x", compatibility: :parslet)))
+        .to eq(plain(grammar.parse("(a)x", compatibility: :parslet)))
+    end
+
+    it "serializes each atom once for Parslet compatibility and keeps the strict layout" do
+      second = nil
+      body = Parsanol::Atoms::Str.new("a") | (Parsanol::Atoms::Str.new("(") >>
+        Parsanol::Atoms::Entity.new("ref") { second } >> Parsanol::Atoms::Str.new(")"))
+      first = Parsanol::Atoms::Entity.new("body") { body }
+      second = Parsanol::Atoms::Entity.new("body") { body }
+      grammar = first | second
+      body_copies = lambda do |json|
+        wire = JSON.parse(json)
+        wire["atoms"].each_with_index.count do |atom, id|
+          id != wire["root"] && atom.key?("Alternative")
+        end
+      end
+
+      expect(body_copies.call(Parsanol::GrammarSerializer.serialize(grammar, preserve_identity: true))).to eq(1)
+      expect(body_copies.call(Parsanol::GrammarSerializer.serialize(grammar))).to eq(2)
+    end
+
     it "raises RecursionLimitExceeded, still a ParseFailed, for the native recursion-limit abort" do
       parser = choice_parser
       allow(Parsanol::Native).to receive(:_parse_handle_with_compatibility)
