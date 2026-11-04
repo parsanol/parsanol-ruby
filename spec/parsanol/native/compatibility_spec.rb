@@ -137,6 +137,30 @@ RSpec.describe "Native compatibility" do
         .to raise_error(Parsanol::ParseFailed)
     end
 
+    it "raises RecursionLimitExceeded, still a ParseFailed, when nesting exceeds the native limit" do
+      parser = Class.new(Parsanol::Parser) do
+        rule(:group) { str("(") >> group.maybe >> str(")") }
+        root(:group)
+      end.new
+      input = ("(" * 1500) + (")" * 1500)
+
+      expect { Parsanol::Native.parse(parser.root, input, compatibility: :parslet) }
+        .to raise_error(Parsanol::RecursionLimitExceeded, /\ARecursion limit exceeded/) { |error|
+          expect(error).to be_a(Parsanol::ParseFailed)
+          expect(error.parse_failure_cause.pos).to eq(0)
+        }
+      expect(Parsanol::Native.parse(parser.root, "(())", compatibility: :parslet).to_s).to eq("(())")
+    end
+
+    it "keeps an ordinary native refusal a plain ParseFailed" do
+      parser = choice_parser
+
+      expect { Parsanol::Native.parse(parser.root, "ax", compatibility: :parslet) }
+        .to raise_error(Parsanol::ParseFailed) { |error|
+          expect(error).not_to be_a(Parsanol::RecursionLimitExceeded)
+        }
+    end
+
     it "preserves the reference raw failure for a shared optional atom" do
       parser = Class.new(Parsanol::Parser) do
         rule(:document) do

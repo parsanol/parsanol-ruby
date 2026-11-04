@@ -66,6 +66,13 @@ module Parsanol
     attr_reader :parse_failure_cause
   end
 
+  # Raised when the native engine stops because the input nests deeper
+  # than its recursion limit. A subclass of ParseFailed with the same
+  # message and cause, so existing rescues behave as before; callers that
+  # want to retry on another engine can rescue this class instead of
+  # matching the message.
+  class RecursionLimitExceeded < ParseFailed; end
+
   # Class methods added to classes that include Parsanol.
   module ClassMethods
     # Enable automatic rule optimization for all rules in this parser.
