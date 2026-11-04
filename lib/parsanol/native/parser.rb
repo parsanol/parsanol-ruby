@@ -99,7 +99,7 @@ module Parsanol
             return handle
           end
 
-          json = legacy ? GrammarSerializer.serialize(root_atom) : grammar_json(root_atom)
+          json = legacy ? GrammarSerializer.serialize(root_atom, preserve_identity: true) : grammar_json(root_atom)
           handle = Native._register_grammar(json)
           HANDLE_CACHE[cache_key] = handle
           trim_caches

@@ -8,14 +8,22 @@ module Parsanol
     # Serialize a Parslet grammar (root atom) to JSON string
     #
     # @param root [Parsanol::Atoms::Base] The root atom of the grammar
+    # @param preserve_identity [Boolean] emit exactly one wire atom per
+    #   Ruby atom, even when an atom is reached again through a recursive
+    #   rule while its own children are still being serialized. Parslet
+    #   compatibility needs this: its memo is keyed by atom identity, so a
+    #   duplicated wire atom splits one memo entry in two and the native
+    #   engine can pick a different alternative than the Ruby engine. The
+    #   default keeps the established wire layout of strict grammars.
     # @return [String] JSON representation of the grammar
-    def self.serialize(root)
+    def self.serialize(root, preserve_identity: false)
       # Create fresh instance for each serialization
       # (state is specific to each grammar)
-      new.serialize(root)
+      new(preserve_identity: preserve_identity).serialize(root)
     end
 
-    def initialize
+    def initialize(preserve_identity: false)
+      @preserve_identity = preserve_identity
       @atoms = []
       @atom_cache = {} # object_id => atom_id for deduplication
       # Strong retention: cache keys are object_ids; without holding the
@@ -52,74 +60,19 @@ module Parsanol
       # Don't create a new atom, just resolve and return the referenced atom_id
       return serialize_entity(atom) if atom.is_a?(Parsanol::Atoms::Entity)
 
-      # Serialize based on atom type first (recursively)
-      serialized = case atom
-                   when Parsanol::Atoms::Str
-                     serialize_str(atom)
-                   when Parsanol::Atoms::Re
-                     serialize_re(atom)
-                   when Parsanol::Atoms::Sequence
-                     serialize_sequence(atom)
-                   when Parsanol::Atoms::Alternative
-                     serialize_alternative(atom)
-                   when Parsanol::Atoms::Repetition
-                     serialize_repetition(atom)
-                   when Parsanol::Atoms::Named
-                     serialize_named(atom)
-                   when Parsanol::Atoms::Lookahead
-                     serialize_lookahead(atom)
-                   when Parsanol::Atoms::Capture
-                     serialize_capture(atom)
-                   when Parsanol::Atoms::Scope
-                     serialize_scope(atom)
-                   when Parsanol::Atoms::StateSet
-                     serialize_state_set(atom)
-                   when Parsanol::Atoms::StateMatch
-                     serialize_state_match(atom)
-                   when Parsanol::Atoms::StateSwitch
-                     serialize_state_switch(atom)
-                   when Parsanol::Atoms::CustomRef
-                     serialize_custom_ref(atom)
-                   when Parsanol::Atoms::Dynamic
-                     serialize_dynamic(atom)
-                   when Parsanol::Atoms::TriviaCapture
-                     # parsanol-ruby#152: the capture wrapper carries
-                     # its marker table so the native engine records
-                     # comment-shaped units into the pending channel
-                     # and attaches them to the next Named capture
-                     # under `comments:`. A distinct variant keeps the
-                     # declared gate: engines predating it reject
-                     # capture-carrying artifacts loudly.
-                     serialize_trivia_capture(atom)
-                   when Parsanol::Atoms::Trivia
-                     # Wire-distinct from Ignore (rs#172): the Rust
-                     # engine suppresses trivia-position diagnostics by
-                     # atom kind. Engines predating the Trivia tag
-                     # reject skip-carrying artifacts loudly (unknown
-                     # variant), which is the declared gate.
-                     serialize_trivia(atom)
-                   when Parsanol::Atoms::Constant
-                     # rs#137 follow-up: coradoc-markdown's Output
-                     # atoms — empty match yielding a wire constant.
-                     { "Constant" => { "value" => serialize_constant_value(atom.value) } }
-                   when Parsanol::Atoms::Lookbehind
-                     # rs#137/#163: the behind-window test — a fixed
-                     # literal window or an end-anchored regex (the
-                     # CommonMark flanking form).
-                     look = if atom.regex?
-                              { "Regex" => { "source" => atom.regex_source } }
-                            else
-                              { "Literal" => { "count" => atom.count,
-                                               "pattern" => atom.pattern } }
-                            end
-                     { "Lookbehind" => { "look" => look,
-                                         "positive" => atom.positive } }
-                   when Parsanol::Atoms::Ignored
-                     serialize_ignored(atom)
-                   else
-                     # Fallback for unknown atom types
-                     serialize_unknown(atom)
-                   end
+      # Reserve the id before the children, as serialize_entity does, so a
+      # recursive path back to this atom reuses it instead of emitting a
+      # second copy.
+      if @preserve_identity
+        atom_id = @atoms.size
+        @atom_cache[cache_key] = atom_id
+        @retained_atoms << atom
+        @atoms << nil
+        @atoms[atom_id] = serialize_body(atom)
+        return atom_id
+      end
+
+      serialized = serialize_body(atom)
 
       # Now reserve an atom_id and cache
       atom_id = @atoms.size
@@ -128,6 +81,77 @@ module Parsanol
       @atoms << serialized
 
       atom_id
+    end
+
+    def serialize_body(atom)
+      # Serialize based on atom type first (recursively)
+      case atom
+      when Parsanol::Atoms::Str
+        serialize_str(atom)
+      when Parsanol::Atoms::Re
+        serialize_re(atom)
+      when Parsanol::Atoms::Sequence
+        serialize_sequence(atom)
+      when Parsanol::Atoms::Alternative
+        serialize_alternative(atom)
+      when Parsanol::Atoms::Repetition
+        serialize_repetition(atom)
+      when Parsanol::Atoms::Named
+        serialize_named(atom)
+      when Parsanol::Atoms::Lookahead
+        serialize_lookahead(atom)
+      when Parsanol::Atoms::Capture
+        serialize_capture(atom)
+      when Parsanol::Atoms::Scope
+        serialize_scope(atom)
+      when Parsanol::Atoms::StateSet
+        serialize_state_set(atom)
+      when Parsanol::Atoms::StateMatch
+        serialize_state_match(atom)
+      when Parsanol::Atoms::StateSwitch
+        serialize_state_switch(atom)
+      when Parsanol::Atoms::CustomRef
+        serialize_custom_ref(atom)
+      when Parsanol::Atoms::Dynamic
+        serialize_dynamic(atom)
+      when Parsanol::Atoms::TriviaCapture
+        # parsanol-ruby#152: the capture wrapper carries
+        # its marker table so the native engine records
+        # comment-shaped units into the pending channel
+        # and attaches them to the next Named capture
+        # under `comments:`. A distinct variant keeps the
+        # declared gate: engines predating it reject
+        # capture-carrying artifacts loudly.
+        serialize_trivia_capture(atom)
+      when Parsanol::Atoms::Trivia
+        # Wire-distinct from Ignore (rs#172): the Rust
+        # engine suppresses trivia-position diagnostics by
+        # atom kind. Engines predating the Trivia tag
+        # reject skip-carrying artifacts loudly (unknown
+        # variant), which is the declared gate.
+        serialize_trivia(atom)
+      when Parsanol::Atoms::Constant
+        # rs#137 follow-up: coradoc-markdown's Output
+        # atoms — empty match yielding a wire constant.
+        { "Constant" => { "value" => serialize_constant_value(atom.value) } }
+      when Parsanol::Atoms::Lookbehind
+        # rs#137/#163: the behind-window test — a fixed
+        # literal window or an end-anchored regex (the
+        # CommonMark flanking form).
+        look = if atom.regex?
+                 { "Regex" => { "source" => atom.regex_source } }
+               else
+                 { "Literal" => { "count" => atom.count,
+                                  "pattern" => atom.pattern } }
+               end
+        { "Lookbehind" => { "look" => look,
+                            "positive" => atom.positive } }
+      when Parsanol::Atoms::Ignored
+        serialize_ignored(atom)
+      else
+        # Fallback for unknown atom types
+        serialize_unknown(atom)
+      end
     end
 
     def serialize_str(atom)
