@@ -26,6 +26,7 @@ module Parsanol
     autoload :Compiler, "parsanol/parg/compiler"
     autoload :Artifact, "parsanol/parg/artifact"
     autoload :Bindings, "parsanol/parg/bindings"
+    autoload :ModelBindings, "parsanol/parg/model_bindings"
     autoload :Render, "parsanol/parg/render"
     autoload :Derive, "parsanol/parg/derive"
     autoload :SelfHost, "parsanol/parg/selfhost"
