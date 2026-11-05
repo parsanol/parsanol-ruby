@@ -90,8 +90,16 @@ module Parsanol
 
       private
 
-      # Recursively finds the leaf node with the greatest depth (rank) in
-      # the error tree. The deepest leaf is the one furthest from root.
+      # Finds the leaf node with the greatest depth (rank) in the error tree.
+      # The deepest leaf is the one furthest from root; among leaves at the
+      # same depth the first one in child order wins.
+      #
+      # Each err call reports a cause whose children are causes reported
+      # earlier, so the same subtrees come back again and again. Their height
+      # and deepest leaf are remembered for the reporter's lifetime (one
+      # parse), which keeps a long refusal linear instead of rewalking every
+      # shared subtree on each call. Causes are not changed after they are
+      # built, so a remembered answer stays correct.
       #
       # @param node [Parsanol::Cause] current node in error tree
       # @param rank [Integer] current depth from root
@@ -100,24 +108,49 @@ module Parsanol
       def find_deepest_leaf(node, rank = 0)
         return [rank, node] if node.nil?
 
-        best_node = node
-        best_rank = rank
+        height, leaf = height_and_leaf(node)
+        [rank + height, leaf]
+      end
 
-        kids = node.children
-        if kids && !kids.empty?
-          kids.each do |kid|
-            next if kid.nil?
+      # [height below +root+, deepest leaf], computed iteratively so a deep
+      # cause tree does not exhaust the Ruby stack.
+      def height_and_leaf(root)
+        memo = (@height_memo ||= {}.compare_by_identity)
+        known = memo[root]
+        return known if known
 
-            kid_rank, kid_node = find_deepest_leaf(kid, rank + 1)
+        stack = [root, false]
+        until stack.empty?
+          expanded = stack.pop
+          node = stack.pop
+          next if memo.key?(node)
 
-            if kid_rank > best_rank
-              best_rank = kid_rank
-              best_node = kid_node
-            end
+          kids = node.children
+          if kids.nil? || kids.empty?
+            memo[node] = [0, node]
+          elsif expanded
+            memo[node] = deepest_of(node, kids, memo)
+          else
+            stack.push(node, true)
+            kids.reverse_each { |kid| stack.push(kid, false) unless kid.nil? || memo.key?(kid) }
           end
         end
+        memo[root]
+      end
 
-        [best_rank, best_node]
+      def deepest_of(node, kids, memo)
+        best_height = 0
+        best_node = node
+        kids.each do |kid|
+          next if kid.nil?
+
+          kid_height, kid_leaf = memo[kid]
+          next unless kid_height + 1 > best_height
+
+          best_height = kid_height + 1
+          best_node = kid_leaf
+        end
+        [best_height, best_node]
       end
     end
   end
