@@ -80,4 +80,57 @@ describe Parsanol::ErrorReporter::Deepest do
       end
     end
   end
+
+  describe "shared cause subtrees" do
+    def cause(pos, children = nil)
+      Struct.new(:pos, :children).new(pos, children)
+    end
+
+    # The walk before memoisation, kept as the reference answer.
+    def reference_leaf(node, rank = 0)
+      return [rank, node] if node.nil?
+
+      best = [rank, node]
+      (node.children || []).each do |kid|
+        next if kid.nil?
+
+        kid_best = reference_leaf(kid, rank + 1)
+        best = kid_best if kid_best.first > best.first
+      end
+      best
+    end
+
+    it "keeps the first deepest leaf in child order, as the recursive walk did" do
+      leaf_a = cause(1)
+      leaf_b = cause(2)
+      root = cause(0, [cause(3, [leaf_a]), nil, cause(4, [leaf_b])])
+
+      expect(reporter.send(:find_deepest_leaf, root, 2)).to eq([4, leaf_a])
+      expect(reporter.send(:find_deepest_leaf, root, 2)).to eq(reference_leaf(root, 2))
+    end
+
+    it "matches the recursive walk on random trees that share subtrees" do
+      rng = Random.new(541)
+      pool = Array.new(6) { |i| cause(i) }
+      40.times do |i|
+        kids = Array.new(rng.rand(0..3)) { rng.rand < 0.1 ? nil : pool.sample(random: rng) }
+        pool << cause(100 + i, kids)
+      end
+      pool.last(10).each do |root|
+        expect(reporter.send(:find_deepest_leaf, root)).to eq(reference_leaf(root))
+      end
+    end
+
+    it "stays fast when every level reuses the level below twice" do
+      node = cause(0)
+      60.times { |i| node = cause(i + 1, [node, node]) }
+
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      depth, leaf = reporter.send(:find_deepest_leaf, node)
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+
+      expect([depth, leaf.pos]).to eq([60, 0])
+      expect(elapsed).to be < 1
+    end
+  end
 end
