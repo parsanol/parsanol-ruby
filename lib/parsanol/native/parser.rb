@@ -106,6 +106,36 @@ module Parsanol
           handle
         end
 
+        # The handle for the per-reference layout, the one Parslet
+        # compatibility used before it serialized each atom once. A shared
+        # wire atom shares one memo entry, so a reference that replays a
+        # successful prefix never re-runs the body; the speculative
+        # failures of that first run are dropped with its success, and the
+        # deepest position left in the failure is shallower than before.
+        # The per-reference layout is kept to recover that position only.
+        # nil when both layouts are the same and a second run would only
+        # repeat the first.
+        def diagnostics_handle(root_atom)
+          root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
+          cache_key = [:parslet_diagnostics, root_atom]
+          if HANDLE_CACHE.key?(cache_key)
+            handle = HANDLE_CACHE.delete(cache_key)
+            HANDLE_CACHE[cache_key] = handle
+            return handle || nil
+          end
+
+          # The shared layout numbers atoms in another order, so the
+          # layouts are compared by size: the per-reference layout only
+          # ever adds copies.
+          json = GrammarSerializer.serialize(root_atom)
+          shared = GrammarSerializer.serialize(root_atom, preserve_identity: true)
+          same = JSON.parse(json)["atoms"].size == JSON.parse(shared)["atoms"].size
+          handle = same ? false : Native._register_grammar(json)
+          HANDLE_CACHE[cache_key] = handle
+          trim_caches
+          handle || nil
+        end
+
         # Drop a handle whose Rust-side entry no longer exists; the next
         # grammar_handle call re-registers.
         def invalidate_handle(handle)
@@ -113,7 +143,7 @@ module Parsanol
         end
 
         def clear_cache
-          HANDLE_CACHE.each_value { |handle| Native._release_grammar(handle) }
+          HANDLE_CACHE.each_value { |handle| Native._release_grammar(handle) if handle }
           GRAMMAR_HASH_CACHE.clear
           GRAMMAR_CACHE.clear
           HANDLE_CACHE.clear
@@ -167,7 +197,7 @@ module Parsanol
             key, handle = HANDLE_CACHE.first
             HANDLE_CACHE.delete(key)
             GRAMMAR_CACHE.delete(key)
-            Native._release_grammar(handle)
+            Native._release_grammar(handle) if handle
           end
           GRAMMAR_CACHE.shift while GRAMMAR_CACHE.size > CACHE_LIMIT
         end

@@ -394,12 +394,42 @@ module Parsanol
               Parser.grammar_handle(grammar, compatibility: :parslet), input, "parslet"
             )
           rescue RuntimeError => e
-            raise_compatible_parse_error(e, input)
+            raise_compatible_parse_error(per_reference_refusal(grammar, input, e), input)
           end
         rescue RuntimeError => e
-          raise_compatible_parse_error(e, input)
+          raise_compatible_parse_error(per_reference_refusal(grammar, input, e), input)
         end
         BatchDecoder.decode_and_flatten(raw, input, Parsanol::Slice)
+      end
+
+      # The refusal to report for a Parslet-compatible parse. The shared
+      # layout decides whether the input is accepted; when it refuses,
+      # the per-reference layout is run once more for the position and
+      # message, so the reported refusal is the one the engine gave
+      # before each atom was serialized once (see
+      # Parser.diagnostics_handle). The shared refusal stands when the
+      # per-reference layout accepts the input, stops on a resource limit,
+      # or is the same layout.
+      def per_reference_refusal(grammar, input, error)
+        return error unless error.message.match?(NATIVE_POS_MARKER)
+
+        retried = false
+        begin
+          handle = Parser.diagnostics_handle(grammar)
+          return error unless handle
+
+          _parse_handle_with_compatibility(handle, input, "parslet")
+          error
+        rescue ArgumentError
+          return error if retried
+
+          # A released handle: register it again once.
+          Parser.invalidate_handle(handle)
+          retried = true
+          retry
+        rescue RuntimeError => e
+          e.message.match?(NATIVE_POS_MARKER) ? e : error
+        end
       end
 
       # The native engine's recursion-limit abort (ParseError::
