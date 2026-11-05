@@ -215,6 +215,74 @@ RSpec.describe "Native compatibility" do
         }
     end
 
+    # Two Entity objects over one recursive body, as in the memo spec
+    # above. The first reference reads "a" as a prefix and fails on ";";
+    # the second replays that prefix answer and fails the consume-all check
+    # at 1. Only a fresh run of the body under consume-all reaches the
+    # regex at 2, which is where the Deepest reporter and the native
+    # engine before the shared layout put the refusal.
+    def deeper_refusal_grammar
+      second = nil
+      body = Parsanol::Atoms::Alternative.new(
+        Parsanol::Atoms::Str.new("a") >> Parsanol::Atoms::Str.new("+") >> Parsanol::Atoms::Re.new("[a-z]"),
+        Parsanol::Atoms::Str.new("a"),
+        Parsanol::Atoms::Str.new("[") >> Parsanol::Atoms::Entity.new("ref") { second } >>
+          Parsanol::Atoms::Str.new("]"),
+      )
+      first = Parsanol::Atoms::Entity.new("body") { body }
+      second = Parsanol::Atoms::Entity.new("body") { body }
+      (first >> Parsanol::Atoms::Str.new(";")) | second
+    end
+
+    def deepest_position(cause)
+      [cause.position, *cause.children.compact.map { |child| deepest_position(child) }].compact.max
+    end
+
+    def native_refusal_position(grammar, input)
+      Parsanol::Native.parse(grammar, input, compatibility: :parslet)
+      nil
+    rescue Parsanol::ParseFailed => e
+      e.parse_failure_cause.position
+    end
+
+    it "reports the refusal position of the per-reference layout" do
+      grammar = deeper_refusal_grammar
+      deepest = begin
+        grammar.parse("a+?", compatibility: :parslet, reporter: Parsanol::ErrorReporter::Deepest.new)
+      rescue Parsanol::ParseFailed => e
+        deepest_position(e.parse_failure_cause)
+      end
+
+      expect(deepest).to eq(2)
+      expect(native_refusal_position(grammar, "a+?")).to eq(2)
+      expect(native_refusal_position(grammar, "a+")).to eq(2)
+      expect(plain(Parsanol::Native.parse(grammar, "a+b", compatibility: :parslet)))
+        .to eq(plain(grammar.parse("a+b", compatibility: :parslet)))
+    end
+
+    it "keeps the shared-layout refusal when the per-reference layout accepts the input" do
+      second = nil
+      body = Parsanol::Atoms::Alternative.new(
+        Parsanol::Atoms::Str.new("a").as(:short),
+        (Parsanol::Atoms::Str.new("a") >> Parsanol::Atoms::Str.new("b")).as(:long),
+        (Parsanol::Atoms::Str.new("(") >> Parsanol::Atoms::Entity.new("ref") { second } >>
+          Parsanol::Atoms::Str.new(")")).as(:paren),
+      )
+      first = Parsanol::Atoms::Entity.new("body") { body }
+      second = Parsanol::Atoms::Entity.new("body") { body }
+      grammar = (first >> Parsanol::Atoms::Str.new("x")) | second
+
+      expect(native_refusal_position(grammar, "ab")).to eq(1)
+    end
+
+    it "runs a refused parse once when both layouts are the same" do
+      parser = choice_parser
+      expect(Parsanol::Native).to receive(:_parse_handle_with_compatibility).once.and_call_original
+
+      expect { Parsanol::Native.parse(parser.root, "ax", compatibility: :parslet) }
+        .to raise_error(Parsanol::ParseFailed)
+    end
+
     it "preserves the reference raw failure for a shared optional atom" do
       parser = Class.new(Parsanol::Parser) do
         rule(:document) do
