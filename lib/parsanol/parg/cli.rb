@@ -41,9 +41,12 @@ module Parsanol
           export  <file|artifact.json> --target xgrammar
                                             lower the compiled artifact to a
                                             decoder-facing grammar (ruby#321)
-          lint    <file> [--suggest-upgrades]
+          lint    <file> [--captures] [--suggest-upgrades]
                                             print lint errors (exit 1) and
-                                            warnings; the flag adds
+                                            warnings; --captures adds the
+                                            dead-capture report (captures no
+                                            bindings path references);
+                                            --suggest-upgrades adds
                                             machine-applicable upgrades
 
         options:
@@ -67,6 +70,7 @@ module Parsanol
           @argv.delete_at(index)
         end
         @json = !!@argv.delete("--json")
+        @captures = !!@argv.delete("--captures")
         @suggest_upgrades = !!@argv.delete("--suggest-upgrades")
         command = @argv.shift
         case command
@@ -87,7 +91,15 @@ module Parsanol
           1
         end
       rescue Parsanol::PARG::Error, Parsanol::ParseFailed => e
+        # The diagnostic always reaches stderr, tty or not (ruby#462):
+        # bake gates capture pipes, and a bare non-zero exit tells the
+        # author nothing. With --json the same payload also lands on
+        # stdout as one machine-readable line, so gates print structured
+        # diagnostics instead of scraping text.
         warn "#{e.class}: #{e.message}"
+        if @json
+          puts JSON.generate({ "error" => { "class" => e.class.name, "message" => e.message } })
+        end
         1
       end
 
@@ -140,6 +152,17 @@ module Parsanol
         if @suggest_upgrades
           Lints::CoreRuleDuplicates.new.warnings(document, compiler)
             .each { |upgrade| puts "upgrade: #{upgrade}" }
+        end
+        # ruby#461: --captures is the dead-capture report — the converse
+        # of the compile-time binding validation. A binding naming a
+        # capture the grammar never produces fails the build; a capture
+        # no bindings path references becomes visible here, on demand.
+        if @captures
+          Lints.strategies[:binding_coverage].report(document).each do |rule, captures|
+            captures.each do |capture|
+              puts "rule #{rule}: capture #{capture.inspect} is not referenced by any bindings path"
+            end
+          end
         end
         0
       rescue Parsanol::PARG::ParseError, Parsanol::PARG::Error => e
