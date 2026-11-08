@@ -137,7 +137,16 @@ jobs:
               --body-file /tmp/bump-pr-body.md \
               --head "$BRANCH")
             echo "Bump PR: $PR_URL (auto-merge enabled; waiting for its CI + merge)"
-            gh pr merge --auto --merge "$PR_URL"
+            # Tolerate the already-mergeable case (ruby#465): when the PR
+            # has no pending checks, the enable-auto-merge mutation fails
+            # with "Pull request is in clean status" BECAUSE GitHub merged
+            # it immediately — an error payload that used to kill the
+            # release after the bump landed. Whether auto-merge was set
+            # or the PR merged outright, the wait loop below drives the
+            # rest of the release.
+            gh pr merge --auto --merge "$PR_URL" || {
+              gh pr view "${PR_URL##*/}" --json state,mergedAt --jq '"\(.state) \(.mergedAt)"'
+            }
 
             # Wait for the auto-merge to land. The merge's push cannot
             # trigger this workflow (GITHUB_TOKEN events are suppressed),
