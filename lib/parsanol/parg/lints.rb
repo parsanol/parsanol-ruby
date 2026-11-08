@@ -310,6 +310,27 @@ module Parsanol
 
         def errors(_document, _compiler) = []
 
+        # ruby#461: the `parg lint --captures` report — for every rule,
+        # the captures its own body produces that no bindings path
+        # references. Unlike the advisory above, this fires on demand
+        # (including on grammars that opted out of binding), scopes
+        # findings to the rule whose bindings section can reference
+        # them, and never follows rule references: a capture belongs to
+        # the rule whose body declares it.
+        def report(document)
+          bound = []
+          document.bindings.each_value do |list|
+            Array(list).each { |binding| bound << binding.capture }
+          end
+
+          document.rules.filter_map do |rule, node|
+            captures = []
+            collect_captures(node, document, captures, { rule => true }, follow_refs: false)
+            dead = captures.uniq.reject { |capture| bound.include?(capture) }
+            [rule, dead] unless dead.empty?
+          end.to_h
+        end
+
         private
 
         def produced_captures(document)
@@ -321,24 +342,26 @@ module Parsanol
           captures.uniq
         end
 
-        def collect_captures(node, document, captures, seen)
+        def collect_captures(node, document, captures, seen, follow_refs: true)
           case node.kind
           when :cap
             captures << node.a
-            collect_captures(node.b, document, captures, seen)
+            collect_captures(node.b, document, captures, seen, follow_refs: follow_refs)
           when :ref
+            return unless follow_refs
+
             rule = node.a
             return if seen[rule]
 
             seen[rule] = true
             target = document.rules[rule]
-            collect_captures(target, document, captures, seen) if target
+            collect_captures(target, document, captures, seen, follow_refs: follow_refs) if target
           when :alt, :seq
-            node.a.each { |child| collect_captures(child, document, captures, seen) }
+            node.a.each { |child| collect_captures(child, document, captures, seen, follow_refs: follow_refs) }
           when :pred
-            collect_captures(node.b, document, captures, seen)
+            collect_captures(node.b, document, captures, seen, follow_refs: follow_refs)
           when :rep, :opt
-            collect_captures(node.a, document, captures, seen)
+            collect_captures(node.a, document, captures, seen, follow_refs: follow_refs)
           end
         end
       end
