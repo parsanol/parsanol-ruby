@@ -87,7 +87,15 @@ module Parsanol
           1
         end
       rescue Parsanol::PARG::Error, Parsanol::ParseFailed => e
+        # The diagnostic always reaches stderr, tty or not (ruby#462):
+        # bake gates capture pipes, and a bare non-zero exit tells the
+        # author nothing. With --json the same payload also lands on
+        # stdout as one machine-readable line, so gates print structured
+        # diagnostics instead of scraping text.
         warn "#{e.class}: #{e.message}"
+        if @json
+          puts JSON.generate({ "error" => { "class" => e.class.name, "message" => e.message } })
+        end
         1
       end
 
