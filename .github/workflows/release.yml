@@ -144,9 +144,20 @@ jobs:
             # release after the bump landed. Whether auto-merge was set
             # or the PR merged outright, the wait loop below drives the
             # rest of the release.
-            gh pr merge --auto --merge "$PR_URL" || {
-              gh pr view "${PR_URL##*/}" --json state,mergedAt --jq '"\(.state) \(.mergedAt)"'
-            }
+            if ! gh pr merge --auto --merge "$PR_URL"; then
+              # The enable can fail transiently (an API hiccup) or
+              # because GitHub merged instantly ("clean status"). In
+              # both cases the wait loop below finishes the job -- but
+              # only if the PR is actually heading somewhere: when it
+              # sits mergeable with nothing merging it (the 1.3.136
+              # release), merge it here instead of timing out an hour
+              # later.
+              gh pr view "${PR_URL##*/}" --json state,mergeable --jq '"\(.state) mergeable=\(.mergeable)"'
+              if [ "$(gh pr view "${PR_URL##*/}" --json state --jq .state)" = "OPEN" ] &&
+                 [ "$(gh pr view "${PR_URL##*/}" --json mergeable --jq .mergeable)" = "MERGEABLE" ]; then
+                gh pr merge "${PR_URL##*/}" --squash
+              fi
+            fi
 
             # Wait for the auto-merge to land. The merge's push cannot
             # trigger this workflow (GITHUB_TOKEN events are suppressed),
