@@ -3,10 +3,10 @@
 module Parsanol
   module PARG
     # Lowers a compiled artifact to a decoder-facing grammar form
-    # (ruby#321): XGrammar's EBNF dialect first. One artifact feeding
-    # both worlds is the point — human-facing PARG with provenance,
-    # tests, and five-engine replay on one side; the constrained
-    # decoder on the other.
+    # (ruby#321): XGrammar's EBNF dialect, and llguidance's Lark subset
+    # (ruby#460). One artifact feeding both worlds is the point —
+    # human-facing PARG with provenance, tests, and five-engine replay
+    # on one side; the constrained decoder on the other.
     #
     # The supported subset lowers 1:1. Everything the target cannot
     # express — lookaround, behind-guards, custom atoms, fold groups —
@@ -16,7 +16,7 @@ module Parsanol
       class Error < StandardError
       end
 
-      TARGETS = %i[xgrammar].freeze
+      TARGETS = %i[xgrammar llguidance].freeze
 
       class << self
         # `recovery: true` lowers each declared `resync <rule> = <pattern>`
@@ -28,30 +28,35 @@ module Parsanol
         def call(artifact_json, target: :xgrammar, recovery: false)
           case target
           when :xgrammar then Xgrammar.new(artifact_json, recovery: recovery).call
+          when :llguidance then Llguidance.new(artifact_json, recovery: recovery).call
           else raise Error, "unknown export target #{target.inspect} (supported: #{TARGETS.join(', ')})"
           end
         end
       end
 
-      # XGrammar's EBNF: one rule per entry; literals "…"; classes
-      # […]; suffixes * + ? {m,n}. Ordered choice is lost — the target
-      # resolves ambiguity its own way; the export lowers alternatives
-      # in the same order and the round-trip corpus pins acceptance
-      # equality. The artifact wire has no rule boundaries (all atoms
-      # inline), so each entry lowers as one expression.
-      class Xgrammar
-        def initialize(artifact_json, recovery: false)
+      # The atom walk the two targets share: literals, classes,
+      # sequences, alternations, repetitions, and the ASCII-fold
+      # expansion. Subclasses supply the dialect: how one entry renders
+      # (#render_entry), how repetitions spell (#suffix), and the
+      # message prefix for unsupported constructs (#label).
+      class Lowering
+        MAX_EXPANSION = 64
+
+        def initialize(artifact_json, label:, recovery: false)
           @envelope = JSON.parse(artifact_json)
           @recovery = recovery
+          @label = label
         end
 
         def call
           rules = @envelope["entries"].map do |entry, meta|
             grammar = meta.fetch("grammar")
-            "#{entry}_entry ::= #{lower_entry(entry, grammar)}"
+            render_entry(entry, lower_entry(entry, grammar))
           end
-          "#{rules.join("\n")}\n"
+          "#{prologue}#{rules.join("\n")}\n"
         end
+
+        def prologue = ""
 
         private
 
@@ -116,6 +121,11 @@ module Parsanol
           end
         end
 
+        # Bounded repetition {m,n}: XGrammar spells it natively; targets
+        # without the syntax expand mechanically (exact copies, then
+        # optional copies up to the bound, or a `*` tail when unbounded)
+        # — exact, never approximated, and rejected loudly past the
+        # expansion cap so a pathological bound fails at export time.
         def suffix(body, min, max)
           min ||= 0
           if min.zero? && max.nil?
@@ -124,9 +134,29 @@ module Parsanol
             "#{wrap(body)}+"
           elsif min.zero? && max == 1
             "#{wrap(body)}?"
-          else
+          elsif native_bounded_repetition?
             "#{wrap(body)}{#{min},#{max || ''}}"
+          else
+            expand(body, min, max)
           end
+        end
+
+        def native_bounded_repetition? = false
+
+        def expand(body, min, max)
+          cap = max || min
+          if cap > MAX_EXPANSION
+            unsupported("bounded repetition {#{min},#{max || 'n'}} exceeds the " \
+                        "#{MAX_EXPANSION}-item expansion cap")
+          end
+
+          parts = Array.new(min) { wrap(body) }
+          if max.nil?
+            parts << "#{wrap(body)}*" if min.positive?
+          else
+            parts += Array.new(max - min) { "#{wrap(body)}?" }
+          end
+          parts.join(" ")
         end
 
         def wrap(body)
@@ -151,15 +181,14 @@ module Parsanol
 
           return de_escape_class(pattern) if pattern.start_with?("[") && pattern.end_with?("]")
 
-          if (folded = pattern[/\A\(\?i:(.*)\)\z/m, 1])
-            return expand_fold(folded, pattern)
-          end
+          folded = pattern[/\A\(\?i:(.*)\)\z/m, 1]
+          return expand_fold(folded, pattern) if folded
 
           unsupported("regex pattern #{pattern.inspect}")
         end
 
-        # Class endpoints \u00ff / \u{10ffff} spell as the literal
-        # characters — XGrammar's EBNF classes are UTF-8 text and
+        # Class endpoints ÿ / \u{10ffff} spell as the literal
+        # characters — the targets' classes are UTF-8 text and
         # accept them; emitting the escapes raw fails the target's
         # lexer instead.
         def de_escape_class(pattern)
@@ -183,8 +212,57 @@ module Parsanol
         end
 
         def unsupported(what)
-          raise Error, "xgrammar export: #{what} has no XGrammar equivalent"
+          raise Error, "#{@label}: #{what} has no #{label_name} equivalent"
         end
+
+        def label_name = raise NotImplementedError
+      end
+
+      # XGrammar's EBNF: one rule per entry; literals "…"; classes
+      # […]; suffixes * + ? {m,n}. Ordered choice is lost — the target
+      # resolves ambiguity its own way; the export lowers alternatives
+      # in the same order and the round-trip corpus pins acceptance
+      # equality. The artifact wire has no rule boundaries (all atoms
+      # inline), so each entry lowers as one expression.
+      class Xgrammar < Lowering
+        def initialize(artifact_json, recovery: false)
+          super(artifact_json, label: "xgrammar export", recovery: recovery)
+        end
+
+        def render_entry(entry, body)
+          "#{entry}_entry ::= #{body}"
+        end
+
+        private
+
+        def native_bounded_repetition? = true
+
+        def label_name = "XGrammar"
+      end
+
+      # llguidance's Lark subset (ruby#460): rules spell `name: body`,
+      # the grammar enters through `start`, and there is no {m,n}
+      # repetition — bounds expand mechanically (exact copies plus
+      # optional copies, or a * tail when unbounded), capped and
+      # rejected loudly past MAX_EXPANSION. Literals, classes,
+      # sequences, alternations and the */+/? suffixes spell as in
+      # Lark.
+      class Llguidance < Lowering
+        def initialize(artifact_json, recovery: false)
+          super(artifact_json, label: "llguidance export", recovery: recovery)
+        end
+
+        def prologue
+          "start: #{@envelope.fetch('default_entry')}_entry\n"
+        end
+
+        def render_entry(entry, body)
+          "#{entry}_entry: #{body}"
+        end
+
+        private
+
+        def label_name = "llguidance"
       end
     end
   end
