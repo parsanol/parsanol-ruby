@@ -2,7 +2,12 @@
 
 *Version 1.0. This document is normative. The language guide
 ([parg-language-guide.md](parg-language-guide.md)) is the friendly edition; where
-the two disagree, this document and the conformance corpus win.*
+the two disagree, this document and the conformance corpus win.
+
+Every law section below is normative and shipped unless it carries a
+`status:` line saying otherwise (`shipped (x.y)` / `partial (…;
+tracked in #…)` / `specified (not implemented)` / `roadmap`) — the
+same convention the guide lints (`rake docs:status`).*
 
 PARG is a PEG language. This document defines, per construct, the **match
 relation** (position and value), the **capture semantics**, the **failure

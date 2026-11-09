@@ -158,3 +158,8 @@ namespace :compat do
 end
 
 task default: :spec
+
+desc "Lint the docs feature-status convention (ruby#459)"
+task "docs:status" do
+  ruby "tools/check_doc_status.rb"
+end

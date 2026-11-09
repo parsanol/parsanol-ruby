@@ -169,6 +169,9 @@ jobs:
       - name: Lint ruby
         run: bundle exec rubocop
 
+      - name: Lint docs status
+        run: ruby tools/check_doc_status.rb
+
   clippy:
     runs-on: ubuntu-22.04
     steps:

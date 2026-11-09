@@ -9,6 +9,20 @@ PARG is a text language for writing parsanol grammars. One `.parg` file is the
 engines (Ruby ext, FFI, wasm, Rust) register. Humans review the text;
 machines consume the JSON; the checksum binds them together.
 
+**Feature status.** Feature sections carry a one-line machine-readable
+status, so external consumers (including parsanol.github.io, which
+excludes specified-not-shipped features by policy) can tell what ships
+without reading PR threads:
+
+- `status: shipped (1.3.x)` — in the released gem
+- `status: partial (what ships; what is tracked in #…)` — part landed
+- `status: specified (not implemented)` — designed, not built
+- `status: roadmap` — roadmap item, not designed
+
+A law or feature section without a `status:` line ships. `tools/check_doc_status.rb`
+(rake docs:status) fails the lint build when a "Specified"/"tracked in"
+mention carries neither a shipped version nor an open tracking number.
+
 ```
 grammar.flavor.parg  ──compile──▶  artifact.json (portable grammar + bindings
      ▲                              + preprocess + tables + sha256)
@@ -177,9 +191,8 @@ Style: prefer the brace form for anything that wraps, the line form for
 short bodies; `parg lint --style` flags a grammar that mixes them
 heavily.
 
-*Specified 2026-10-24; implementation tracked in parsanol-ruby (brace
-rule bodies), including the self-host gate and the pubid-grammar
-`parg.json` update.*
+status: shipped (1.3.129) — brace rule bodies, the self-host gate, and
+the pubid-grammar `parg.json` update.
 
 ### Core rules (RFC 5234 prelude)
 
@@ -211,10 +224,10 @@ grammars that define `digit` (any case) keep working unchanged.
 dropping the local definition; the ABNF importer stops emitting core
 rules once the prelude ships.
 
-*Specified 2026-10-24; shadowing keeps every published grammar
-byte-identical — implementation tracked in parsanol-ruby (core rules).*
+status: shipped — shadowing keeps every published grammar
+byte-identical (the `core-rule-shadow` lint and the importer prelude).
 
-### Implicit capture: edition 2 (specified)
+### Implicit capture: edition 2
 
 Classic PARG builds its tree only from `as` captures — explicit, but
 boilerplate-heavy. **Edition 2** (opt-in per grammar) wraps every
@@ -464,7 +477,7 @@ Grammar authors read these back; write for them.
    `HEXDIG`, `WSP` (and friends) are predeclared; a local `digit =
    %x30-39` is noise — and `parg lint` says so.
 
-### Bindings v2 (specified)
+### Bindings v2
 
 The v1 surface above stays. v2 removes its two ceilings — single-level
 `[]` grouping and runtime-path errors — and adds per-language typed
@@ -511,9 +524,11 @@ validated tree, and each runtime renders it:
 **Parity gate**: one corpus grammar with v2 bindings, bound identically
 in ruby/ts/rs — the differential on bound outputs pins all three.
 
-*Specified 2026-10-24; implementation tracked in ruby#308. The
-compile-time validation half (capture-without-binding /
-binding-without-capture lints) is the shippable first slice.*
+status: shipped (1.3.134) — the compile-time validation half shipped
+first (ruby#308), then brace/group bindings, the declared per-target
+binding artifacts (ruby#432), the CLI emission (`parg compile
+--bindings`, ruby#442) and the embedded sidecar (`parg bindings`,
+ruby#447).
 
 ### Tables
 
