@@ -9,6 +9,14 @@ relation** (position and value), the **capture semantics**, the **failure
 semantics**, and the **diagnostics obligation** every engine must satisfy. Rules
 are numbered (`T1`, `C3`, `S2`, …) so corpus cases and reviews can cite them.
 
+**Status convention** (parsanol-ruby#459, mirrored in the guide): every law
+section here (M/V/T/C/K/S/F/B/D/I/A/X/E) describes behavior that **ships
+today** — it is corpus-pinned per the coverage matrix in §13, and the
+shipping release for each feature lives in the guide's feature sections
+and `HISTORY.txt`. Aspirational material appears only in the coverage-gaps
+section (§14); a rule may not move from specified to normative without its
+corpus case in the same commit.
+
 Every engine that consumes a `parsanol-tree/v2` artifact — the Ruby
 interpreter, the Ruby bytecode VM, the Rust portable engine, its bytecode VM,
 the wasm build, the TypeScript runtime — MUST implement these rules. Where

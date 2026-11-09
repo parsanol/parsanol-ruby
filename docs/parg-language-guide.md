@@ -22,6 +22,23 @@ The design has one rule: **a grammar or binding change is one edit in one
 file**, and every language runtime inherits it — proven by the artifact
 checksum and the conformance corpus.
 
+## Feature status
+
+Every feature section in this guide carries a one-line status so external
+consumers (parsanol.github.io included) can make shipped/not-shipped
+decisions without reading PR threads. The convention (`rake lint:docs`
+enforces the shape):
+
+- `status: shipped (1.3.131)` — the feature works in that release and later.
+- `status: partial (validation half shipped in 1.3.109; emission tracked in #…)` —
+  part shipped, the rest carries an open tracking number.
+- `status: specified (not implemented)` — designed, nothing ships.
+- `status: roadmap` — future work, no design yet.
+
+The semantics doc's law sections (M/V/T/C/K/S/F/B/D/I/A/X/E) describe
+shipped behavior by definition — aspirational items live only in its
+coverage-gaps section.
+
 ## Quick start
 
 ```
@@ -177,9 +194,10 @@ Style: prefer the brace form for anything that wraps, the line form for
 short bodies; `parg lint --style` flags a grammar that mixes them
 heavily.
 
-*Specified 2026-10-24; implementation tracked in parsanol-ruby (brace
-rule bodies), including the self-host gate and the pubid-grammar
-`parg.json` update.*
+status: shipped (1.3.109) — brace bodies, the RFC 5234 core rules, and the
+frontend that carries them (string-literal-aware brace depth) landed
+together; the self-host gate and the pubid-grammar `parg.json` update
+are part of the same train.
 
 ### Core rules (RFC 5234 prelude)
 
@@ -211,8 +229,8 @@ grammars that define `digit` (any case) keep working unchanged.
 dropping the local definition; the ABNF importer stops emitting core
 rules once the prelude ships.
 
-*Specified 2026-10-24; shadowing keeps every published grammar
-byte-identical — implementation tracked in parsanol-ruby (core rules).*
+status: shipped (1.3.109) — shadowing keeps every published grammar
+byte-identical (ruby#303).
 
 ### Implicit capture: edition 2 (specified)
 
@@ -275,6 +293,10 @@ quoted forms (`edition "v2"`) remain accepted aliases. The
 pre-1.3.113 `mode` keyword was removed: a grammar using it fails the
 parse with the fix named. The envelope records the declared edition as
 the number 1 or 2.
+
+status: shipped (1.3.115) — edition 2 implicit capture, the `edition`
+keyword (the pre-1.3.113 `mode` spelling removed with a named fix), and
+the envelope's declared edition.
 
 ### Unicode position
 
@@ -464,7 +486,7 @@ Grammar authors read these back; write for them.
    `HEXDIG`, `WSP` (and friends) are predeclared; a local `digit =
    %x30-39` is noise — and `parg lint` says so.
 
-### Bindings v2 (specified)
+### Bindings v2
 
 The v1 surface above stays. v2 removes its two ceilings — single-level
 `[]` grouping and runtime-path errors — and adds per-language typed
@@ -511,9 +533,10 @@ validated tree, and each runtime renders it:
 **Parity gate**: one corpus grammar with v2 bindings, bound identically
 in ruby/ts/rs — the differential on bound outputs pins all three.
 
-*Specified 2026-10-24; implementation tracked in ruby#308. The
-compile-time validation half (capture-without-binding /
-binding-without-capture lints) is the shippable first slice.*
+status: shipped (1.3.110) — all four ruby#308 scope lines landed: path
+grammar v2 (1.3.109), compile-time validation (1.3.109), typed emission
+in three languages (1.3.110, ruby#346), and the differential corpus +
+docs. ruby#308 is closed complete.
 
 ### Tables
 
@@ -963,16 +986,20 @@ tree-sitter/ANTLR (artifact compilation model), GrammarBuilder
 
 ## Roadmap
 
+Shipped items leave this list (each feature section's `status:` line is
+the record). Currently on the roadmap:
+
 - `render:` / `derive:` sections in the envelope (string output side).
-- Multi-`[]`-level binding paths (or explicit binder hooks).
-- Rule parameters (module imports between `.parg` files shipped: `use <name>`
-  resolves `<name>.parg` from the import dirs, prefixes every rule
-  `<name>.`, and the artifact bakes the expansion — in the fleet since
-  1.3.130, I1; the pubid-grammar iso/idf/bipm grammars import today).
-- Self-hosting: parse PARG with PARG (live — the pubid-grammar PgMeta
-  artifact gates every grammar's front end; see SelfHost).
-- Declared per-target binding artifacts (`compile --bindings TARGET|all`;
-  parsanol-ruby#432).
-- Inline artifact integrity: `byte_checksum` (the bake's byte-exact file
-  digest, load-time fast tier) and the `validated` bake receipt.
-- Export to constrained-decoding backends (XGrammar/llguidance formats).
+- Rule parameters (module imports are I1, shipped 1.3.130; parameters
+  themselves — importing a grammar with arguments — remain future work).
+- Export to constrained-decoding backends (XGrammar/llguidance formats;
+  parsanol-ruby#460).
+
+Recently promoted from this list, for readers of older snapshots:
+module imports (`use <name>`, shipped 1.3.130 — I1; the pubid-grammar
+iso/idf/bipm grammars import today); self-hosting (live — the
+pubid-grammar PgMeta artifact gates every grammar's front end);
+multi-`[]`-level binding paths (bindings v2, shipped 1.3.110); declared
+per-target binding artifacts (`compile --bindings TARGET|all`,
+ruby#432 via #437/#442); inline artifact integrity (`byte_checksum` +
+the `validated` bake receipt).
