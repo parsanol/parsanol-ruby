@@ -47,6 +47,13 @@ RSpec.describe "PARG conformance corpus" do
   # engine names its Unicode table source, and it moves with the
   # runner's ruby, not with the grammar.
   #
+  # model_bindings is a compile INPUT (the --model-bindings sidecar
+  # embedded in the envelope, ruby#447), not source-derived output:
+  # the corpus's embedded-member case (ruby#420) commits an envelope
+  # that plain recompilation does not reproduce, by design. The
+  # loaders' duty toward it is verified by the conformance sweep, not
+  # by parity.
+  #
   # edition is normalized, not excluded: the corpus was baked before
   # the numeric surface, so it spells the same levels "v1"/"v2". The
   # normalized field still gates parity.
@@ -57,7 +64,7 @@ RSpec.describe "PARG conformance corpus" do
   def parity_view(envelope)
     canonical(envelope
       .except("compiler_version", "checksum", "byte_checksum", "validated",
-              "unicode_tables", "semantics_hash")
+              "unicode_tables", "semantics_hash", "model_bindings")
       .merge("edition" => Parsanol::PARG::Artifact::EDITION_ALIASES
         .fetch(envelope.fetch("edition", 1))))
   end
