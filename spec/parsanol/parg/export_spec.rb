@@ -109,4 +109,76 @@ RSpec.describe "PARG xgrammar export" do
     expect { Parsanol::PARG::Export.call("{}", target: :elephant) }
       .to raise_error(/unknown export target/)
   end
+
+  # ruby#460: the llguidance target — Lark subset, enters through
+  # `start`, no {m,n} (bounds expand mechanically, capped), same
+  # loud-reject contract.
+  describe "PARG llguidance export" do
+    def export_source(source, recovery: false)
+      document = Parsanol::PARG::Parser.new(source).parse
+      envelope = JSON.generate(Parsanol::PARG::Compiler.compile(document).envelope)
+      Parsanol::PARG::Export.call(envelope, target: :llguidance, recovery: recovery)
+    end
+
+    it "enters through start and lowers literals, classes, and suffixes" do
+      text = export_source(<<~PARG)
+        grammar Demo version "1.0.0" {
+          digit = %x30-39
+          year = 4*digit as y
+          entry main: stamp
+          stamp = [year "-"] 1*ALPHA as head
+        }
+      PARG
+      expect(text).to start_with("start: main_entry\n")
+      expect(text).to include("main_entry:")
+      expect(text).to include("]+")
+      expect(text).to include(")?")
+      # the bounded year expands: four exact copies then the * tail
+      expect(text.scan("[\\x30-\\x39]").count).to eq(5)
+    end
+
+    it "expands bounded repetitions exactly without an upper-bound overrun" do
+      text = export_source(<<~PARG)
+        grammar Code version "1.0.0" {
+          digit = %x30-39
+          code = 1*3digit as c
+          entry main: code
+        }
+      PARG
+      body = text.lines.grep(/^main_entry/).first
+      # one required copy, then optional copies up to the bound — never
+      # more than three digits can match
+      expect(body).to eq("main_entry: ( ( ( [\\x30-\\x39] ) ) ( ( [\\x30-\\x39] ) )? ( ( [\\x30-\\x39] ) )? )\n")
+      expect(body.scan(")?").count).to eq(2)
+    end
+
+    it "rejects a bound past the expansion cap naming the construct" do
+      source = <<~PARG
+        grammar Big version "1.0.0" {
+          digit = %x30-39
+          many = 65*digit as m
+          entry main: many
+        }
+      PARG
+      document = Parsanol::PARG::Parser.new(source).parse
+      envelope = JSON.generate(Parsanol::PARG::Compiler.compile(document).envelope)
+      expect { Parsanol::PARG::Export.call(envelope, target: :llguidance) }
+        .to raise_error(Parsanol::PARG::Export::Error, /65-item expansion cap|{65,n} exceeds/)
+    end
+
+    it "rejects lookahead naming the construct" do
+      source = <<~PARG
+        grammar Look version "1.0.0" {
+          entry main: tail
+          tail = "a" &"b"
+        }
+      PARG
+      expect { export_source(source) }
+        .to raise_error(Parsanol::PARG::Export::Error, /llguidance export.*lookahead/)
+    end
+
+    it "registers both targets" do
+      expect(Parsanol::PARG::Export::TARGETS).to contain_exactly(:xgrammar, :llguidance)
+    end
+  end
 end
