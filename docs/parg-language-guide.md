@@ -401,12 +401,28 @@ repetition, so the bound value is the full span.)
 ```
 preprocess stage_code {
   table_lookup stages abbr -> code
+  const_map "draft" -> "Draft", "WD" -> "working-draft"
+}
+
+preprocess align {
+  default_when_absent "-"
+  rename sub -> supplement
 }
 ```
 
-Steps are declarative data operations. v1 ships `table_lookup` (map the
-value through a table column pair). Anything not expressible here is
-application logic and belongs above the binding layer.
+Steps are declarative data operations applied in order between capture
+collection and type cast. v1 ships `table_lookup` (map the value through
+a table column pair). v1.1 adds `const_map` (a closed mapping carried in
+the step itself), `default_when_absent` (fill a top-level nil or nil
+members of a hash-shaped value), and `rename` (capture-name alignment on
+a hash-shaped value, key order preserved). Anything not expressible here
+is application logic and belongs above the binding layer.
+
+An artifact whose preprocess uses any post-v1 op declares
+`binding_version: 2`; the compiler keeps `1` for v1-only documents, so
+existing artifacts stay byte-identical. Engines accept 1 and 2 and
+refuse higher levels at load (grow-with-minor, rs#147): a step an old
+engine does not know can never be silently mis-executed.
 
 ### In-file tests
 

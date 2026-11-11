@@ -1373,7 +1373,7 @@ module Parsanol
           "version" => @document.version,
           "grammar" => @document.grammar_name,
           "shape" => "parsanol-tree/v2",
-          "binding_version" => 1,
+          "binding_version" => binding_version,
           "entries" => entries,
           "preprocess" => @document.preprocess,
           "tables" => table_manifest,
@@ -1451,6 +1451,17 @@ module Parsanol
 
       def portable_json(rule)
         Parsanol::Native::Parser.serialize_grammar(atom_for(rule))
+      end
+
+      # Grow-with-minor (rs#147 ruling): the envelope declares the
+      # contract level the artifact RELIES on. v1 documents stay
+      # byte-identical (1); any post-v1 preprocess op raises the
+      # declared level to 2 so old engines refuse loudly instead of
+      # mis-executing steps they do not know.
+      def binding_version
+        v1 = %w[table_lookup]
+        used_ops = @document.preprocess.values.flatten.map { |step| step["op"] }
+        used_ops.all? { |op| v1.include?(op) } ? 1 : 2
       end
 
       # Tables embed their resolved rows in the envelope (self-contained

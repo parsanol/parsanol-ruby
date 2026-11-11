@@ -32,6 +32,13 @@ module Parsanol
       # edition-1 artifacts are rejected with the fix named.
       SUPPORTED_EDITIONS = [2].freeze
 
+      # Grow-with-minor (rs#147): the envelope's binding_version is the
+      # contract level the artifact relies on. 1 = the v1 vocabulary
+      # (table_lookup); 2 = the v1.1 ops (const_map,
+      # default_when_absent, rename). Future levels refuse loudly so a
+      # new step can never be mis-executed by an old engine.
+      SUPPORTED_BINDING_VERSIONS = [1, 2].freeze
+
       # The header and envelope spellings that have shipped: the quoted
       # v-form stays loadable so artifacts baked before the numeric
       # surface remain readable.
@@ -50,6 +57,13 @@ module Parsanol
         end
         bindings = envelope["bindings"]
         validate_bindings!(bindings) unless bindings.nil?
+        version = envelope.fetch("binding_version", 1)
+        unless SUPPORTED_BINDING_VERSIONS.include?(version)
+          raise ArtifactError,
+                "artifact declares binding_version #{version.inspect}; this " \
+                "runtime supports #{SUPPORTED_BINDING_VERSIONS.inspect} — " \
+                "upgrade the engine to load artifacts using newer preprocess ops"
+        end
         @envelope = envelope
         # The declared edition must be one this runtime understands.
         # Absent field = a pre-1.3.109 edition-1 artifact — rejected.
