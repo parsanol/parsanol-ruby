@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "strscan"
+
 module Parsanol
   module PARG
     # Tokenizer for PARG source text.
@@ -27,6 +29,10 @@ module Parsanol
       | (?<punct>[=\/()\[\]{}*!&:,.<-])
       /x
 
+      # Named groups are numbered 1..n in TOKEN.names order; looking them
+      # up by number avoids a name lookup per group per token.
+      TYPES = TOKEN.names.map(&:to_sym).freeze
+
       def initialize(text)
         @text = text
         @tokens = []
@@ -37,27 +43,31 @@ module Parsanol
 
       private
 
+      # One StringScanner pass. Regexp#match(text, pos) per token cost
+      # time proportional to pos, so lexing grew quadratically with the
+      # source (about 5 s for a 216 KB grammar). Offsets stay character
+      # offsets, counted as each token is consumed.
       def scan
-        pos = 0
-        until pos >= @text.length
-          match = TOKEN.match(@text, pos)
-          if match.nil? || match.begin(0) != pos
+        scanner = StringScanner.new(@text)
+        offset = 0
+        until scanner.eos?
+          unless scanner.scan(TOKEN)
             raise ParseError,
-                  "unexpected character #{@text[pos].inspect} at offset #{pos}"
+                  "unexpected character #{@text[offset].inspect} at offset #{offset}"
           end
 
-          type = matched_type(match)
+          type = matched_type(scanner)
           if type && !DROPPED.include?(type)
-            value = token_value(type, match)
-            @tokens << Token.new(type, value, pos)
+            value = token_value(type, scanner)
+            @tokens << Token.new(type, value, offset)
           end
-          pos = match.end(0)
+          offset += scanner.matched.length
         end
       end
 
       def matched_type(match)
-        TOKEN.names.each do |name|
-          return name.to_sym if match[name]
+        TYPES.each_with_index do |type, index|
+          return type if match[index + 1]
         end
         nil
       end
