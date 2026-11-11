@@ -824,21 +824,22 @@ module Parsanol
             to = ident.value
             steps << { "op" => op, "table" => table, "from" => from, "to" => to }
           when "const_map"
-            pairs = {}
+            # One mapping entry per step; a multi-entry line emits
+            # sequential steps preserving the declared order.
             loop do
               key = literal
               expect(:arrow)
-              pairs[key] = literal
+              value = literal
+              steps << { "op" => op, "table" => "", "from" => key, "to" => value }
               break unless accept_punct?(",")
             end
-            steps << { "op" => op, "pairs" => pairs }
           when "default_when_absent"
-            steps << { "op" => op, "value" => literal }
+            steps << { "op" => op, "table" => "", "from" => "", "to" => literal }
           when "rename"
             from = ident.value
             expect(:arrow)
             to = ident.value
-            steps << { "op" => op, "from" => from, "to" => to }
+            steps << { "op" => op, "table" => "", "from" => from, "to" => to }
           else
             raise ParseError, "unknown preprocess op #{op.inspect}"
           end

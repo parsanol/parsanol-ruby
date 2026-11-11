@@ -32,10 +32,12 @@ module Parsanol
         map[value.to_s] || value
       end
 
-      # A small closed mapping carried in the step itself (no sidecar
-      # table). Unmapped values pass through, mirroring table_lookup.
+      # A single closed mapping entry (a multi-entry source line emits
+      # sequential steps); unmapped values pass through, mirroring
+      # table_lookup.
       register :const_map do |step, value, _source|
-        step["pairs"][value.to_s] || value
+        mapped = step["to"] if step["from"] == value.to_s
+        mapped || value
       end
 
       # Fill absent data. Scalar nils never reach the pipeline (the
@@ -45,12 +47,12 @@ module Parsanol
       register :default_when_absent do |step, value, _source|
         if value.is_a?(Hash)
           if value.value?(nil)
-            value.transform_values { |member| member.nil? ? step["value"] : member }
+            value.transform_values { |member| member.nil? ? step["to"] : member }
           else
             value
           end
         elsif value.nil?
-          step["value"]
+          step["to"]
         else
           value
         end

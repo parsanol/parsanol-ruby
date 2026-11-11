@@ -32,26 +32,30 @@ RSpec.describe "PARG preprocess v1.1" do
       )
     end
 
-    it "parses const_map pairs" do
+    it "parses const_map pairs as sequential steps" do
       document = document_with_preprocess(
         '  const_map "draft" -> "Draft", "international-standard" -> "Full standard", WD -> "working-draft"',
       )
       expect(document.preprocess["steps"]).to eq(
-        [{ "op" => "const_map", "pairs" => { "draft" => "Draft", "international-standard" => "Full standard", "WD" => "working-draft" } }],
+        [
+          { "op" => "const_map", "table" => "", "from" => "draft", "to" => "Draft" },
+          { "op" => "const_map", "table" => "", "from" => "international-standard", "to" => "Full standard" },
+          { "op" => "const_map", "table" => "", "from" => "WD", "to" => "working-draft" },
+        ],
       )
     end
 
     it "parses default_when_absent" do
       document = document_with_preprocess('  default_when_absent "UNKNOWN"')
       expect(document.preprocess["steps"]).to eq(
-        [{ "op" => "default_when_absent", "value" => "UNKNOWN" }],
+        [{ "op" => "default_when_absent", "table" => "", "from" => "", "to" => "UNKNOWN" }],
       )
     end
 
     it "parses rename" do
       document = document_with_preprocess("  rename sub -> supplement")
       expect(document.preprocess["steps"]).to eq(
-        [{ "op" => "rename", "from" => "sub", "to" => "supplement" }],
+        [{ "op" => "rename", "table" => "", "from" => "sub", "to" => "supplement" }],
       )
     end
 
@@ -78,13 +82,13 @@ RSpec.describe "PARG preprocess v1.1" do
     end
 
     it "maps through const_map and passes unmapped values through" do
-      step = { "op" => "const_map", "pairs" => { "draft" => "Draft" } }
+      step = { "op" => "const_map", "table" => "", "from" => "draft", "to" => "Draft" }
       expect(apply(step, "draft")).to eq("Draft")
       expect(apply(step, "mystery")).to eq("mystery")
     end
 
     it "fills absent data: a top nil, and nil members of hash values" do
-      step = { "op" => "default_when_absent", "value" => "-" }
+      step = { "op" => "default_when_absent", "table" => "", "from" => "", "to" => "-" }
       expect(apply(step, nil)).to eq("-")
       expect(apply(step, { "sub" => nil, "code" => "DIS" }))
         .to eq({ "sub" => "-", "code" => "DIS" })
