@@ -69,7 +69,9 @@ module Parsanol
           matched = value.key?(from) || value.key?(from.to_sym)
           if matched
             value.transform_keys do |key|
-              key.to_s == from ? (key.is_a?(Symbol) ? step["to"].to_sym : step["to"]) : key
+              next key unless key.to_s == from
+
+              key.is_a?(Symbol) ? step["to"].to_sym : step["to"]
             end
           else
             value
