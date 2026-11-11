@@ -186,107 +186,87 @@ RSpec.describe "PARG preprocess v1.1" do
     end
   end
 
-  describe "parse_and_bind end to end (ruby#487)" do
-    # The Bindings.apply path must dispatch through the Preprocess
-    # registry: a grammar that compiles green must also BIND green.
-    # ruby#487: the inline table_lookup case in Bindings shadowed the
-    # registry, so v1.1 ops raised unknown-op at first bind while the
-    # rs/wasm executor applied them.
-    def bound_artifact
-      Dir.mktmpdir do |dir|
-        path = File.join(dir, "g.parg")
-        File.write(path, <<~PARG)
-          grammar Demo version "1.0.0" edition "v2" {
-            publisher = %i"ISO" / %i"IEEE"
-            digit = 1*( %x30-39 )
-            identifier = ( ( publisher ) as publisher ) ":" ( digit as number )
-            entry identifier: identifier
-
-            bindings identifier {
-              publisher -> publisher (string) preprocess: stage_code
-              number -> number (integer)
-            }
-
-            preprocess stage_code {
-              const_map "ISO" -> "iso", "IEEE" -> "ieee"
-            }
-          }
-        PARG
-        output = File.join(dir, "g.json")
-        $stdout = StringIO.new
-        begin
-          Dir.chdir(dir) do
-            Parsanol::PARG::CLI.new(["compile", path, "--tables", dir, "-o", output]).run
-          end
-        ensure
-          $stdout = STDOUT
+  # Compile a grammar (with its tables beside it) in a tmpdir and
+  # return the loaded artifact. The CLI writes -o targets relative to
+  # the working directory, so run inside the tmpdir; the stdout
+  # mutation lives in this helper (outside examples) per the lint.
+  def compile_artifact(grammar)
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "g.parg")
+      File.write(path, grammar)
+      output = File.join(dir, "g.json")
+      $stdout = StringIO.new
+      begin
+        Dir.chdir(dir) do
+          Parsanol::PARG::CLI.new(["compile", path, "--tables", dir, "-o", output]).run
         end
-        Parsanol::PARG::Artifact.from_json(File.read(output))
+      ensure
+        $stdout = STDOUT
       end
+      Parsanol::PARG::Artifact.from_json(File.read(output), tables_dir: dir)
     end
+  end
 
-    it "applies const_map at bind time" do
-      artifact = bound_artifact
-      # parse_and_bind returns symbol-keyed hashes (the leaf-key contract).
-      expect(artifact.parse_and_bind("identifier", "ISO:42"))
-        .to eq({ publisher: "iso", number: 42 })
-      expect(artifact.parse_and_bind("identifier", "IEEE:7"))
-        .to eq({ publisher: "ieee", number: 7 })
-    end
+  it "applies const_map at bind time" do
+    artifact = compile_artifact(<<~PARG)
+      grammar Demo version "1.0.0" edition "v2" {
+        publisher = %i"ISO" / %i"IEEE"
+        digit = 1*( %x30-39 )
+        identifier = ( ( publisher ) as publisher ) ":" ( digit as number )
+        entry identifier: identifier
 
-    it "applies the full v1.1 chain at bind time" do
-      Dir.mktmpdir do |dir|
-        File.write(File.join(dir, "stages.yaml"), <<~YAML)
-          - abbr: DIS
-            code: draft
-        YAML
-        path = File.join(dir, "g.parg")
-        File.write(path, <<~PARG)
-          grammar Demo version "1.0.0" edition "v2" {
-            letter = %x41-5A
-            stage_abbr = alt from_table "stages" column "abbr"
-            optional = [ "-" ( letter as letter ) ] as optional
-            main = stage_abbr as code optional
-            entry main: main
+        bindings identifier {
+          publisher -> publisher (string) preprocess: stage_code
+          number -> number (integer)
+        }
 
-            bindings main {
-              code -> code (string) preprocess: resolve
-              optional -> supplement (raw) preprocess: align
-            }
+        preprocess stage_code {
+          const_map "ISO" -> "iso", "IEEE" -> "ieee"
+        }
+      }
+    PARG
+    # parse_and_bind returns symbol-keyed hashes (the leaf-key contract).
+    expect(artifact.parse_and_bind("identifier", "ISO:42"))
+      .to eq({ publisher: "iso", number: 42 })
+    expect(artifact.parse_and_bind("identifier", "IEEE:7"))
+      .to eq({ publisher: "ieee", number: 7 })
+  end
 
-            preprocess resolve {
-              table_lookup stages abbr -> code
-              const_map "draft" -> "Draft"
-            }
+  it "applies the full v1.1 chain at bind time" do
+    # No from_table rule: the sidecar lookup is covered by the corpus
+    # case and the binding_version compile; this chain isolates the
+    # v1.1 ops end to end.
+    artifact = compile_artifact(<<~PARG)
+      grammar Demo version "1.0.0" edition "v2" {
+        publisher = %i"ISO" / %i"IEEE"
+        letter = %x41-5A
+        optional = [ "-" ( letter as letter ) ] as optional
+        identifier = ( ( publisher ) as publisher ) ":" ( letter as code ) optional
+        entry identifier: identifier
 
-            preprocess align {
-              default_when_absent "-"
-              rename letter -> part
-            }
-          }
-        PARG
-        output = File.join(dir, "g.json")
-        $stdout = StringIO.new
-        begin
-          Dir.chdir(dir) do
-            Parsanol::PARG::CLI.new(["compile", path, "--tables", dir, "-o", output]).run
-          end
-        ensure
-          $stdout = STDOUT
-        end
-        # The from_table rule resolves rows from the artifact's dir at
-        # the ruby-tier re-compile (pre-existing v1 behavior; the
-        # envelope's embedded rows feed the engine tiers).
-        artifact = Parsanol::PARG::Artifact.from_json(File.read(output), tables_dir: dir)
-        # table_lookup -> const_map on the code; the absent optional
-        # binds nothing (the null-capture contract). The present case
-        # exercises the full chain: default fills the nil member of the
-        # group hash, then rename aligns the key.
-        expect(artifact.parse_and_bind("main", "DIS"))
-          .to eq({ code: "Draft" })
-        expect(artifact.parse_and_bind("main", "DIS-A"))
-          .to eq({ code: "Draft", supplement: { part: "A" } })
-      end
-    end
+        bindings identifier {
+          publisher -> publisher (string) preprocess: stage_code
+          code -> code (string)
+          optional -> supplement (raw) preprocess: align
+        }
+
+        preprocess stage_code {
+          const_map "ISO" -> "iso", "IEEE" -> "ieee"
+        }
+
+        preprocess align {
+          default_when_absent "-"
+          rename letter -> part
+        }
+      }
+    PARG
+    # The absent optional binds nothing (the null-capture contract).
+    # The present case exercises the full chain: const_map on the
+    # publisher, then default fills the nil member of the group hash
+    # and rename aligns the key.
+    expect(artifact.parse_and_bind("identifier", "IEEE:G"))
+      .to eq({ publisher: "ieee", code: "G" })
+    expect(artifact.parse_and_bind("identifier", "ISO:H-A"))
+      .to eq({ publisher: "iso", code: "H", supplement: { part: "A" } })
   end
 end
