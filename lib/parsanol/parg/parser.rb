@@ -815,15 +815,62 @@ module Parsanol
         steps = document.preprocess[name] ||= []
         skip_newlines
         until peek&.type == :punct && peek.value == "}"
-          op = ident("table_lookup").value
-          table = ident.value
-          from = ident.value
-          expect(:arrow)
-          to = ident.value
-          steps << { "op" => op, "table" => table, "from" => from, "to" => to }
+          op = ident.value
+          case op
+          when "table_lookup"
+            table = ident.value
+            from = ident.value
+            expect(:arrow)
+            to = ident.value
+            steps << { "op" => op, "table" => table, "from" => from, "to" => to }
+          when "const_map"
+            pairs = {}
+            loop do
+              key = literal
+              expect(:arrow)
+              pairs[key] = literal
+              break unless accept_punct?(",")
+            end
+            steps << { "op" => op, "pairs" => pairs }
+          when "default_when_absent"
+            steps << { "op" => op, "value" => literal }
+          when "rename"
+            from = ident.value
+            expect(:arrow)
+            to = ident.value
+            steps << { "op" => op, "from" => from, "to" => to }
+          else
+            raise ParseError, "unknown preprocess op #{op.inspect}"
+          end
           skip_newlines
         end
         punct("}")
+      end
+
+      # A preprocess literal: a quoted string (unquoted), a bare
+      # identifier, or a number (kept as its string form — the
+      # vocabulary is string-valued).
+      def literal
+        token = peek
+        case token&.type
+        when :str, :istr, :sstr
+          advance
+          unquote(token.value)
+        when :ident, :num
+          advance
+          token.value
+        else
+          raise ParseError, "expected a preprocess literal, got #{token.inspect}"
+        end
+      end
+
+      def accept_punct?(char)
+        if peek&.type == :punct && peek.value == char
+          advance
+          true
+        else
+          false
+        end
       end
 
       def unquote(raw)
