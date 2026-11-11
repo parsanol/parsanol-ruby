@@ -164,6 +164,14 @@ module Parsanol
             # native pass outright — Native.parse's error path then
             # re-runs the interpreter, so customs stay Ruby-tier with
             # identical trees.
+            #
+            # Before that lane, a sealed artifact whose stored entry
+            # grammar is provably what this runtime would compile parses
+            # by a handle registered from that stored JSON, so the first
+            # parse skips re-reading and recompiling the PARG source.
+            stored = parse_stored_grammar(entry_name, input)
+            return stored unless stored.equal?(NOT_STORED)
+
             return Native.parse(root_atom(entry_name), input)
           end
 
@@ -648,6 +656,84 @@ module Parsanol
         raise
       rescue StandardError => e
         raise ArtifactError, "malformed bindings section: #{e.class}: #{e.message}"
+      end
+
+      # Returned by #parse_stored_grammar when the stored lane does not
+      # apply or declines an input; the caller then takes the atom lane.
+      NOT_STORED = Object.new.freeze
+
+      # The stored-grammar lane. Each entry's "grammar" is the JSON the
+      # compiler produced when the artifact was baked, and it is
+      # byte-identical to what this runtime would serialize from the
+      # rebuilt atom tree when nothing the rebuild reads has changed:
+      #   - the same compiler release baked it;
+      #   - no lookup tables (their files are read again from tables_dir);
+      #   - no `use` imports (their sources are merged again at load);
+      #   - no custom atoms (CustomRef is Ruby-tier, never native);
+      #   - no runtime state atoms (kept on the atom lane, unchanged).
+      # Any other artifact keeps the atom lane exactly as before.
+      #
+      # Successes come straight from the engine. A native refusal returns
+      # NOT_STORED, so the atom lane re-runs the input and the caller
+      # sees the same failure (and diagnostics) as before this lane.
+      def parse_stored_grammar(entry_name, input)
+        json = stored_grammar_json(entry_name)
+        return NOT_STORED unless json
+
+        key = (@stored_handle_keys ||= {})[entry_name] ||= [:artifact_grammar, Object.new].freeze
+        attempts = 0
+        begin
+          handle = Native::Parser.json_handle(key, json)
+          Native::BatchDecoder.decode_and_flatten(
+            Native._parse_handle(handle, input), input, Parsanol::Slice
+          )
+        rescue ArgumentError
+          # Handle released Rust-side (cache cleared): re-register once.
+          Native::Parser.invalidate_handle(handle)
+          attempts += 1
+          retry if attempts == 1
+          NOT_STORED
+        rescue RuntimeError
+          NOT_STORED
+        end
+      end
+
+      def stored_grammar_json(entry_name)
+        @stored_grammar_json ||= {}
+        return @stored_grammar_json[entry_name] if @stored_grammar_json.key?(entry_name)
+
+        @stored_grammar_json[entry_name] =
+          if stored_grammar_usable?
+            grammar = entry(entry_name)["grammar"]
+            JSON.generate(grammar).freeze if grammar.is_a?(Hash)
+          end
+      end
+
+      def stored_grammar_usable?
+        return @stored_grammar_usable if defined?(@stored_grammar_usable)
+
+        # Native.available? loads the extension before the check, so the
+        # answer never depends on whether a parse ran first.
+        @stored_grammar_usable =
+          Native.available? && Native::Parser.extension_loaded? &&
+          envelope["compiler_version"] == Parsanol::VERSION &&
+          envelope.fetch("tables", {}).empty? &&
+          !envelope["customs"] && !envelope["dynamic"] &&
+          !source_uses_imports?
+      end
+
+      # Comments and string literals, matched the way the PARG lexer
+      # reads them (leftmost first, strings may span lines).
+      NON_CODE = /\#[^\n]*|"(?:[^"\\]|\\.)*"/
+
+      # True when the PARG source may have a `use` import: any `use`
+      # word left once comments and strings are removed. A false hit
+      # (a rule named `use`) only sends the artifact to the atom lane,
+      # which is always correct. One linear pass, unlike the full lexer.
+      def source_uses_imports?
+        envelope.fetch("source", "").gsub(NON_CODE, " ").match?(/\buse\b/)
+      rescue StandardError
+        true
       end
 
       def compiler

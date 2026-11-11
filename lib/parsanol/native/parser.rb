@@ -138,6 +138,23 @@ module Parsanol
 
         # Drop a handle whose Rust-side entry no longer exists; the next
         # grammar_handle call re-registers.
+        # Handle for a pre-serialized grammar (a sealed artifact's stored
+        # entry grammar), cached under the caller's +key+ in the same
+        # bounded HANDLE_CACHE as atom grammars, so clear_cache and
+        # trim_caches release it like any other handle.
+        def json_handle(key, json)
+          handle = HANDLE_CACHE[key]
+          if handle
+            HANDLE_CACHE[key] = HANDLE_CACHE.delete(key)
+            return handle
+          end
+
+          handle = Native._register_grammar(json)
+          HANDLE_CACHE[key] = handle
+          trim_caches
+          handle
+        end
+
         def invalidate_handle(handle)
           HANDLE_CACHE.reject! { |_key, cached| cached == handle }
         end
