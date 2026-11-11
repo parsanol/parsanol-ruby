@@ -4,7 +4,10 @@ require "spec_helper"
 
 RSpec.describe "Artifact stored-grammar lane" do
   before do
-    skip "native engine unavailable" unless Parsanol::Native.available?
+    # The lane needs the compiled extension; the FFI tier keeps the atom lane.
+    unless Parsanol::Native.available? && Parsanol::Native::Parser.extension_loaded?
+      skip "native extension unavailable"
+    end
   end
 
   let(:grammar) do
