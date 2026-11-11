@@ -59,10 +59,21 @@ module Parsanol
       end
 
       # Capture-name alignment on a hash-shaped value; non-hash values
-      # pass through unchanged.
+      # pass through unchanged. The renamed key keeps its position and
+      # its convention (Symbol keys stay Symbol, String stay String —
+      # the live tier builds Symbol-keyed capture hashes, the wire
+      # String), matching the rs executor's in-place rebuild.
       register :rename do |step, value, _source|
-        if value.is_a?(Hash) && value.key?(step["from"])
-          value.transform_keys { |key| key == step["from"] ? step["to"] : key }
+        if value.is_a?(Hash)
+          from = step["from"]
+          matched = value.key?(from) || value.key?(from.to_sym)
+          if matched
+            value.transform_keys do |key|
+              key.to_s == from ? (key.is_a?(Symbol) ? step["to"].to_sym : step["to"]) : key
+            end
+          else
+            value
+          end
         else
           value
         end

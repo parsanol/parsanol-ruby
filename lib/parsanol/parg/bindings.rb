@@ -232,16 +232,14 @@ module Parsanol
           raise ArtifactError,
                 "preprocess step #{binding['preprocess'].inspect} not declared"
         end
+        # The vocabulary dispatches through the Preprocess registry (its
+        # OCP contract: new ops register there; this apply path never
+        # changes). ruby#487: the inline table_lookup case here shadowed
+        # the registry, so v1.1 ops compiled but raised unknown-op at
+        # first bind — and only in Ruby, diverging from the rs/wasm
+        # executor.
         steps.each do |step|
-          case step["op"]
-          when "table_lookup"
-            map = artifact.table_rows(step["table"]).to_h do |row|
-              [row[step["from"]].to_s, row[step["to"]]]
-            end
-            value = map[value.to_s] || value
-          else
-            raise ArtifactError, "unknown preprocess op #{step['op'].inspect}"
-          end
+          value = Preprocess.apply(step, value, artifact)
         end
         value
       end
