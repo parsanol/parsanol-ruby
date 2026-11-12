@@ -97,6 +97,21 @@ RSpec.describe Parsanol::PARG::Lsp do
     expect(diagnostics_for(messages, uri).first["message"]).not_to be_empty
   end
 
+  it "lands the parse-error diagnostic on the failing line (F11)" do
+    uri = "file:///tmp/lsp-offset.parg"
+    # Line 0 is a valid rule; line 2 (0-based) carries the unclosed brace.
+    source = <<~PARG
+      grammar Broken version "1.0.0" edition "v2" {
+        ok = %x41-5A
+        main = ( }
+      }
+    PARG
+    messages = run_lsp([open_document(uri, source)])
+    diag = diagnostics_for(messages, uri).first
+    expect(diag["range"]["start"]["line"]).to eq(2)
+    expect(diag["range"]["start"]["character"]).to be >= 0
+  end
+
   it "hovers a rule reference with its doc comment" do
     uri = "file:///tmp/lsp-hover.parg"
     # `publisher` on the identifier line (line 4, inside the reference).

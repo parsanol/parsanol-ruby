@@ -6,7 +6,17 @@ module Parsanol
     class Error < StandardError; end
 
     # Raised when .parg source text cannot be tokenized or parsed.
-    class ParseError < Error; end
+    # `offset` is the character offset the parser failed at (from the
+    # lexer's token stream), when known — the LSP maps it to a
+    # line/character diagnostic position (F11).
+    class ParseError < Error
+      attr_reader :offset
+
+      def initialize(message = nil, offset = nil)
+        super(message)
+        @offset = offset
+      end
+    end
 
     # Raised when a parsed document is semantically invalid: left recursion,
     # unknown rule references, shadowed alternatives, missing tables.
