@@ -28,6 +28,8 @@ module Parsanol
       SECTION_KEYWORDS = %w[entry test bindings preprocess derive].freeze
       STATEMENT_KEYWORDS = (%w[resync] + SECTION_KEYWORDS).freeze
       LAYOUT = %i[newline ws comment doc].freeze
+      INLINE_COMMENT = %i[comment doc].freeze
+      COMMENT_HEAD = (LAYOUT + INLINE_COMMENT).freeze
       NO_SPACE_AFTER = ["(", "[", "!", "&", "."].freeze
       NO_SPACE_BEFORE = [")", "]", ",", ":", "."].freeze
       INDENT = "  "
@@ -115,7 +117,7 @@ module Parsanol
       # or inside the grammar body (depth 1) after a line break, the
       # token is a comment, a section/resync keyword, a `}` closer, or
       # an identifier directly followed by `=` (a rule head).
-      def statement_starts?(token, depth, current, at_line_start, following)
+      def statement_starts?(token, depth, _current, at_line_start, following)
         if depth.zero?
           case token.type
           when :doc, :comment then true
@@ -170,7 +172,7 @@ module Parsanol
         out = +""
         previous_kind = nil
         segments.each do |depth, tokens|
-          comments = tokens.take_while { |t| %i[comment doc].include?(t.type) }
+          comments = tokens.take_while { |t| INLINE_COMMENT.include?(t.type) }
           body = tokens.drop(comments.length)
           kind = classify(body)
           out << "\n" if blank_line_before?(kind, previous_kind) && comments.empty?
@@ -185,7 +187,7 @@ module Parsanol
       end
 
       def classify(tokens)
-        head = tokens.find { |t| !%i[ws newline comment doc].include?(t.type) }
+        head = tokens.find { |t| !COMMENT_HEAD.include?(t.type) }
         case head&.type
         when nil then :comment
         when :ident
@@ -212,7 +214,7 @@ module Parsanol
       # depth - 1.
       def indent_for(depth, tokens, kind)
         if kind == :other && tokens.first&.type == :punct && tokens.first&.value == "}"
-          return INDENT * ([depth - 1, 0].max)
+          return INDENT * [depth - 1, 0].max
         end
 
         INDENT * depth
@@ -221,8 +223,7 @@ module Parsanol
       def render_statement(tokens, depth, kind)
         case kind
         when :comment
-          # a comment-only statement (a header comment block line)
-          tokens.filter_map { |t| t.value.rstrip if %i[comment doc].include?(t.type) }.join("\n")
+          render_comment_only(tokens)
         when :rule, :resync then render_rule(tokens, depth)
         when :bindings, :preprocess then render_rows(tokens, depth, aligned: true)
         when :test then render_rows(tokens, depth, aligned: false)
@@ -230,14 +231,117 @@ module Parsanol
         end
       end
 
+      # One rule-pattern token walk: braces drive the nesting, the
+      # brace-group slash breaks, comments keep their stream position,
+      # everything else emits with canonical spacing.
+      RuleState = Struct.new(:out, :base, :level, :previous, :groups,
+                             :at_line_start)
+
+      def render_rule(tokens, depth)
+        state = RuleState.new(+"", INDENT * depth, 0, nil, [], false)
+        tokens.each_with_index do |token, index|
+          case token.type
+          when :comment, :doc
+            render_rule_comment(state, token, tokens, index)
+          when :ws, :newline
+            nil
+          when :punct
+            next if render_rule_brace?(state, token)
+
+            emit_rule_token(state, token)
+          else
+            emit_rule_token(state, token)
+          end
+        end
+        state.out
+      end
+
+      # A comment keeps its stream position: after a newline it owns
+      # the line and whatever follows starts fresh (a comment eats to
+      # end of line — anything glued after it would be swallowed);
+      # otherwise it trails the line it sits on.
+      def render_rule_comment(state, token, tokens, index)
+        first = index.zero? || tokens[index - 1]&.type == :newline
+        if first
+          state.out << "\n" unless state.out.empty? || state.out.end_with?("\n")
+          state.out << (state.base + (INDENT * state.level)) << token.value.rstrip
+          state.at_line_start = true
+        else
+          state.out << "  " << token.value.rstrip
+        end
+      end
+
+      # Braces, the group-leading slash, and the bracket stack return
+      # true (fully handled); a plain operator falls through to the
+      # ordinary emitter.
+      def render_rule_brace?(state, token)
+        case token.value
+        when "{"
+          state.out << spacing(state.previous, token) << token.value << "\n"
+          state.level += 1
+          state.groups.push("{")
+          state.previous = token
+          state.at_line_start = true
+          true
+        when "}"
+          state.level -= 1
+          state.groups.pop
+          state.out << "\n" << (state.base + (INDENT * state.level)) << token.value
+          state.previous = token
+          state.at_line_start = false
+          true
+        when "/"
+          if state.groups.last == "{"
+            # A top-level alternative of the brace group: the slash
+            # leads the continuation line at the group's indent.
+            # Slashes inside parenthesized sub-expressions stay inline
+            # — the parser reads them there.
+            state.out << "\n" << (state.base + (INDENT * state.level)) << token.value
+            state.previous = token
+            true
+          else
+            false
+          end
+        when "(", "["
+          state.groups.push(token.value)
+          false
+        when ")", "]"
+          state.groups.pop
+          false
+        else
+          false
+        end
+      end
+
+      # The ordinary emitter: a fresh line at the current indent when
+      # at line start, canonical spacing otherwise.
+      def emit_rule_token(state, token)
+        if state.at_line_start
+          state.out << "\n" unless state.out.empty? || state.out.end_with?("\n")
+          state.out << (state.base + (INDENT * state.level))
+          state.at_line_start = false
+        else
+          state.out << spacing(state.previous, token)
+        end
+        state.out << token.value
+        state.previous = token
+      end
+
+      # A comment-only statement (a header comment block line).
+      def render_comment_only(tokens)
+        tokens.filter_map do |token|
+          token.value.rstrip if INLINE_COMMENT.include?(token.type)
+        end.join("\n")
+      end
+
       # `##` doc comments and `#` comments ride as their own statements
       # (or attached heads) and emit verbatim at the statement's indent.
       def render_comments(tokens, indent)
         out = +""
         tokens.each do |token|
-          next unless %i[comment doc].include?(token.type)
+          next unless INLINE_COMMENT.include?(token.type)
 
-          out << (out.empty? ? indent : "\n" + indent) << token.value.rstrip
+          out << (out.empty? ? indent : "\n#{indent}") << token.value.rstrip
         end
         out
       end
@@ -248,9 +352,9 @@ module Parsanol
         out = +""
         previous = nil
         tokens.each do |token|
-          next if %i[ws newline].include?(token.type)
+          next if LAYOUT.include?(token.type)
 
-          if %i[comment doc].include?(token.type)
+          if INLINE_COMMENT.include?(token.type)
             out << "  " << token.value.rstrip
             next
           end
@@ -260,78 +364,35 @@ module Parsanol
         out
       end
 
-      # Rules and resync declarations: the pattern inline EXCEPT `{ }`
-      # alternative groups, which break at each top-level `/` of the
-      # group (bracket depth 1 inside the rule), one level deeper than
-      # the brace. `#` comments inside attach at the current indent.
-      def render_rule(tokens, depth)
-        base = INDENT * depth
-        out = +""
+      # The lexer emits `->` as its own :arrow type.
+      def arrow_token?(token)
+        token.type == :arrow || (token.type == :punct && token.value == "->")
+      end
+
+      # The column the arrow occupies: the rendered width of everything
+      # before the `->`.
+      def arrow_column(row)
+        width = 0
         previous = nil
-        level = 0
-        groups = []
-        at_line_start = false
-        tokens.each_with_index do |token, index|
-          case token.type
-          when :comment, :doc
-            # Position comes from the stream: a comment after a
-            # newline owns its line at the current indent; otherwise it
-            # trails the line it sits on.
-            if index.zero? || tokens[index - 1]&.type == :newline
-              # Line-leading: the comment owns the line and whatever
-              # follows starts fresh (a comment eats to end of line —
-              # anything glued after it would be swallowed).
-              out << "\n" unless out.empty? || out.end_with?("\n")
-              out << base + INDENT * level << token.value.rstrip
-              at_line_start = true
-            else
-              out << "  " << token.value.rstrip
-            end
-            next
-          when :ws, :newline
-            next
-          when :punct
-            case token.value
-            when "{"
-              out << spacing(previous, token) << token.value << "\n"
-              level += 1
-              groups.push("{")
-              previous = token
-              at_line_start = true
-              next
-            when "}"
-              level -= 1
-              groups.pop
-              out << "\n" << base + INDENT * level << token.value
-              previous = token
-              at_line_start = false
-              next
-            when "/", "(", "["
-              if token.value == "/" && groups.last == "{"
-                # A top-level alternative of the brace group: the slash
-                # leads the continuation line at the group's indent.
-                # Slashes inside parenthesized sub-expressions stay
-                # inline — the parser reads them there.
-                out << "\n" << base + INDENT * level << token.value
-                previous = token
-                next
-              end
-              groups.push(token.value) if token.value != "/"
-            when ")", "]"
-              groups.pop
-            end
-          end
-          if at_line_start
-            out << "\n" unless out.empty? || out.end_with?("\n")
-            out << base + INDENT * level
-            at_line_start = false
-          else
-            out << spacing(previous, token)
-          end
-          out << token.value
+        row.each do |token|
+          return width if arrow_token?(token)
+
+          width += spacing(previous, token).length + token.value.length
           previous = token
         end
-        out
+        nil
+      end
+
+      def leading_width(row)
+        width = 0
+        previous = nil
+        row.each do |token|
+          break if arrow_token?(token)
+
+          width += spacing(previous, token).length + token.value.length
+          previous = token
+        end
+        width
       end
 
       # Line-oriented bodies (bindings, preprocess, test): the header
@@ -372,11 +433,11 @@ module Parsanol
         else
           body = rows.reject(&:empty?)
         end
-        arrows = aligned ? body.filter_map { |row| arrow_pad(row) }.max : nil
+        arrows = aligned ? body.filter_map { |row| arrow_column(row) }.max : nil
         out = render_inline(header)
         body.each do |row|
           out << "\n"
-          comments = row.take_while { |t| %i[comment doc].include?(t.type) }
+          comments = row.take_while { |t| INLINE_COMMENT.include?(t.type) }
           comments.each { |comment| out << body_indent << comment.value.rstrip << "\n" }
           rest = row.drop(comments.length)
           next if rest.empty?
@@ -388,44 +449,13 @@ module Parsanol
         out
       end
 
-      # The lexer emits `->` as its own :arrow type.
-      def arrow?(token)
-        token.type == :arrow || (token.type == :punct && token.value == "->")
-      end
-
-      # The column the arrow occupies: the rendered width of everything
-      # before the `->`.
-      def arrow_pad(row)
-        width = 0
-        previous = nil
-        row.each do |token|
-          return width if arrow?(token)
-
-          width += spacing(previous, token).length + token.value.length
-          previous = token
-        end
-        nil
-      end
-
-      def leading_width(row)
-        width = 0
-        previous = nil
-        row.each do |token|
-          break if arrow?(token)
-
-          width += spacing(previous, token).length + token.value.length
-          previous = token
-        end
-        width
-      end
-
       def render_inline_with_pad(tokens, pad)
         out = +""
         previous = nil
         padded = false
         tokens.each do |token|
-          if !padded && arrow?(token) && pad&.positive?
-            out << " " * pad
+          if !padded && arrow_token?(token) && pad&.positive?
+            out << (" " * pad)
             padded = true
           end
           out << spacing(previous, token) << token.value

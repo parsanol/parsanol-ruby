@@ -143,7 +143,10 @@ module Parsanol
       def fmt_source
         if @argv.delete("--stdin")
           formatted = Formatter.format($stdin.read)
-          return @argv.include?("--check") ? 0 : (print formatted; 0)
+          return 0 if @argv.include?("--check")
+
+          print formatted
+          return 0
         end
         path = @argv.shift
         text = PARG.read_utf8(path)

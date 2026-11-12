@@ -162,10 +162,11 @@ RSpec.describe Parsanol::PARG::Formatter do
         b = { "p" / "q" }
       }
     PARG
-    strip = ->(text) do
+    layout = %i[ws newline comment doc].freeze
+    strip = lambda do |text|
       Parsanol::PARG::Lexer.new(text).tokens
-                           .reject { |t| %i[ws newline comment doc].include?(t.type) }
-                           .map { |t| [t.type, t.value] }
+        .reject { |t| layout.include?(t.type) }
+        .map { |t| [t.type, t.value] }
     end
     expect(strip.call(fmt(source))).to eq(strip.call(source))
   end
@@ -194,7 +195,7 @@ RSpec.describe Parsanol::PARG::Formatter do
 
   def corpus_dir
     candidates = [
-      ENV["PARG_GRAMMAR_DIR"],
+      ENV.fetch("PARG_GRAMMAR_DIR", nil),
       File.expand_path("../../../../pubid/pubid-grammar/grammars", __dir__),
     ].compact
     candidates.find { |dir| dir && Dir.glob(File.join(dir, "*.parg")).any? }
@@ -205,7 +206,7 @@ RSpec.describe Parsanol::PARG::Formatter do
     skip "no pubid-grammar checkout (set PARG_GRAMMAR_DIR)" unless dir
 
     provenance = %w[source source_hash semantics_hash checksum byte_checksum]
-    files = Dir.glob(File.join(dir, "*.parg")).sort
+    files = Dir.glob(File.join(dir, "*.parg"))
     expect(files.length).to be >= 40
     files.each do |path|
       name = File.basename(path, ".parg")
@@ -213,7 +214,7 @@ RSpec.describe Parsanol::PARG::Formatter do
       formatted = fmt(source)
       expect(fmt(formatted)).to eq(formatted), "#{name}: not idempotent"
       envelopes = {}
-      [ [source, "orig"], [formatted, "fmt"] ].each do |text, tag|
+      [[source, "orig"], [formatted, "fmt"]].each do |text, tag|
         # imports resolve against the source's directory, so the
         # variants compile in place inside the checkout
         variant = File.join(dir, "_fmt_#{name}_#{tag}.parg")
@@ -225,8 +226,8 @@ RSpec.describe Parsanol::PARG::Formatter do
           provenance.each { |key| env.delete(key) }
           envelopes[tag] = env
         ensure
-          File.delete(variant)
-          File.delete("#{variant}.json") if File.exist?("#{variant}.json")
+          FileUtils.rm_f(variant)
+          FileUtils.rm_f("#{variant}.json")
         end
       end
       expect(envelopes["orig"]).to eq(envelopes["fmt"]), "#{name}: semantics changed"
