@@ -202,6 +202,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "indexmap"
+version = "2.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
+dependencies = [
+ "equivalent",
+ "hashbrown",
+]
+
+[[package]]
 name = "itertools"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -307,9 +317,9 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "parsanol"
-version = "0.20.15"
+version = "0.20.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d55f995fb29e746fc01c993a45254c382cca758903c8037b5ab631d45a1de30"
+checksum = "982d9b0b1a57bd66b85c0162008140e06a75f372c9c708ca206e30d0f5bbb7fd"
 dependencies = [
  "ahash",
  "getrandom 0.3.4",
@@ -327,9 +337,9 @@ dependencies = [
 
 [[package]]
 name = "parsanol-derive"
-version = "0.20.15"
+version = "0.20.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55659b9c3c52e4cbcb6222d9b596a8ae5858190ac1f5c4ce922ee0efb068c888"
+checksum = "7044ce421fd4c0ce30fccbe67d79b05fbee41bb4969ae8f5066de4b6d5338135"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -494,6 +504,7 @@ version = "1.0.151"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c841b55ecdae098c80dcae9cf767f6f8a0c2cdb3416bbef72181df4d0fe73f14"
 dependencies = [
+ "indexmap",
  "itoa",
  "memchr",
  "serde",
