@@ -38,7 +38,7 @@ module Parsanol
           repl    <file> [--entry E]        interactive parse loop (blank
                                             line quits, :quit exits)
           doc     <file> [rule]             print rule documentation
-          export  <file|artifact.json> --target xgrammar
+          export  <file|artifact.json> --target xgrammar [--recovery]
                                             lower the compiled artifact to a
                                             decoder-facing grammar (ruby#321)
           lint    <file> [--captures] [--suggest-upgrades]
@@ -123,12 +123,13 @@ module Parsanol
       def export_grammar
         source = @argv.shift
         target = (flag_value("--target") || "xgrammar").to_sym
+        recovery = !!@argv.delete("--recovery")
         json = if source.end_with?(".json")
                  File.read(source)
                else
                  JSON.generate(compile_source(source).envelope)
                end
-        print Export.call(json, target: target)
+        print Export.call(json, target: target, recovery: recovery)
         0
       end
 
