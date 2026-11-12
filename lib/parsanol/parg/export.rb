@@ -46,6 +46,15 @@ module Parsanol
           @envelope = JSON.parse(artifact_json)
           @recovery = recovery
           @label = label
+          # The atom graph is a DAG with shared subtrees: a naive
+          # recursive walk re-expands every shared reference along every
+          # path — exponential on heavily-shared artifacts. A lowered
+          # atom is a pure function of its index, so the cache makes the
+          # walk linear (byte-identical output). Recursive grammars (the
+          # self-hosted parg meta-grammar) are rejected NAMING the
+          # re-entry: an inline EBNF unfold is infinite in principle.
+          @memo = {}
+          @in_progress = {}
         end
 
         def call
@@ -104,20 +113,33 @@ module Parsanol
         end
 
         def lower(atoms, index)
-          tag, fields = atoms.fetch(index).first
-          case tag
-          when "Str" then "\"#{fields['pattern'].gsub('\\') { '\\\\\\\\' }.gsub('"') { '\\\\\"' }}\""
-          when "Re" then re_class(fields["pattern"])
-          when "Sequence" then fields["atoms"].map { |child| lower(atoms, child) }.join(" ")
-          when "Alternative" then "( #{fields['atoms'].map { |child| lower(atoms, child) }.join(' | ')} )"
-          when "Repetition" then suffix(lower(atoms, fields["atom"]), fields["min"], fields["max"])
-          when "Maybe" then suffix(lower(atoms, fields["atom"]), 0, 1)
-          when "Named", "Entity" then "( #{lower(atoms, fields['atom'])} )"
-          when "Lookahead" then unsupported("lookahead (!x / &x)")
-          when "BehindGuard" then unsupported("behind-guard (!<x / &<x)")
-          when "Custom" then unsupported("custom atom")
-          when "Constant" then unsupported("constant atom")
-          else unsupported("atom #{tag}")
+          key = [atoms.object_id, index]
+          if @in_progress[key]
+            raise Error, "#{@label}: recursive grammar: atom #{index} re-enters while being lowered " \
+                         "(inline EBNF cannot carry recursive rules)"
+          end
+
+          @memo[key] ||= begin
+            @in_progress[key] = true
+            begin
+              tag, fields = atoms.fetch(index).first
+              case tag
+              when "Str" then "\"#{fields['pattern'].gsub('\\') { '\\\\\\\\' }.gsub('"') { '\\\\\"' }}\""
+              when "Re" then re_class(fields["pattern"])
+              when "Sequence" then fields["atoms"].map { |child| lower(atoms, child) }.join(" ")
+              when "Alternative" then "( #{fields['atoms'].map { |child| lower(atoms, child) }.join(' | ')} )"
+              when "Repetition" then suffix(lower(atoms, fields["atom"]), fields["min"], fields["max"])
+              when "Maybe" then suffix(lower(atoms, fields["atom"]), 0, 1)
+              when "Named", "Entity" then "( #{lower(atoms, fields['atom'])} )"
+              when "Lookahead" then unsupported("lookahead (!x / &x)")
+              when "BehindGuard" then unsupported("behind-guard (!<x / &<x)")
+              when "Custom" then unsupported("custom atom")
+              when "Constant" then unsupported("constant atom")
+              else unsupported("atom #{tag}")
+              end
+            ensure
+              @in_progress.delete(key)
+            end
           end
         end
 

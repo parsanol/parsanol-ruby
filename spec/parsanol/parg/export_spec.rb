@@ -177,6 +177,37 @@ RSpec.describe "PARG xgrammar export" do
         .to raise_error(Parsanol::PARG::Export::Error, /llguidance export.*lookahead/)
     end
 
+    it "rejects a recursive grammar naming the re-entry" do
+      # A recursive grammar's inline EBNF unfold is infinite in
+      # principle — the self-hosted parg meta-grammar exposed the
+      # naive walk's stack blowup; the rejection names the re-entry.
+      source = <<~PARG
+        grammar Recursive version "1.0.0" {
+          entry main: expr
+          expr = "(" expr ")"
+        }
+      PARG
+      expect { export_source(source) }
+        .to raise_error(Parsanol::PARG::Export::Error,
+                        /recursive grammar: atom \d+ re-enters while being lowered/)
+    end
+
+    it "lowers shared subtrees through the memo walk" do
+      # Rules referenced twice form a diamond DAG; the memo keeps the
+      # walk linear in the DAG (2^4 unfold, 16 literal copies).
+      ebnf = export_source(<<~PARG)
+        grammar Diamond version "1.0.0" {
+          entry main: a
+          a = b b
+          b = c c
+          c = d d
+          d = e e
+          e = "x"
+        }
+      PARG
+      expect(ebnf.scan('"x"').count).to eq(16)
+    end
+
     it "registers both targets" do
       expect(Parsanol::PARG::Export::TARGETS).to contain_exactly(:xgrammar, :llguidance)
     end
