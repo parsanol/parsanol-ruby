@@ -1000,6 +1000,16 @@ Prior art absorbed: ABNF/RFC 7405 (surface), ISO 14977 (import), RNC
 tree-sitter/ANTLR (artifact compilation model), GrammarBuilder
 (composition).
 
+## Debugging with `--trace`
+
+`parsanol parg parse <artifact> [--entry E] --trace INPUT` runs the
+pure-Ruby tier (the VM, interpreter fallback) and streams one
+`pc/pos/op` line per dispatch step to stderr — the bytecode-level view
+of why a grammar accepts, rejects, or backtracks where it does. The
+native tier has no Ruby VM to trace, so the flag forces `mode: :ruby`
+(that tier is the reference; trees are identical everywhere). Without
+the flag the hot path is untouched.
+
 ## Roadmap
 
 Shipped items leave this list (each feature section's `status:` line is
