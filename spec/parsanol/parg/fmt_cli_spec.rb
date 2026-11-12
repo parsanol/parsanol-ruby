@@ -71,17 +71,16 @@ RSpec.describe "parg fmt command" do
 
   it "--stdin reads the source and prints the canonical form" do
     input = StringIO.new(source)
-    out = StringIO.new
+    status = nil
     $stdin = input
-    $stdout = out
     begin
-      status = Parsanol::PARG::CLI.new(["fmt", "--stdin"]).run
+      expect do
+        status = Parsanol::PARG::CLI.new(["fmt", "--stdin"]).run
+      end.to output(canonical).to_stdout
     ensure
       $stdin = STDIN
-      $stdout = STDOUT
     end
     expect(status).to be_zero
-    expect(out.string).to eq(canonical)
   end
 
   it "fails on an unparseable file without rewriting it" do
