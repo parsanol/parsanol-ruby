@@ -85,7 +85,7 @@ module Parsanol
                       "definitionProvider" => true,
                       "referencesProvider" => true,
                       "codeActionProvider" => true,
-          "documentFormattingProvider" => true,
+                      "documentFormattingProvider" => true,
                       "completionProvider" => {
                         "triggerCharacters" => [".", "%", "\""],
                       },
@@ -608,8 +608,11 @@ module Parsanol
         formatted = begin
           Formatter.format(text)
         rescue Parsanol::PARG::ParseError
-          return nil
+          # an unparseable document formats nothing; the parser's error
+          # is the diagnostic's job
+          nil
         end
+        return nil if formatted.nil?
         return [] if formatted == text
 
         lines = text.lines
