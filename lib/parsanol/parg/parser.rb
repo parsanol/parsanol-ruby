@@ -147,7 +147,7 @@ module Parsanol
           when "-"
             advance
             unless peek&.type == :num
-              raise ParseError, "expected a number after '-' in a test value"
+              raise ParseError.new("expected a number after '-' in a test value", peek&.offset)
             end
 
             -parse_test_number
@@ -225,8 +225,10 @@ module Parsanol
         token = advance
         if token.nil? || token.type != type || (value && token.value != value)
           found = token ? "#{token.type}:#{token.value.inspect}" : "EOF"
-          raise ParseError,
-                "expected #{value ? value.inspect : type}, got #{found}"
+          raise ParseError.new(
+            "expected #{value ? value.inspect : type}, got #{found}",
+            token&.offset || @tokens.last&.offset,
+          )
         end
         token
       end
@@ -292,7 +294,7 @@ module Parsanol
             advance
             punct("=")
             if document.skip_declaration
-              raise ParseError, "duplicate skip declaration"
+              raise ParseError.new("duplicate skip declaration", peek&.offset)
             end
 
             node = parse_choice
@@ -316,7 +318,7 @@ module Parsanol
             punct("=")
             node = parse_choice
             if document.resyncs.key?(target.to_sym)
-              raise ParseError, "duplicate resync declaration for #{target.inspect}"
+              raise ParseError.new("duplicate resync declaration for #{target.inspect}", peek&.offset)
             end
 
             # The target rule may be declared later in the block
@@ -394,7 +396,7 @@ module Parsanol
             @brace_depth -= 1
           end
           if document.rules.key?(name)
-            raise ParseError, "duplicate rule #{name.inspect}"
+            raise ParseError.new("duplicate rule #{name.inspect}", peek&.offset)
           end
 
           document.rules[name] = node
@@ -503,7 +505,7 @@ module Parsanol
       def parse_element
         token = peek
         if token.nil?
-          raise ParseError, "unexpected end of input inside sequence"
+          raise ParseError.new("unexpected end of input inside sequence", @tokens.last&.offset)
         end
 
         # `capture:` is a skip-declaration suffix, never an expression
@@ -587,7 +589,7 @@ module Parsanol
 
       def parse_primary
         token = advance
-        raise ParseError, "unexpected end of input" if token.nil?
+        raise ParseError.new("unexpected end of input", @tokens.last&.offset) if token.nil?
 
         case token.type
         when :str, :sstr then Node.new(:lit, unquote(token.value), false)
@@ -596,7 +598,7 @@ module Parsanol
         when :category then Node.new(:category, token.value[3..-2])
         when :punct then parse_punctuated(token)
         when :ident then parse_ident(token)
-        else raise ParseError, "unexpected token #{token.type}:#{token.value}"
+        else raise ParseError.new("unexpected token #{token.type}:#{token.value}", token&.offset)
         end
       end
 
@@ -611,7 +613,7 @@ module Parsanol
           punct("]")
           Node.new(:opt, node)
         else
-          raise ParseError, "unexpected #{token.value.inspect} in expression"
+          raise ParseError.new("unexpected #{token.value.inspect} in expression", token&.offset)
         end
       end
 
@@ -841,7 +843,7 @@ module Parsanol
             to = ident.value
             steps << { "op" => op, "table" => "", "from" => from, "to" => to }
           else
-            raise ParseError, "unknown preprocess op #{op.inspect}"
+            raise ParseError.new("unknown preprocess op #{op.inspect}", peek&.offset)
           end
           skip_newlines
         end
@@ -861,7 +863,7 @@ module Parsanol
           advance
           token.value
         else
-          raise ParseError, "expected a preprocess literal, got #{token.inspect}"
+          raise ParseError.new("expected a preprocess literal, got #{token.inspect}", token&.offset)
         end
       end
 

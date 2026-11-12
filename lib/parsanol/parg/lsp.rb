@@ -518,19 +518,11 @@ module Parsanol
         document = begin
           Parser.new(source).parse
         rescue ParseError => e
-          line = 0
-          # The self-hosting artifact yields a precise offset (F7 wire);
-          # prefer it when the artifact is available.
-          if SelfHost.available?
-            begin
-              SelfHost.validate(source)
-            rescue Parsanol::ParseFailed, ArtifactError
-              # a stale artifact (e.g. a sibling baked at a removed
-              # edition) must not break diagnostics — fall through to
-              # line 0
-            end
-          end
-          diagnostics << diagnostic(line, e.message)
+          # F11: the parser carries the failure's character offset —
+          # map it to a line (and column) instead of dropping the
+          # diagnostic on line 0.
+          line, character = offset_position(source, e.offset)
+          diagnostics << diagnostic(line, e.message, character: character)
           nil
         end
         if document
@@ -572,14 +564,29 @@ module Parsanol
         source.lines.index { |line| line.match?(/^\s*#{rule_name}\s*=/) } || 0
       end
 
-      def diagnostic(line, message)
+      def diagnostic(line, message, character: 0)
         {
-          "range" => { "start" => { "line" => line, "character" => 0 },
-                       "end" => { "line" => line, "character" => 0 } },
+          "range" => { "start" => { "line" => line, "character" => character },
+                       "end" => { "line" => line, "character" => character } },
           "severity" => 1,
           "source" => "parsanol-parg",
           "message" => message,
         }
+      end
+
+      # F11: map a character offset onto the LSP's zero-based
+      # {line, character} pair. An unknown offset degrades to (0, 0).
+      def offset_position(source, offset)
+        return [0, 0] unless offset && source
+
+        consumed = 0
+        source.lines.each_with_index do |text, index|
+          length = text.length
+          return [index, offset - consumed] if offset < consumed + length
+
+          consumed += length
+        end
+        [0, 0]
       end
 
       # ---- code action -----------------------------------------------------
