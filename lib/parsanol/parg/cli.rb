@@ -338,14 +338,28 @@ module Parsanol
       def parse
         file = @argv.shift
         entry = flag_value("--entry")
+        trace = @argv.delete("--trace")
         input = @argv.join(" ")
         if input.empty?
-          warn "usage: parsanol parg parse <file> [--entry E] INPUT"
+          warn "usage: parsanol parg parse <file> [--entry E] [--trace] INPUT"
           return 1
         end
         artifact = artifact_for(file)
         entry_name = entry || artifact.entries.first
-        shape = artifact.parse(entry_name, input)
+        shape =
+          if trace
+            # C5 --trace: the pure-Ruby tier (VM, interpreter fallback)
+            # streams one pc/pos/op line per dispatch step to stderr.
+            # The native tier has no Ruby VM to trace.
+            begin
+              Parsanol::VM.trace_destination = $stderr
+              artifact.parse(entry_name, input, mode: :ruby)
+            ensure
+              Parsanol::VM.trace_destination = nil
+            end
+          else
+            artifact.parse(entry_name, input)
+          end
         if @json
           puts JSON.generate({
                                "entry" => entry_name,

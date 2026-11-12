@@ -80,6 +80,21 @@ module Parsanol
     # looping forever.
     PENDING = Object.new.freeze
 
+    # C5 --trace: dispatch-step names for the trace destination.
+    OP_NAMES = {
+      HALT => "HALT", STR => "STR", RE => "RE", ANY => "ANY",
+      SEQ_BEGIN => "SEQ_BEGIN", SEQ_END => "SEQ_END", CHOICE => "CHOICE",
+      POPBT => "POPBT", JMP => "JMP", NAME_END => "NAME_END",
+      CALL => "CALL", RET => "RET", LOOK_POS => "LOOK_POS",
+      LOOK_POS_END => "LOOK_POS_END", LOOK_NEG => "LOOK_NEG",
+      LOOK_NEG_END => "LOOK_NEG_END", DROP => "DROP", FAIL => "FAIL",
+      REP_INIT => "REP_INIT", REP_TEST => "REP_TEST",
+      REP_STEP => "REP_STEP", REP_EXIT => "REP_EXIT",
+      MAYBE_RE => "MAYBE_RE", MAYBE_STR => "MAYBE_STR",
+      RUN_RE => "RUN_RE", RUN_STR => "RUN_STR",
+      SEQ_SIMPLE => "SEQ_SIMPLE", BYTE_DISPATCH => "BYTE_DISPATCH"
+    }.freeze
+
     STEP_BUDGET_FACTOR = 200
     STEP_BUDGET_FIXED = 10_000
     MEMO_BUDGET_FACTOR = 4_096
@@ -100,6 +115,12 @@ module Parsanol
     PROGRAM_CACHE_LIMIT = 32
 
     class << self
+      # C5 --trace: when set to an IO, every VM dispatch step streams
+      # `pc/pos/op` lines there for the duration of a parse. The CLI
+      # sets it around a single parse and resets it; the hot path is
+      # untouched while it is nil.
+      attr_accessor :trace_destination
+
       # Compiled-program and heavy-flag caches, keyed by the root atom
       # object itself (identity semantics — two structurally identical
       # grammars are distinct entries). This replaces the original
@@ -373,10 +394,13 @@ module Parsanol
       # grammars that the interpreter needed (slow) memoization for now
       # run at VM speed.
       def run(program, input, consume_all)
-        executor = Executor.new(program, input, consume_all)
+        executor = Executor.new(program, input, consume_all,
+                                trace_destination: trace_destination)
         result = executor.execute
         if result.equal?(BUDGET)
-          executor = Executor.new(program, input, consume_all, memoize: true)
+          executor = Executor.new(program, input, consume_all,
+                                  memoize: true,
+                                  trace_destination: trace_destination)
           result = executor.execute
           result = BAIL if result.equal?(BUDGET)
         end
@@ -395,13 +419,15 @@ module Parsanol
         heavy = (@heavy ||= {}.compare_by_identity)
         if heavy[root]
           result = Executor.new(program, input, consume_all,
-                                memoize: true).execute
+                                memoize: true,
+                                trace_destination: trace_destination).execute
           return BAIL if result.equal?(BUDGET)
 
           return result
         end
 
-        result = Executor.new(program, input, consume_all).execute
+        result = Executor.new(program, input, consume_all,
+                              trace_destination: trace_destination).execute
         if result.equal?(BUDGET) ||
             (result.is_a?(Array) && result.first == :heavy)
           heavy[root] = true
@@ -983,11 +1009,17 @@ module Parsanol
     # (with its adaptive memoization) is the better engine; #run reports
     # this via :heavy so Base#parse can skip the VM for the grammar.
     class Executor
-      def initialize(program, input, consume_all, memoize: false)
+      def initialize(program, input, consume_all, memoize: false,
+                     trace_destination: nil)
         @ops = program
         @input = input
         @consume_all = consume_all
         @memoize = memoize
+        # C5 --trace: an explicit destination (an IO) collects one line
+        # per dispatch step, flushed when the run ends. Unset keeps the
+        # hot path allocation-free; VM_TRACE keeps its legacy raw
+        # [pc, pos] tail behavior.
+        @trace_destination = trace_destination
       end
 
       # The RE match's [span length, byte advance], both in BYTES: the
@@ -1079,7 +1111,12 @@ module Parsanol
 
         memo = @memoize ? {} : nil
         memo_stack = []
-        trace = ENV["VM_TRACE"] ? [] : nil
+        trace = if @trace_destination
+                  []
+                else
+                  (ENV["VM_TRACE"] ? [] : nil)
+                end
+        trace_destination = @trace_destination
 
         # rubocop:disable Metrics/BlockLength -- the dispatch loop IS execute
         loop do
@@ -1098,7 +1135,14 @@ module Parsanol
             end
             return BUDGET
           end
-          trace << [pc, pos] if trace
+          if trace
+            if trace_destination
+              op = OP_NAMES.fetch(ops[pc], "op#{ops[pc]}")
+              trace_destination.puts format("pc=%-4d pos=%-6d %s", pc, pos, op)
+            else
+              trace << [pc, pos]
+            end
+          end
 
           case ops[pc]
           when FAIL
