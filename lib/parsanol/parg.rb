@@ -21,6 +21,7 @@ module Parsanol
     autoload :Node, "parsanol/parg/node"
     autoload :Export, "parsanol/parg/export"
     autoload :Lexer, "parsanol/parg/lexer"
+    autoload :Formatter, "parsanol/parg/formatter"
     autoload :Parser, "parsanol/parg/parser"
     autoload :Document, "parsanol/parg/document"
     autoload :Compiler, "parsanol/parg/compiler"

@@ -39,6 +39,7 @@ module Parsanol
                                             line quits, :quit exits)
           doc     <file> [rule]             print rule documentation
           export  <file|artifact.json> --target xgrammar [--recovery]
+          fmt     <file> [--check] | --stdin
                                             lower the compiled artifact to a
                                             decoder-facing grammar (ruby#321)
           lint    <file> [--captures] [--suggest-upgrades]
@@ -83,6 +84,7 @@ module Parsanol
         when "doc" then doc
         when "lint" then lint
         when "export" then export_grammar
+        when "fmt" then fmt_source
         when "diff" then diff_artifacts
         when "bindings" then dump_bindings
         when "lsp" then Lsp.new.run && 0
@@ -131,6 +133,30 @@ module Parsanol
                end
         print Export.call(json, target: target, recovery: recovery)
         0
+      end
+
+      # `parg fmt FILE [--check]` / `parg fmt --stdin`: the canonical
+      # formatter (ruby#494). In place by default; --check exits 1 and
+      # writes nothing when the text is not canonical; --stdin reads
+      # the source and prints the canonical form. An unparseable file
+      # raises the parser's error — never a partial reformat.
+      def fmt_source
+        if @argv.delete("--stdin")
+          formatted = Formatter.format($stdin.read)
+          return @argv.include?("--check") ? 0 : (print formatted; 0)
+        end
+        path = @argv.shift
+        text = PARG.read_utf8(path)
+        formatted = Formatter.format(text)
+        if @argv.delete("--check")
+          return 0 if text == formatted
+
+          warn "#{path}: not canonical (run parg fmt #{path} to fix)"
+          1
+        else
+          File.write(path, formatted)
+          0
+        end
       end
 
       # `parg lint FILE`: the lint suite on one grammar — errors

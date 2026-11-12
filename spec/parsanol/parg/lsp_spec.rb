@@ -157,6 +157,42 @@ RSpec.describe Parsanol::PARG::Lsp do
     expect(locations.map { |l| l.dig("range", "start", "line") }).to contain_exactly(2, 4)
   end
 
+  it "formats a non-canonical document with one full-document edit" do
+    uri = "file:///tmp/lsp-fmt.parg"
+    messy = <<~PARG
+      grammar Demo version "1.0.0" edition "v2" {
+        publisher = %i"iso" / %i"ieee"
+        digit = 1*( %x30-39 )
+        identifier = publisher " " digit
+        entry identifier: identifier
+      }
+    PARG
+    messy = messy.sub('publisher = %i"iso"', 'publisher   =   %i"iso"')
+    messages = run_lsp([
+                         open_document(uri, messy),
+                         request(2, "textDocument/formatting",
+                                 "textDocument" => { "uri" => uri },
+                                 "options" => { "tabSize" => 2, "insertSpaces" => true }),
+                       ])
+    edits = response(messages, 2)["result"]
+    # the LSP serves the same canonical form as the formatter
+    expect(edits.length).to eq(1)
+    expect(edits.first["newText"]).to eq(Parsanol::PARG::Formatter.format(messy))
+  end
+
+  it "returns no edits when formatting is stable (format then re-request)" do
+    uri = "file:///tmp/lsp-fmt-clean.parg"
+    canonical = Parsanol::PARG::Formatter.format(grammar)
+    messages = run_lsp([
+                         open_document(uri, canonical),
+                         request(2, "textDocument/formatting",
+                                 "textDocument" => { "uri" => uri },
+                                 "options" => { "tabSize" => 2, "insertSpaces" => true }),
+                       ])
+    edits = response(messages, 2)["result"]
+    expect(edits).to eq([])
+  end
+
   it "completes keywords, rule names, and snippets" do
     uri = "file:///tmp/lsp-complete.parg"
     messages = run_lsp([

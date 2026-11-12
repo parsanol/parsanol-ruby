@@ -85,6 +85,7 @@ module Parsanol
                       "definitionProvider" => true,
                       "referencesProvider" => true,
                       "codeActionProvider" => true,
+          "documentFormattingProvider" => true,
                       "completionProvider" => {
                         "triggerCharacters" => [".", "%", "\""],
                       },
@@ -114,6 +115,8 @@ module Parsanol
           @parsed.delete(uri)
         when "textDocument/codeAction"
           respond(message, code_action(message["params"]))
+        when "textDocument/formatting"
+          respond(message, formatting(message["params"]))
         when "textDocument/hover"
           respond(message, hover(*position_params(message["params"])))
         when "textDocument/definition"
@@ -593,6 +596,29 @@ module Parsanol
 
       # Reorder code action: only when EVERY top-level alternative of the
       # rule is a quoted literal is the reorder mechanically safe.
+      # textDocument/formatting: the canonical formatter over the whole
+      # document (ruby#494) — one full-document edit, or none when the
+      # text is already canonical. An unparseable document formats
+      # nothing (the parser's error is the diagnostic's job).
+      def formatting(params)
+        uri = params.dig("textDocument", "uri")
+        text = @documents[uri]
+        return nil unless text
+
+        formatted = begin
+          Formatter.format(text)
+        rescue Parsanol::PARG::ParseError
+          return nil
+        end
+        return [] if formatted == text
+
+        lines = text.lines
+        [{ range: { start: { line: 0, character: 0 },
+                    end: { line: [lines.length - 1, 0].max,
+                           character: lines.last.to_s.length } },
+           newText: formatted }]
+      end
+
       def code_action(params)
         uri = params.dig("textDocument", "uri")
         source = @documents[uri]

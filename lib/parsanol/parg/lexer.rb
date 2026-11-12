@@ -33,8 +33,9 @@ module Parsanol
       # up by number avoids a name lookup per group per token.
       TYPES = TOKEN.names.map(&:to_sym).freeze
 
-      def initialize(text)
+      def initialize(text, keep_layout: false)
         @text = text
+        @keep_layout = keep_layout
         @tokens = []
         scan
       end
@@ -46,7 +47,9 @@ module Parsanol
       # One StringScanner pass. Regexp#match(text, pos) per token cost
       # time proportional to pos, so lexing grew quadratically with the
       # source (about 5 s for a 216 KB grammar). Offsets stay character
-      # offsets, counted as each token is consumed.
+      # offsets, counted as each token is consumed. `keep_layout` keeps
+      # the ws/newline/comment tokens the parser drops — the formatter's
+      # row segmentation rides them.
       def scan
         scanner = StringScanner.new(@text)
         offset = 0
@@ -57,7 +60,7 @@ module Parsanol
           end
 
           type = matched_type(scanner)
-          if type && !DROPPED.include?(type)
+          if type && (@keep_layout || !DROPPED.include?(type))
             value = token_value(type, scanner)
             @tokens << Token.new(type, value, offset)
           end
