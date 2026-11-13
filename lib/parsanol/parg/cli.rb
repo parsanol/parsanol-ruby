@@ -42,6 +42,9 @@ module Parsanol
           fmt     <file> [--check] | --stdin
                                             lower the compiled artifact to a
                                             decoder-facing grammar (ruby#321)
+          generate <file|artifact.json> --variant V --model model.json
+                                            emit the render variant against a
+                                            bound attribute map (parsanol-rs#459)
           lint    <file> [--captures] [--suggest-upgrades]
                                             print lint errors (exit 1) and
                                             warnings; --captures adds the
@@ -84,6 +87,7 @@ module Parsanol
         when "doc" then doc
         when "lint" then lint
         when "export" then export_grammar
+        when "generate" then generate_grammar
         when "fmt" then fmt_source
         when "diff" then diff_artifacts
         when "bindings" then dump_bindings
@@ -160,6 +164,22 @@ module Parsanol
           File.write(path, formatted)
           0
         end
+      end
+
+      # `parg generate FILE --model model.json`: emit a render variant
+      # against a bound attribute map (rs#459 slice 2) — generation
+      # without a source input. --variant selects the spec (default).
+      def generate_grammar
+        source = @argv.shift
+        model_path = flag_value("--model")
+        unless model_path
+          warn "generate requires --model MODEL.json (the bound attribute map)"
+          return 1
+        end
+        variant = (flag_value("--variant") || "default").to_s
+        bound = JSON.parse(File.read(model_path))
+        print artifact_for(source).render(nil, bound, variant: variant)
+        0
       end
 
       # `parg lint FILE`: the lint suite on one grammar — errors
