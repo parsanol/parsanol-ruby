@@ -326,7 +326,26 @@ dependencies = [
  "getrandom 0.4.3",
  "hashbrown",
  "magnus",
- "parsanol-derive",
+ "parsanol-derive 0.20.24",
+ "regex",
+ "regex-automata",
+ "regex-syntax",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "parsanol"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3dc5ca94c2545bfe02de8128249c5082e6a00390c0002f964d75879eb70d6e30"
+dependencies = [
+ "ahash",
+ "getrandom 0.3.4",
+ "getrandom 0.4.3",
+ "hashbrown",
+ "parsanol-derive 1.5.0",
  "regex",
  "regex-automata",
  "regex-syntax",
@@ -347,10 +366,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsanol-derive"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33a9a237d7840c219abd359aaa4dcb15ca40ee645f762d5cf1d6335c4bda2364"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.6",
+]
+
+[[package]]
 name = "parsanol_cdylib"
 version = "1.3.52"
 dependencies = [
- "parsanol",
+ "parsanol 1.5.0",
 ]
 
 [[package]]
@@ -359,7 +389,7 @@ version = "1.0.2"
 dependencies = [
  "log",
  "magnus",
- "parsanol",
+ "parsanol 0.20.24",
  "rb-sys",
 ]
 
