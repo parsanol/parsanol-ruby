@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
 module Parsanol
-  VERSION = "1.3.151"
+  VERSION = "0.20.23.0"
 end
