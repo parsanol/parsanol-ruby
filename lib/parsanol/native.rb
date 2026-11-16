@@ -58,9 +58,12 @@ module Parsanol
       #   result = Parsanol::Native.parse(str('hello').as(:greeting), "hello\nworld")
       #   result[:greeting].line_and_column  # => [1, 1]
       #
-      def parse(grammar, input, compatibility: :strict)
+      def parse(grammar, input, compatibility: :strict, diagnostics_policy: :legacy)
         unless %i[strict parslet].include?(compatibility)
           raise ArgumentError, "Unknown compatibility policy: #{compatibility}"
+        end
+        unless %i[legacy pending].include?(diagnostics_policy)
+          raise ArgumentError, "diagnostics policy must be :legacy or :pending"
         end
         raise LoadError, "Native parser not available" unless available?
 
@@ -86,7 +89,7 @@ module Parsanol
         if grammar.is_a?(String)
           parse_json_grammar(grammar, input)
         else
-          parse_atom_grammar(grammar, input)
+          parse_atom_grammar(grammar, input, diagnostics_policy: diagnostics_policy)
         end
       end
 
@@ -359,8 +362,8 @@ module Parsanol
 
       # Grammar-atom path: registers once and parses by Rust-side handle,
       # so steady-state calls marshal no JSON and copy no input string.
-      def parse_atom_grammar(grammar, input)
-        handle = Parser.grammar_handle(grammar)
+      def parse_atom_grammar(grammar, input, diagnostics_policy: :legacy)
+        handle = Parser.grammar_handle(grammar, diagnostics_policy: diagnostics_policy)
 
         begin
           BatchDecoder.decode_and_flatten(_parse_handle(handle, input),
@@ -370,7 +373,9 @@ module Parsanol
           Parser.invalidate_handle(handle)
           begin
             BatchDecoder.decode_and_flatten(
-              _parse_handle(Parser.grammar_handle(grammar), input),
+              _parse_handle(Parser.grammar_handle(
+                grammar, diagnostics_policy: diagnostics_policy
+              ), input),
               input, Parsanol::Slice
             )
           rescue RuntimeError => e
