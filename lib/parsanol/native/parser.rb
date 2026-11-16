@@ -159,13 +159,11 @@ module Parsanol
           handle || nil
         end
 
-        # Select the policy on a live handle (:legacy / :pending). A
-        # cached handle keeps the first policy it was registered with,
-        # so cached returns re-apply the caller's choice.
+        # The policy is selected AT PARSE TIME on the owner's FFI shape
+        # (_parse_handle_with_compatibility carries the diagnostics
+        # argument) — the handle carries no policy state, so this is a
+        # no-op kept for the diagnostics_handle seam's symmetry.
         def apply_diagnostics_policy(handle, policy)
-          return handle if policy == :legacy
-
-          Native._set_diagnostics_policy(handle, policy)
           handle
         end
 
