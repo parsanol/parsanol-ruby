@@ -53,3 +53,17 @@ as the legacy baseline.
 Every claim in the README/guide traceable to a committed harness; no
 ratio published without its methodology; SOTA gaps that the benchmarks
 reveal become TODO items here, not embarrassment to hide.
+
+## Round 2026-11-16: the industry suite lands (rs#533, #526 closed)
+
+The committed suite now lives in parsanol-rs `benchmarks/sota/` with
+the published page `docs/BENCHMARKS.md`: shared corpus
+(full-consumption asserted before timing), min-of-15, native runners,
+five engines — tree-sitter 0.029 µs/B, Lark LALR 0.344, parsanol
+interpreter 0.828, parsanol VM 1.073, ANTLR-py3 1.860. parsanol beats
+ANTLR 1.7×; the LR-family engines hold the deterministic-grammar
+advantage (the strategy tax, not a language tax — Lark is Python).
+The named perf levers are filed as TODO.perf/10–13. Remaining:
+receipts for the competitor-ported corpora (pubid/asciichem/EXPRESS
+rows still parsanol-only), and re-running the table after each
+TODO.perf round.
