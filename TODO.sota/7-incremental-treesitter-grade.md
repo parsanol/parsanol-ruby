@@ -50,3 +50,17 @@ structural re-walk.
 - Keystroke benchmark published in BENCHMARKS.md (2-sota-benchmarks).
 - Memory bounded: sharing must not pin the whole document history
   (generation GC for stale generations).
+
+## Round 2026-11-16: the keystroke receipt on JSON (rs#533)
+
+200-keystroke validity-preserving traces (committed, seeded) over
+13.4 KB and 151.9 KB JSON, per-step tree identity vs from-scratch:
+400/400 clean. tree-sitter: 12.5 µs / 84.4 µs p50 (34–57× own-fresh).
+parsanol: 10.2 ms / 108.3 ms p50 — **0.93–1.16× own-fresh, no win**,
+with `reused 0/200` on the large doc: the retention rule drops the
+root entry on any length change, and a value grammar's root spans
+everything. This is the JSON-shaped face of the rs#258 engagement
+collapse; the fix is TODO.perf/9's innermost-container splice.
+Second lever: per-step fixed costs (adoption + budget checks). The
+KV-corpus splice results above stand; JSON is the receipt that pins
+the target grammar class for the splice round.

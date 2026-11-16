@@ -80,3 +80,16 @@ recovery contract.
 
 rs portable parser (source of truth) → ruby interpreter + VM → wasm
 re-vendor → ts tests.
+
+## Round 2026-11-16: the head-to-head receipt (rs#533)
+
+60 seeded corrupted JSON cases (5 classes × 3 depths, committed with
+the manifest) against tree-sitter's cost model: **we win diagnostic
+precision** (±24.7k vs ±56.3k mean distance; ±1 byte on truncation vs
+tree-sitter's root-ERROR at 0 — its ERROR regions start far from the
+cause), **we lose suffix recovery** 14.9% vs 70.6% — the json flavor
+declares no envelopes yet, though the engine support is shipped (R1 +
+R1.5 above). Next: declare skip/resume envelopes on the json flavor,
+re-run the exact harness, target suffix >70% while keeping the
+diagnostics win; the tree-edit-distance scorer remains the open
+metric; R2 resync stays owner-gated.
