@@ -163,7 +163,7 @@ module Parsanol
         # (_parse_handle_with_compatibility carries the diagnostics
         # argument) — the handle carries no policy state, so this is a
         # no-op kept for the diagnostics_handle seam's symmetry.
-        def apply_diagnostics_policy(handle, policy)
+        def apply_diagnostics_policy(handle, _policy)
           handle
         end
 
