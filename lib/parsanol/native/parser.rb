@@ -84,7 +84,14 @@ module Parsanol
         # Resolve a Rust-side handle for the grammar, registering it once.
         # Per-call cost is the memoized structure-hash lookup plus one Hash
         # access — no JSON marshal, no re-hash inside Rust.
-        def grammar_handle(root_atom, compatibility: :strict)
+        # diagnostics_policy: the failure-diagnostics storage policy
+        # (ruby#520) — plain data on the handle (see diagnostics_handle).
+        # A cached handle keeps its first policy; the caller's choice
+        # re-applies on every return.
+        def grammar_handle(root_atom, compatibility: :strict, diagnostics_policy: :legacy)
+          unless %i[legacy pending].include?(diagnostics_policy)
+            raise ArgumentError, "diagnostics policy must be :legacy or :pending"
+          end
           root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
           legacy = compatibility == :parslet
           # Legacy decisions depend on the exact shared-node graph. The
@@ -96,11 +103,13 @@ module Parsanol
             # Refresh recency: reinsertion moves the entry to the end,
             # so churn cannot evict a hot grammar's handle.
             HANDLE_CACHE[cache_key] = HANDLE_CACHE.delete(cache_key)
+            apply_diagnostics_policy(handle, diagnostics_policy)
             return handle
           end
 
           json = legacy ? GrammarSerializer.serialize(root_atom, preserve_identity: true) : grammar_json(root_atom)
           handle = Native._register_grammar(json)
+          apply_diagnostics_policy(handle, diagnostics_policy)
           HANDLE_CACHE[cache_key] = handle
           trim_caches
           handle
@@ -115,12 +124,23 @@ module Parsanol
         # The per-reference layout is kept to recover that position only.
         # nil when both layouts are the same and a second run would only
         # repeat the first.
-        def diagnostics_handle(root_atom)
+        # policy: the failure-diagnostics storage policy (ruby#520) —
+        # :legacy (the default; ordered live buffers) or :pending
+        # (rs#498 v2: note-ordered inline labels, hash-first dedup,
+        # parse-end materialization; observable output identical, the
+        # successful-parse allocation drops). Plain data on the handle:
+        # parser-local per construction, no shared-state implications
+        # (Ractor-safe).
+        def diagnostics_handle(root_atom, policy: :legacy)
+          unless %i[legacy pending].include?(policy)
+            raise ArgumentError, "diagnostics policy must be :legacy or :pending"
+          end
           root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
           cache_key = [:parslet_diagnostics, root_atom]
           if HANDLE_CACHE.key?(cache_key)
             handle = HANDLE_CACHE.delete(cache_key)
             HANDLE_CACHE[cache_key] = handle
+            apply_diagnostics_policy(handle, policy) if handle
             return handle || nil
           end
 
@@ -133,7 +153,18 @@ module Parsanol
           handle = same ? false : Native._register_grammar(json)
           HANDLE_CACHE[cache_key] = handle
           trim_caches
+          apply_diagnostics_policy(handle, policy) if handle
           handle || nil
+        end
+
+        # Select the policy on a live handle (:legacy / :pending). A
+        # cached handle keeps the first policy it was registered with,
+        # so cached returns re-apply the caller's choice.
+        def apply_diagnostics_policy(handle, policy)
+          return handle if policy == :legacy
+
+          Native._set_diagnostics_policy(handle, policy)
+          handle
         end
 
         # Drop a handle whose Rust-side entry no longer exists; the next
