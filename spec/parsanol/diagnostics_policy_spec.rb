@@ -12,8 +12,15 @@ RSpec.describe "diagnostics policy (ruby#520)" do
   # crates.io pin flips on the next parsanol-ruby train. Skip until the
   # built extension carries the setter.
   before do
-    skip "requires the engine FFI setter (the next engine-linked train)" unless
-      Parsanol::Native.respond_to?(:_set_diagnostics_policy)
+    skip "the native extension is not loaded" unless Parsanol::Native::Parser.extension_loaded?
+    handle = Parsanol::Native::Parser.grammar_handle(policy_grammar)
+    begin
+      Parsanol::Native._parse_handle_with_compatibility(handle, "{abc:1}", "strict", "pending")
+    rescue ArgumentError
+      skip "requires the owner FFI diagnostics argument (rs main; the next train rides it)"
+    rescue Parsanol::ParseFailed, RuntimeError
+      nil # the 4-arg form was accepted; the probe input just failed
+    end
   end
 
   def policy_grammar
