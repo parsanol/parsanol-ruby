@@ -22,6 +22,25 @@ module Parsanol
     # never raises NameError into the silent :ruby fallback (issue #38).
     autoload :Dynamic, "parsanol/native/dynamic"
     class << self
+      # The failure-label storage policy for the native (Rust) parse
+      # path: `:legacy` (the default — the ordered live-buffer surface)
+      # or `:pending` (rs#498 — note-ordered inline labels, hash-first
+      # dedup, parse-end materialization; observable-identical output,
+      # measured −29% allocations on label-heavy grammars). The
+      # pure-Ruby fallback tier ignores it. Requires an extension built
+      # against parsanol 1.5.2+ (the `_parse_handle_with_compatibility`
+      # 4-arity seam).
+      def diagnostics_policy
+        @diagnostics_policy ||= :legacy
+      end
+
+      attr_writer :diagnostics_policy
+
+      # The policy as the FFI's string form.
+      def diagnostics_policy_string
+        diagnostics_policy == :pending ? "pending" : "legacy"
+      end
+
       # Check if native extension is available. First call performs the
       # lazy bundle load (see the bottom of this file).
       def available?
@@ -362,17 +381,32 @@ module Parsanol
       def parse_atom_grammar(grammar, input)
         handle = Parser.grammar_handle(grammar)
 
+        pending = diagnostics_policy == :pending
         begin
-          BatchDecoder.decode_and_flatten(_parse_handle(handle, input),
-                                          input, Parsanol::Slice)
+          raw = if pending
+                  # The pending policy rides the 4-arity seam (strict
+                  # compatibility + the diagnostics string); the plain
+                  # _parse_handle export predates it.
+                  _parse_handle_with_compatibility(
+                    handle, input, "strict", diagnostics_policy_string
+                  )
+                else
+                  _parse_handle(handle, input)
+                end
+          BatchDecoder.decode_and_flatten(raw, input, Parsanol::Slice)
         rescue ArgumentError
           # Handle dropped Rust-side (e.g. cache cleared): re-register once.
           Parser.invalidate_handle(handle)
           begin
-            BatchDecoder.decode_and_flatten(
-              _parse_handle(Parser.grammar_handle(grammar), input),
-              input, Parsanol::Slice
-            )
+            handle = Parser.grammar_handle(grammar)
+            raw = if pending
+                    _parse_handle_with_compatibility(
+                      handle, input, "strict", diagnostics_policy_string
+                    )
+                  else
+                    _parse_handle(handle, input)
+                  end
+            BatchDecoder.decode_and_flatten(raw, input, Parsanol::Slice)
           rescue RuntimeError => e
             raise_native_parse_error(e, grammar, input)
           end
@@ -386,12 +420,15 @@ module Parsanol
       def parse_compatible_atom_grammar(grammar, input)
         handle = Parser.grammar_handle(grammar, compatibility: :parslet)
         raw = begin
-          _parse_handle_with_compatibility(handle, input, "parslet")
+          _parse_handle_with_compatibility(
+            handle, input, "parslet", diagnostics_policy_string
+          )
         rescue ArgumentError
           Parser.invalidate_handle(handle)
           begin
             _parse_handle_with_compatibility(
-              Parser.grammar_handle(grammar, compatibility: :parslet), input, "parslet"
+              Parser.grammar_handle(grammar, compatibility: :parslet),
+              input, "parslet", diagnostics_policy_string
             )
           rescue RuntimeError => e
             raise_compatible_parse_error(per_reference_refusal(grammar, input, e), input)
@@ -418,7 +455,9 @@ module Parsanol
           handle = Parser.diagnostics_handle(grammar)
           return error unless handle
 
-          _parse_handle_with_compatibility(handle, input, "parslet")
+          _parse_handle_with_compatibility(
+            handle, input, "parslet", diagnostics_policy_string
+          )
           error
         rescue ArgumentError
           return error if retried
