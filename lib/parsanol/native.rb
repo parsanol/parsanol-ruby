@@ -363,21 +363,34 @@ module Parsanol
       # Grammar-atom path: registers once and parses by Rust-side handle,
       # so steady-state calls marshal no JSON and copy no input string.
       def parse_atom_grammar(grammar, input, diagnostics_policy: :legacy)
+        pending = diagnostics_policy == :pending
         handle = Parser.grammar_handle(grammar, diagnostics_policy: diagnostics_policy)
 
+        parse_one = lambda do |h|
+          if pending
+            # The owner FFI shape: the diagnostics storage policy rides
+            # _parse_handle_with_compatibility (strict + "pending"); the
+            # VM fast path ignores it and VM failures fall through to
+            # the walker, where the policy applies.
+            BatchDecoder.decode_and_flatten(
+              _parse_handle_with_compatibility(h, input, "strict", "pending"),
+              input, Parsanol::Slice
+            )
+          else
+            BatchDecoder.decode_and_flatten(_parse_handle(h, input),
+                                            input, Parsanol::Slice)
+          end
+        end
+
         begin
-          BatchDecoder.decode_and_flatten(_parse_handle(handle, input),
-                                          input, Parsanol::Slice)
+          parse_one.call(handle)
         rescue ArgumentError
           # Handle dropped Rust-side (e.g. cache cleared): re-register once.
           Parser.invalidate_handle(handle)
           begin
-            BatchDecoder.decode_and_flatten(
-              _parse_handle(Parser.grammar_handle(
-                              grammar, diagnostics_policy: diagnostics_policy
-                            ), input),
-              input, Parsanol::Slice
-            )
+            parse_one.call(Parser.grammar_handle(
+                             grammar, diagnostics_policy: diagnostics_policy
+                           ))
           rescue RuntimeError => e
             raise_native_parse_error(e, grammar, input)
           end
