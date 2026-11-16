@@ -404,12 +404,12 @@ module Parsanol
       def parse_compatible_atom_grammar(grammar, input)
         handle = Parser.grammar_handle(grammar, compatibility: :parslet)
         raw = begin
-          _parse_handle_with_compatibility(handle, input, "parslet")
+          _parse_handle_with_compatibility(handle, input, "parslet", "legacy")
         rescue ArgumentError
           Parser.invalidate_handle(handle)
           begin
             _parse_handle_with_compatibility(
-              Parser.grammar_handle(grammar, compatibility: :parslet), input, "parslet"
+              Parser.grammar_handle(grammar, compatibility: :parslet), input, "parslet", "legacy"
             )
           rescue RuntimeError => e
             raise_compatible_parse_error(per_reference_refusal(grammar, input, e), input)
@@ -436,7 +436,7 @@ module Parsanol
           handle = Parser.diagnostics_handle(grammar)
           return error unless handle
 
-          _parse_handle_with_compatibility(handle, input, "parslet")
+          _parse_handle_with_compatibility(handle, input, "parslet", "legacy")
           error
         rescue ArgumentError
           return error if retried
