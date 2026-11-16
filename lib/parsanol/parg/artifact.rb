@@ -142,7 +142,18 @@ module Parsanol
       # the Ruby engine: the envelope carries the PARG source precisely
       # so a Ruby runtime can rebuild the live atom tree; the closures
       # are not portable JSON.
-      def parse(entry_name, input, mode: :native)
+      # diagnostics_policy (ruby#520): the native failure-diagnostics
+      # storage policy, threaded to the engine's parse call — :legacy
+      # (default) or :pending (rs#498 v2). Observable output is
+      # identical by contract; :pending drops the successful-parse
+      # allocation. Applies to the native modes (:native,
+      # :reference); :ruby runs the pure-Ruby runtime, which has no
+      # policy surface.
+      def parse(entry_name, input, mode: :native, diagnostics_policy: :legacy)
+        unless %i[legacy pending].include?(diagnostics_policy)
+          raise ArgumentError, "diagnostics policy must be :legacy or :pending"
+        end
+
         case mode
         when :native
           if Native.available?
@@ -169,10 +180,12 @@ module Parsanol
             # grammar is provably what this runtime would compile parses
             # by a handle registered from that stored JSON, so the first
             # parse skips re-reading and recompiling the PARG source.
-            stored = parse_stored_grammar(entry_name, input)
+            stored = parse_stored_grammar(entry_name, input,
+                                          diagnostics_policy: diagnostics_policy)
             return stored unless stored.equal?(NOT_STORED)
 
-            return Native.parse(root_atom(entry_name), input)
+            return Native.parse(root_atom(entry_name), input,
+                                diagnostics_policy: diagnostics_policy)
           end
 
           root_atom(entry_name).parse(input)
@@ -676,7 +689,7 @@ module Parsanol
       # Successes come straight from the engine. A native refusal returns
       # NOT_STORED, so the atom lane re-runs the input and the caller
       # sees the same failure (and diagnostics) as before this lane.
-      def parse_stored_grammar(entry_name, input)
+      def parse_stored_grammar(entry_name, input, diagnostics_policy: :legacy)
         json = stored_grammar_json(entry_name)
         return NOT_STORED unless json
 
@@ -684,9 +697,12 @@ module Parsanol
         attempts = 0
         begin
           handle = Native::Parser.json_handle(key, json)
-          Native::BatchDecoder.decode_and_flatten(
-            Native._parse_handle(handle, input), input, Parsanol::Slice
-          )
+          raw = if diagnostics_policy == :pending
+                  Native._parse_handle_with_compatibility(handle, input, "strict", "pending")
+                else
+                  Native._parse_handle(handle, input)
+                end
+          Native::BatchDecoder.decode_and_flatten(raw, input, Parsanol::Slice)
         rescue ArgumentError
           # Handle released Rust-side (cache cleared): re-register once.
           Native::Parser.invalidate_handle(handle)
