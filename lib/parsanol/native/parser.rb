@@ -92,6 +92,7 @@ module Parsanol
           unless %i[legacy pending].include?(diagnostics_policy)
             raise ArgumentError, "diagnostics policy must be :legacy or :pending"
           end
+
           root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
           legacy = compatibility == :parslet
           # Legacy decisions depend on the exact shared-node graph. The
@@ -135,6 +136,7 @@ module Parsanol
           unless %i[legacy pending].include?(policy)
             raise ArgumentError, "diagnostics policy must be :legacy or :pending"
           end
+
           root_atom = root_atom.root if root_atom.is_a?(::Parsanol::Parser)
           cache_key = [:parslet_diagnostics, root_atom]
           if HANDLE_CACHE.key?(cache_key)

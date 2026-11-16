@@ -11,7 +11,7 @@ RSpec.describe "diagnostics policy (ruby#520)" do
   # The engine FFI setter lands first (parsanol-rs, ruby#520); the
   # crates.io pin flips on the next parsanol-ruby train. Skip until the
   # built extension carries the setter.
-  before(:all) do
+  before(:each) do
     skip "requires the engine FFI setter (the next engine-linked train)" unless
       Parsanol::Native.respond_to?(:_set_diagnostics_policy)
   end

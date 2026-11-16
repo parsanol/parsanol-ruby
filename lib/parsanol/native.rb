@@ -374,8 +374,8 @@ module Parsanol
           begin
             BatchDecoder.decode_and_flatten(
               _parse_handle(Parser.grammar_handle(
-                grammar, diagnostics_policy: diagnostics_policy
-              ), input),
+                              grammar, diagnostics_policy: diagnostics_policy
+                            ), input),
               input, Parsanol::Slice
             )
           rescue RuntimeError => e
