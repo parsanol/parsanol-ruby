@@ -30,7 +30,7 @@ describe "the slice pool vs the live AST (ruby#535)" do
     tree = word_list_parser.new.parse(input)
 
     expect(tree.size).to be > 5_000,
-      "the pin needs more slices than the pool holds: #{tree.respond_to?(:size) ? tree.size : tree.class}"
+                         "the pin needs more slices than the pool holds: #{tree.respond_to?(:size) ? tree.size : tree.class}"
     first = tree.first
     expect(first[:char]).to be_a(Parsanol::Slice)
     expect(first[:char].content).to eq("w")
