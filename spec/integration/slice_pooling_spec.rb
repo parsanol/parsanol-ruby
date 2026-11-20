@@ -2,27 +2,37 @@
 
 require "spec_helper"
 
+# The capture-path slice constructors are UNPOOLED (ruby#535): pooled
+# Resettable slices clobbered live AST spans once the 5000-deep pool
+# wrapped. The pool object remains available (other lanes may use it),
+# but Source#consume / #slice / #consume_bytes hand out independent
+# Slice objects and draw nothing from it.
 describe "Slice Pooling Integration" do
   it "source has a slice_pool" do
     source = Parsanol::Source.new("hello world")
     expect(source.slice_pool).to be_a(Parsanol::Pools::SlicePool)
   end
 
-  it "source.consume uses pooled slices" do
+  it "source.consume hands out unpooled slices" do
     source = Parsanol::Source.new("hello")
 
-    # Consume should use the pool
     slice1 = source.consume(1)
     expect(slice1).to be_a(Parsanol::Slice)
     expect(slice1.to_s).to eq("h")
 
-    # Pool should show usage (created + reused)
+    # The capture path draws nothing from the pool — the statistics
+    # stay flat and consecutive slices are distinct objects (no reset
+    # clobbering a stored span).
     stats = source.slice_pool.statistics
-    total_usage = stats[:created] + stats[:reused]
-    expect(total_usage).to be > 0
+    expect(stats[:created] + stats[:reused]).to eq(0)
+
+    slice2 = source.consume(1)
+    expect(slice2).not_to equal(slice1)
+    expect(slice2.to_s).to eq("e")
+    expect(slice1.to_s).to eq("h")
   end
 
-  it "source.slice helper creates pooled slices" do
+  it "source.slice helper hands out unpooled slices" do
     source = Parsanol::Source.new("test")
 
     slice = source.slice(0, "test")
@@ -30,11 +40,10 @@ describe "Slice Pooling Integration" do
     expect(slice.to_s).to eq("test")
 
     stats = source.slice_pool.statistics
-    total_usage = stats[:created] + stats[:reused]
-    expect(total_usage).to be > 0
+    expect(stats[:created] + stats[:reused]).to eq(0)
   end
 
-  it "reuses slices during repetitive parsing" do
+  it "parses repetitive sequences correctly" do
     parser = Class.new(Parsanol::Parser) do
       root :letters
       rule(:letters) { str("a").repeat(10) }
@@ -42,13 +51,11 @@ describe "Slice Pooling Integration" do
 
     result = parser.parse("aaaaaaaaaa")
 
-    # Verify the parser works with pooling
-    # The parse succeeded which means pooling worked
     expect(result).to be_a(Parsanol::Slice)
     expect(result.to_s).to eq("aaaaaaaaaa")
   end
 
-  it "handles complex parsing with pooling" do
+  it "handles complex parsing correctly" do
     parser = Class.new(Parsanol::Parser) do
       root :expression
       rule(:expression) do
