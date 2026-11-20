@@ -119,7 +119,7 @@ module Parsanol
       current_pos = @scanner.pos
       content = @raw_string.byteslice(current_pos, count)
       @scanner.pos = current_pos + count
-      @slice_pool.acquire_with(current_pos, content, @line_data)
+      Slice.new(current_pos, content, @line_data)
     end
 
     # Consumes n characters from input and returns them as a pooled Slice.
@@ -130,7 +130,7 @@ module Parsanol
     def consume(count)
       current_pos = @scanner.pos
       content = @scanner.scan(@regex_cache[count])
-      @slice_pool.acquire_with(current_pos, content, @line_data)
+      Slice.new(current_pos, content, @line_data)
     end
 
     # Creates a pooled slice at a specific position.
@@ -141,7 +141,7 @@ module Parsanol
     # @return [Parsanol::Slice] pooled slice instance
     #
     def slice(offset, content)
-      @slice_pool.acquire_with(offset, content, @line_data)
+      Slice.new(offset, content, @line_data)
     end
 
     # Returns a slice to the pool for reuse.
