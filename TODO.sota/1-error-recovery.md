@@ -6,8 +6,14 @@ carries the deepest repetition prefix shaped like the root, both
 engines, zero success-path cost; the ruby side also fixed the two
 recovery-offset expectations by reporting the deepest cause-tree
 position, the rs failure-wire semantics). Remaining: R2 (resync — a
-grammar addition, owner gate) and the wasm/ts propagation of the
-`partial` key with the cross-engine canonical-equality differential.
+grammar addition, owner gate). The wasm/ts `partial` propagation
+LANDED (parsanol-ts#106, 2026-11-27): the RecoveryEnvelope type
+declares the full R1.5/R2 wire (partial/resyncs/recovered_spans) and
+the cross-engine canonical-equality differential replays the rs kv
+fixture through the vendored wasm — the partial tree is byte-identical
+to the rs canonical JSON (the expected-label set intentionally
+differs: the rs fixture's dynamic() terminals suppress labels; the
+PARG source's class alternatives carry theirs). The suite runs 46/46.
 
 ## Findings that shaped the shipped scope (2026-10-20)
 
