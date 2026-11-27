@@ -865,3 +865,40 @@ E1 is pinned indirectly — `trivia_capture` forces the Ruby VM's decline path.
    the case's `## Semantics:` line (see the corpus README).
 3. When this document and the guide diverge, this document wins; fix the guide
    in the same PR.
+
+---
+
+## 16. Recovery
+
+The recovery contract (R1/R1.5/R2 shipped; normative for every engine
+that exposes a recovering parse):
+
+1. **Envelopes.** Two APIs, one contract:
+   - the capture-facing `parse_recovering` never raises —
+     `{"ok": true, "shape": …}` on success; on failure
+     `{"ok": false, "error": {"offset": …}, "captures": {…}}`, where
+     `error.offset` is the deepest failure position and `captures`
+     carries every capture observed before the failure (a best-effort
+     superset; the Ruby journaling re-parse is tree-parity-enforced
+     against the native recovery journal);
+   - the shape-facing `parse_shape_recovering` returns
+     `{"ok": true, "shape": …}` on success and
+     `{"ok": false, "partial": …}` on failure — the recovered tree,
+     typed on the wasm/ts wire (parsanol-ts#106).
+2. **Declared resync (R2).** A grammar may declare `resync <name> =
+   <pattern>` per rule: on failure the recovery layer skips the
+   pattern's junk run and resumes at the next boundary. The author
+   owns the spans; the engine never trial-scans. The recovered suffix
+   folds into the envelope (the json.parg declarations are the
+   reference: suffix coverage 14.7% → 92.6% vs tree-sitter's 70.6%,
+   parsanol-rs#548 layer 2).
+3. **Cross-engine canonical equality.** The recovery envelopes are
+   canonically equal across ruby (both lanes), rs native, and wasm on
+   the corrupted corpus (benchmarks/sota/corpora/json-corrupted, 61
+   cases; the differential is pinned by the ts suite and re-scored by
+   `benchmarks/sota/score_recovery.py`).
+4. **Success paths are untouched.** Recovery activates only on
+   failure; a successful parse pays nothing (asserted by the
+   throughput receipts).
+
+---

@@ -608,6 +608,35 @@ Use recovery for editors, linters, and any consumer that needs the
 "what did match" answer alongside "where did it stop matching". The
 raise-on-failure `parse` remains the strict contract.
 
+#### Declared resync (R2)
+
+A grammar may declare a **resync pattern** for a rule: on failure,
+the recovery layer skips a deterministic junk run and resumes at the
+next boundary, so the enclosing structure continues instead of
+collapsing:
+
+```text
+## json.parg: a corrupted value or member skips every byte except the
+## structural boundaries (quote, comma, close-bracket, close-brace).
+resync value  = 1*( %x00-21 / %x23-2B / %x2D-5C / %x5E-7C / %x7E-10FFFF )
+resync member = 1*( %x00-21 / %x23-2B / %x2D-5C / %x5E-7C / %x7E-10FFFF )
+```
+
+The author owns the resync spans (the pattern names the run to skip);
+the engine performs no trial scan. Recovery with declared resync
+returns the same envelope with the recovered suffix folded into
+`captures`/`partial` — on the json corpus the layer moved suffix
+coverage 14.7% → 92.6% (tree-sitter's cost-model recovery: 70.6%).
+
+The shape-facing twin — `parse_shape_recovering(entry, input)` —
+returns `{"ok": true, "shape": <tree>}` on success and
+`{"ok": false, "partial": <recovered tree>}` on failure: the
+editor-facing tree (what rendered structure exists despite the
+damage). The `partial` key rides the wasm/ts wire typed
+(parsanol-ts#106), and the cross-engine canonical-equality
+differential holds rs = ruby = wasm on the corrupted corpus.
+`docs/parg-semantics.md` §16 is the normative contract.
+
 ### Repetition flattening (parslet parity)
 
 Capture flattening follows parslet exactly, including its repetition
